@@ -1,0 +1,35 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# C#
+[*.cs]
+indent_size = 4
+dotnet_sort_system_directives_first = true
+csharp_new_line_before_open_brace = all
+
+# .NET project / config files
+[*.{csproj,props,targets}]
+indent_size = 2
+
+# Dart
+[*.dart]
+indent_size = 2
+
+# Python
+[*.py]
+indent_size = 4
+
+# Markdown — keep trailing spaces (hard line breaks)
+[*.md]
+trim_trailing_whitespace = false
+
+# Makefiles need tabs
+[Makefile]
+indent_style = tab

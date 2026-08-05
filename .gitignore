@@ -1,0 +1,60 @@
+# ---------- OS / editor ----------
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.user
+
+# ---------- .NET (api) ----------
+bin/
+obj/
+*.dll
+*.pdb
+[Dd]ebug/
+[Rr]elease/
+*.received.*
+TestResults/
+.vs/
+
+# ---------- Node / React (web) ----------
+node_modules/
+web/dist/
+web/dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Flutter (mobile) ----------
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/.pub-cache/
+mobile/.pub/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/android/.gradle/
+mobile/android/local.properties
+*.iml
+
+# ---------- Python (ai) ----------
+__pycache__/
+*.py[cod]
+ai/.venv/
+ai/venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# ---------- Env / secrets ----------
+.env
+.env.*
+!.env.example
+
+# ---------- Docker / data ----------
+pgdata/
+ollama-data/

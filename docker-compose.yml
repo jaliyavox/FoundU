@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: foundu-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: foundu
+      POSTGRES_PASSWORD: foundu
+      POSTGRES_DB: foundu
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foundu"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: foundu-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  pgdata:
+  ollama-data:
