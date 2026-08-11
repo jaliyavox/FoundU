@@ -1,4 +1,10 @@
+using FoundU.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<FoundUDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("FoundUDatabase")));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

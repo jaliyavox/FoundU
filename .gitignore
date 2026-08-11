@@ -17,6 +17,12 @@ obj/
 TestResults/
 .vs/
 
+# User-specific / Local settings
+appsettings.Local.json
+*.user
+*.userosscache
+*.sln.docstates
+
 # ---------- Node / React (web) ----------
 node_modules/
 web/dist/
