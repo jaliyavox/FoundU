@@ -11,6 +11,9 @@ public class LostReport : BaseEntity, ISoftDeletable
     public Guid CategoryId { get; set; }
     public Category Category { get; set; } = default!;
 
+    public Guid ItemTypeId { get; set; }
+    public ItemType ItemType { get; set; } = default!;
+
     public Guid LastSeenLocationId { get; set; }
     public CampusLocation LastSeenLocation { get; set; } = default!;
 
@@ -24,7 +27,15 @@ public class LostReport : BaseEntity, ISoftDeletable
     /// <summary>Structured JSON output produced by the Description-Parsing Agent.</summary>
     public string? ParsedAttributesJson { get; set; }
 
-    public DateTime LastSeenAt { get; set; }
+    /// <summary>
+    /// Approximate window the student believes the item was lost, e.g. 2:00 PM - 3:30 PM.
+    /// Replaces the previous single LastSeenAt instant - the Matching Agent compares a
+    /// Found Item's FoundAt timestamp against this range instead of an exact moment.
+    /// EstimatedLostFromAt must be &lt;= EstimatedLostToAt (enforced by a DB check constraint).
+    /// </summary>
+    public DateTime EstimatedLostFromAt { get; set; }
+    public DateTime EstimatedLostToAt { get; set; }
+
     public LostReportStatus Status { get; set; } = LostReportStatus.Active;
 
     public string? WithdrawReason { get; set; }

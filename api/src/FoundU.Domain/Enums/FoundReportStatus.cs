@@ -4,5 +4,6 @@ public enum FoundReportStatus
 {
     Unclaimed,
     Claimed,
+    Returned,
     Disposed
 }

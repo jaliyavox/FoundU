@@ -13,6 +13,7 @@ public class FoundUDbContext : DbContext
 
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<ItemType> ItemTypes => Set<ItemType>();
     public DbSet<CampusLocation> CampusLocations => Set<CampusLocation>();
 
     public DbSet<LostReport> LostReports => Set<LostReport>();
@@ -21,6 +22,7 @@ public class FoundUDbContext : DbContext
 
     public DbSet<FoundReport> FoundReports => Set<FoundReport>();
     public DbSet<FoundItemPhoto> FoundItemPhotos => Set<FoundItemPhoto>();
+    public DbSet<FoundReportStatusHistory> FoundReportStatusHistories => Set<FoundReportStatusHistory>();
 
     public DbSet<StorageLocation> StorageLocations => Set<StorageLocation>();
     public DbSet<StorageTransfer> StorageTransfers => Set<StorageTransfer>();
@@ -88,6 +90,14 @@ public class FoundUDbContext : DbContext
                     softDeletable.DeletedAt = utcNow;
                     entry.Entity.UpdatedAt = utcNow;
                     break;
+            }
+
+            // Keep NormalizedEmail in sync whenever an AppUser is inserted or its Email changes,
+            // so the case-insensitive unique index always reflects the current Email value.
+            if (entry.Entity is AppUser user
+                && (entry.State == EntityState.Added || entry.State == EntityState.Modified))
+            {
+                user.NormalizedEmail = user.Email.Trim().ToUpperInvariant();
             }
         }
     }

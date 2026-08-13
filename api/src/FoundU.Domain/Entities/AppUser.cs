@@ -7,6 +7,14 @@ public class AppUser : BaseEntity, ISoftDeletable
 {
     public string FullName { get; set; } = default!;
     public string Email { get; set; } = default!;
+
+    /// <summary>
+    /// Uppercased, trimmed copy of Email used for case-insensitive uniqueness
+    /// (so "remo@email.com" and "Remo@email.com" cannot both register). Kept in sync
+    /// automatically by FoundUDbContext.SaveChanges - do not set this manually.
+    /// </summary>
+    public string NormalizedEmail { get; set; } = default!;
+
     public string PasswordHash { get; set; } = default!;
     public UserRole Role { get; set; }
 

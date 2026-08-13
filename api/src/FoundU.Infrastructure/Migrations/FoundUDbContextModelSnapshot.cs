@@ -17,7 +17,7 @@ namespace FoundU.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.29")
+                .HasAnnotation("ProductVersion", "8.0.30")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -170,6 +170,11 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<bool>("IsSuspended")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("NormalizedEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -202,30 +207,21 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
-                        .IsUnique();
-
                     b.HasIndex("IsSuspended");
 
+                    b.HasIndex("NormalizedEmail")
+                        .IsUnique();
+
                     b.HasIndex("Role");
+
+                    b.HasIndex("StudentNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AppUsers_StudentNumber_Unique")
+                        .HasFilter("\"StudentNumber\" IS NOT NULL");
 
                     b.HasIndex("SuspendedByUserId");
 
                     b.ToTable("AppUsers", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "admin@foundu.university.edu",
-                            FullName = "FoundU Administrator",
-                            IsDeleted = false,
-                            IsSuspended = false,
-                            PasswordHash = "$2a$11$K9x3yQFqZ8h5oQxWc0m9UuG7l1i6f2Hs0z3s0R9Zt0v2E9c1lYyDe",
-                            Role = "Admin",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        });
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.ApprovalDecision", b =>
@@ -266,8 +262,7 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClaimId")
-                        .IsUnique();
+                    b.HasIndex("ClaimId");
 
                     b.HasIndex("DecidedByUserId");
 
@@ -748,20 +743,28 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<Guid>("FoundLocationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("GeneralDescription")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid>("ItemTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ObservedAttributesJson")
+                        .HasColumnType("jsonb");
 
                     b.Property<string>("PrimaryColor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("PrivateVerificationDetails")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                    b.Property<string>("PrivateVerificationAttributesJson")
+                        .HasColumnType("jsonb");
 
-                    b.Property<string>("PublicDescription")
-                        .IsRequired()
+                    b.Property<string>("PrivateVerificationDetails")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
@@ -791,15 +794,182 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("FoundLocationId");
 
+                    b.HasIndex("ItemTypeId");
+
                     b.HasIndex("StaffId");
 
                     b.HasIndex("Status");
 
                     b.HasIndex("StorageLocationId");
 
-                    b.HasIndex("Status", "CategoryId", "FoundLocationId");
+                    b.HasIndex("Status", "CategoryId", "ItemTypeId", "FoundLocationId");
 
                     b.ToTable("FoundReports", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.FoundReportStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid?>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("FoundReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedAt");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("FoundReportId");
+
+                    b.ToTable("FoundReportStatusHistories", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.ItemType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ItemTypes", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111111"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Laptop",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111112"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Phone",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111113"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Headphones",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111114"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Earphones",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111115"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111112"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Backpack",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111116"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111112"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Laptop Bag",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111117"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111112"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Purse",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111118"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111112"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Wallet",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostItemPhoto", b =>
@@ -858,14 +1028,20 @@ namespace FoundU.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<DateTime>("EstimatedLostFromAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<DateTime>("EstimatedLostToAt")
+                        .HasColumnType("timestamptz");
+
                     b.Property<string>("IdentifyingFeaturesJson")
                         .HasColumnType("jsonb");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTime>("LastSeenAt")
-                        .HasColumnType("timestamptz");
+                    b.Property<Guid>("ItemTypeId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("LastSeenLocationId")
                         .HasColumnType("uuid");
@@ -903,7 +1079,7 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.HasIndex("LastSeenAt");
+                    b.HasIndex("ItemTypeId");
 
                     b.HasIndex("LastSeenLocationId");
 
@@ -911,9 +1087,14 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.HasIndex("Status", "CategoryId", "LastSeenLocationId");
+                    b.HasIndex("EstimatedLostFromAt", "EstimatedLostToAt");
 
-                    b.ToTable("LostReports", (string)null);
+                    b.HasIndex("Status", "CategoryId", "ItemTypeId", "LastSeenLocationId");
+
+                    b.ToTable("LostReports", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LostReports_EstimatedLostRange", "\"EstimatedLostFromAt\" <= \"EstimatedLostToAt\"");
+                        });
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostReportStatusHistory", b =>
@@ -1056,7 +1237,10 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("LostReportId", "FoundReportId")
                         .IsUnique();
 
-                    b.ToTable("MatchSuggestions", (string)null);
+                    b.ToTable("MatchSuggestions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MatchSuggestions_MatchScore_Range", "\"MatchScore\" >= 0 AND \"MatchScore\" <= 1");
+                        });
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.Notification", b =>
@@ -1277,8 +1461,8 @@ namespace FoundU.Infrastructure.Migrations
             modelBuilder.Entity("FoundU.Domain.Entities.ApprovalDecision", b =>
                 {
                     b.HasOne("FoundU.Domain.Entities.Claim", "Claim")
-                        .WithOne("ApprovalDecision")
-                        .HasForeignKey("FoundU.Domain.Entities.ApprovalDecision", "ClaimId")
+                        .WithMany("ApprovalDecisions")
+                        .HasForeignKey("ClaimId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1399,6 +1583,12 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.ItemType", "ItemType")
+                        .WithMany("FoundReports")
+                        .HasForeignKey("ItemTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("FoundU.Domain.Entities.AppUser", "Staff")
                         .WithMany("FoundReports")
                         .HasForeignKey("StaffId")
@@ -1415,9 +1605,40 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.Navigation("FoundLocation");
 
+                    b.Navigation("ItemType");
+
                     b.Navigation("Staff");
 
                     b.Navigation("StorageLocation");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.FoundReportStatusHistory", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("FoundReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("FoundReport");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.ItemType", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.Category", "Category")
+                        .WithMany("ItemTypes")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostItemPhoto", b =>
@@ -1439,6 +1660,12 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.ItemType", "ItemType")
+                        .WithMany("LostReports")
+                        .HasForeignKey("ItemTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("FoundU.Domain.Entities.CampusLocation", "LastSeenLocation")
                         .WithMany("LostReportsLastSeenHere")
                         .HasForeignKey("LastSeenLocationId")
@@ -1452,6 +1679,8 @@ namespace FoundU.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
+
+                    b.Navigation("ItemType");
 
                     b.Navigation("LastSeenLocation");
 
@@ -1620,6 +1849,8 @@ namespace FoundU.Infrastructure.Migrations
                 {
                     b.Navigation("FoundReports");
 
+                    b.Navigation("ItemTypes");
+
                     b.Navigation("LostReports");
                 });
 
@@ -1629,7 +1860,7 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.Navigation("Answers");
 
-                    b.Navigation("ApprovalDecision");
+                    b.Navigation("ApprovalDecisions");
 
                     b.Navigation("StatusHistory");
 
@@ -1644,7 +1875,16 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.Navigation("Photos");
 
+                    b.Navigation("StatusHistory");
+
                     b.Navigation("StorageTransfers");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.ItemType", b =>
+                {
+                    b.Navigation("FoundReports");
+
+                    b.Navigation("LostReports");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostReport", b =>

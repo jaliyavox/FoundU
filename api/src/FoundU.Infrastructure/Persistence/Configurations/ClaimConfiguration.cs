@@ -35,11 +35,9 @@ public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
             .HasForeignKey(c => c.FoundReportId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // 1:1 optional - ApprovalDecision configured from the ApprovalDecision side (principal = Claim)
-        builder.HasOne(c => c.ApprovalDecision)
-            .WithOne(a => a.Claim)
-            .HasForeignKey<ApprovalDecision>(a => a.ClaimId)
-            .OnDelete(DeleteBehavior.Cascade);
+        // 1:N - a claim can be revised multiple times (RevisionRequested -> Approved, etc).
+        // Full navigation + FK configured from the ApprovalDecision side (see
+        // ApprovalDecisionConfiguration); nothing to configure here for that relationship.
 
         builder.HasIndex(c => c.StudentId);
         builder.HasIndex(c => c.LostReportId);

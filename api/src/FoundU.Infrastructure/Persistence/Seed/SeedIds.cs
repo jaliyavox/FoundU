@@ -26,4 +26,16 @@ public static class SeedIds
     public static readonly Guid LocationParkingLot = new("31111111-1111-1111-1111-111111111117");
 
     public static readonly Guid StorageSecurityDeskA = new("41111111-1111-1111-1111-111111111111");
+
+    // ItemTypes under Electronics
+    public static readonly Guid ItemTypeLaptop = new("51111111-1111-1111-1111-111111111111");
+    public static readonly Guid ItemTypePhone = new("51111111-1111-1111-1111-111111111112");
+    public static readonly Guid ItemTypeHeadphones = new("51111111-1111-1111-1111-111111111113");
+    public static readonly Guid ItemTypeEarphones = new("51111111-1111-1111-1111-111111111114");
+
+    // ItemTypes under Bags & Wallets
+    public static readonly Guid ItemTypeBackpack = new("51111111-1111-1111-1111-111111111115");
+    public static readonly Guid ItemTypeLaptopBag = new("51111111-1111-1111-1111-111111111116");
+    public static readonly Guid ItemTypePurse = new("51111111-1111-1111-1111-111111111117");
+    public static readonly Guid ItemTypeWallet = new("51111111-1111-1111-1111-111111111118");
 }

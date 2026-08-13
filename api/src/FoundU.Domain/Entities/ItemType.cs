@@ -2,10 +2,17 @@ using FoundU.Domain.Common;
 
 namespace FoundU.Domain.Entities;
 
-public class Category : BaseEntity, ISoftDeletable
+/// <summary>
+/// Second-level classification under Category (e.g. Category "Bags & Wallets" -> ItemType
+/// "Backpack" / "Laptop Bag" / "Wallet"). Lets forms and Matching Agent comparisons be more
+/// precise than Category alone.
+/// </summary>
+public class ItemType : BaseEntity, ISoftDeletable
 {
+    public Guid CategoryId { get; set; }
+    public Category Category { get; set; } = default!;
+
     public string Name { get; set; } = default!;
-    public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
 
     public bool IsDeleted { get; set; }
@@ -13,5 +20,4 @@ public class Category : BaseEntity, ISoftDeletable
 
     public ICollection<LostReport> LostReports { get; set; } = new List<LostReport>();
     public ICollection<FoundReport> FoundReports { get; set; } = new List<FoundReport>();
-    public ICollection<ItemType> ItemTypes { get; set; } = new List<ItemType>();
 }

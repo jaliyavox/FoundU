@@ -21,9 +21,15 @@ public class ApprovalDecisionConfiguration : IEntityTypeConfiguration<ApprovalDe
         builder.Property(a => a.CreatedAt).HasColumnType("timestamptz").IsRequired();
         builder.Property(a => a.UpdatedAt).HasColumnType("timestamptz").IsRequired();
 
-        // NOTE: the 1:1 Claim <-> ApprovalDecision relationship (and its unique FK constraint on
-        // ClaimId) is configured from the principal side in ClaimConfiguration - not repeated here
-        // to avoid a duplicate index definition.
+        // 1:N - Claim -> ApprovalDecisions. A claim keeps a full decision history (e.g.
+        // RevisionRequested, then later Approved) instead of a single final decision, so this
+        // FK is a plain (non-unique) index, not a one-to-one constraint.
+        builder.HasOne(a => a.Claim)
+            .WithMany(c => c.ApprovalDecisions)
+            .HasForeignKey(a => a.ClaimId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(a => a.ClaimId);
 
         builder.HasOne(a => a.DecidedByUser)
             .WithMany(u => u.ApprovalDecisions)

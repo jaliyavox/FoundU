@@ -25,6 +25,10 @@ public class Claim : BaseEntity, ISoftDeletable
     public ICollection<ClaimStatusHistory> StatusHistory { get; set; } = new List<ClaimStatusHistory>();
     public ICollection<AgentRun> AgentRuns { get; set; } = new List<AgentRun>();
 
-    /// <summary>Present only once the claim reaches a decided (Approved/Rejected/RevisionRequested) state.</summary>
-    public ApprovalDecision? ApprovalDecision { get; set; }
+    /// <summary>
+    /// Full decision history for this claim (one-to-many, not one-to-one). A claim can be
+    /// revised multiple times before a final outcome, e.g. RevisionRequested -> Approved -
+    /// every decision is preserved for audit. The most recent row is the current decision.
+    /// </summary>
+    public ICollection<ApprovalDecision> ApprovalDecisions { get; set; } = new List<ApprovalDecision>();
 }

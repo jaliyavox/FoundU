@@ -8,7 +8,11 @@ public class MatchSuggestionConfiguration : IEntityTypeConfiguration<MatchSugges
 {
     public void Configure(EntityTypeBuilder<MatchSuggestion> builder)
     {
-        builder.ToTable("MatchSuggestions");
+        builder.ToTable("MatchSuggestions", t =>
+            t.HasCheckConstraint(
+                "CK_MatchSuggestions_MatchScore_Range",
+                "\"MatchScore\" >= 0 AND \"MatchScore\" <= 1"));
+
         builder.HasKey(m => m.Id);
 
         builder.Property(m => m.MatchScore).HasColumnType("numeric(4,3)").IsRequired(); // 0.000 - 1.000

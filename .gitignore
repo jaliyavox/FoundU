@@ -18,6 +18,7 @@ TestResults/
 .vs/
 
 # User-specific / Local settings
+appsettings.Development.json
 appsettings.Local.json
 *.user
 *.userosscache
