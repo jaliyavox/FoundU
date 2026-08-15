@@ -3,7 +3,7 @@ using FoundU.Domain.Enums;
 
 namespace FoundU.Domain.Entities;
 
-/// <summary>The single authoritative human decision on a Claim. 1:1 with an approved/rejected Claim.</summary>
+/// <summary>A human decision/revision on a Claim. One Claim can have many ApprovalDecisions to keep audit history of decisions and revisions.</summary>
 public class ApprovalDecision : BaseEntity
 {
     public Guid ClaimId { get; set; }
