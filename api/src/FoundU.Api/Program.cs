@@ -1,4 +1,10 @@
+using FoundU.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<FoundUDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("FoundUDatabase")));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -20,6 +26,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    using var scope = app.Services.CreateScope();
+    await FoundU.Infrastructure.Persistence.Seed.DevelopmentDataSeeder.SeedAsync(
+        scope.ServiceProvider.GetRequiredService<FoundUDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IConfiguration>());
 }
 
 app.UseHttpsRedirection();
