@@ -7,7 +7,7 @@ namespace FoundU.Infrastructure.Persistence;
 /// <summary>
 /// Lets `dotnet ef migrations add` / `dotnet ef database update` run directly against
 /// FoundU.Infrastructure without needing to start the full FoundU.Api host.
-/// Reads the connection string from FoundU.Api/appsettings.json (or env var) at design time only.
+/// Reads appsettings, user secrets, and environment variables at design time.
 /// </summary>
 public class FoundUDbContextFactory : IDesignTimeDbContextFactory<FoundUDbContext>
 {
@@ -15,16 +15,22 @@ public class FoundUDbContextFactory : IDesignTimeDbContextFactory<FoundUDbContex
     {
         var config = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("../FoundU.Api/appsettings.json", optional: true)
-            .AddJsonFile("../FoundU.Api/appsettings.Development.json", optional: true)
+            .AddJsonFile("src/FoundU.Api/appsettings.json", optional: true)
+            .AddJsonFile("src/FoundU.Api/appsettings.Development.json", optional: true)
+            .AddUserSecrets(
+                "4a4f4bb2-c349-4b30-9db6-af3af8a4ea16")
             .AddEnvironmentVariables()
             .Build();
 
-        var connectionString = config.GetConnectionString("FoundUDatabase")
+        var connectionString =
+            config.GetConnectionString("FoundUDatabase")
             ?? Environment.GetEnvironmentVariable("FOUNDU_CONNECTION_STRING")
-            ?? "Host=localhost;Port=5432;Database=foundu;Username=postgres;Password=YOUR_PASSWORD_HERE";
+            ?? throw new InvalidOperationException(
+                "Connection string 'FoundUDatabase' was not configured.");
 
-        var optionsBuilder = new DbContextOptionsBuilder<FoundUDbContext>();
+        var optionsBuilder =
+            new DbContextOptionsBuilder<FoundUDbContext>();
+
         optionsBuilder.UseNpgsql(connectionString);
 
         return new FoundUDbContext(optionsBuilder.Options);
