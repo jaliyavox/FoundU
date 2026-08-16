@@ -2,6 +2,7 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.Auth.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace FoundU.Api.Controllers;
 
@@ -59,10 +60,10 @@ public class AuthController : ControllerBase
     {
         return Ok(new
         {
-            Id = User.FindFirst("sub")?.Value,
-            Email = User.FindFirst("email")?.Value,
-            Name = User.FindFirst("name")?.Value,
-            Role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+            Id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"),
+            Email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email"),
+            Name = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue("name"),
+            Role = User.FindFirstValue(ClaimTypes.Role)
         });
     }
 

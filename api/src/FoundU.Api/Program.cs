@@ -1,5 +1,4 @@
 using FoundU.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using FoundU.Api.Filters;
 using FoundU.Api.Middleware;
 using FoundU.Domain.Entities;
@@ -24,10 +23,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
         .Enrich.FromLogContext()
         .WriteTo.Console());
 
-builder.Services.AddDbContext<FoundUDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("FoundUDatabase")));
-
- builder.Services.AddControllers(options =>
+builder.Services.AddControllers(options =>
     {
         // Runs FluentValidation against every request DTO before the action executes -
         // see /docs/api/conventions.md "Validation".
@@ -61,9 +57,6 @@ builder.Services.AddFoundUInfrastructure(builder.Configuration);
     // standard ProblemDetails envelope. See /docs/api/conventions.md "Error envelope".
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
-
-// CORS for the React dev origin. Origins tightened / moved to config in Step 3.
-const string DevCorsPolicy = "DevCors";
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
         ?? new[] { "http://localhost:5173", "http://localhost:3000" };
@@ -106,11 +99,18 @@ app.Run();
 
 // Exposed so WebApplicationFactory-based integration tests can reference the entry point.
 }
+catch (HostAbortedException)
+{
+    throw;
+}
 catch (Exception ex)
 {
     Log.Fatal(ex, "FoundU API terminated unexpectedly during startup");
+    throw;
 }
 finally
 {
     Log.CloseAndFlush();
 }
+
+public partial class Program;

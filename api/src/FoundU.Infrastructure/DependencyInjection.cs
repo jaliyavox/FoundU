@@ -44,14 +44,22 @@ public static class DependencyInjection
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
                 options.Lockout.AllowedForNewUsers = true;
             })
-            .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<FoundUDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders();
 
-        services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+        services.AddOptions<JwtSettings>()
+            .Bind(configuration.GetSection(JwtSettings.SectionName))
+            .Validate(settings => IsUsableSigningKey(settings.SigningKey),
+                "Jwt:SigningKey must be a non-placeholder secret of at least 32 UTF-8 bytes. Configure it with User Secrets or the Jwt__SigningKey environment variable.")
+            .ValidateOnStart();
+
         var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
             ?? throw new InvalidOperationException("Missing 'Jwt' configuration section.");
+
+        if (!IsUsableSigningKey(jwtSettings.SigningKey))
+            throw new InvalidOperationException(
+                "Jwt:SigningKey must be a non-placeholder secret of at least 32 UTF-8 bytes. Configure it with User Secrets or the Jwt__SigningKey environment variable.");
 
         services.AddAuthentication(options =>
             {
@@ -84,5 +92,16 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
 
         return services;
+    }
+
+    private static bool IsUsableSigningKey(string? signingKey)
+    {
+        if (string.IsNullOrWhiteSpace(signingKey) || Encoding.UTF8.GetByteCount(signingKey) < 32)
+            return false;
+
+        return !signingKey.Contains("replace", StringComparison.OrdinalIgnoreCase)
+            && !signingKey.Contains("change-me", StringComparison.OrdinalIgnoreCase)
+            && !signingKey.Contains("your_", StringComparison.OrdinalIgnoreCase)
+            && !signingKey.Contains("placeholder", StringComparison.OrdinalIgnoreCase);
     }
 }

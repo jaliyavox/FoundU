@@ -8,13 +8,11 @@ using Microsoft.EntityFrameworkCore;
 namespace FoundU.Infrastructure.Persistence;
 
 /// <summary>
-/// Inherits IdentityDbContext so UserManager/SignInManager work against AppUser out of the box.
-/// IdentityRole&lt;Guid&gt; is used as-is (no custom role entity needed) since FoundU's actual
-/// authorization source of truth is AppUser.Role, embedded into the JWT as a role claim at
-/// login - the AspNetRoles/AspNetUserRoles tables exist because Identity requires them, but the
-/// app does not use ASP.NET's many-role-per-user assignment model.
+/// Inherits IdentityUserContext so UserManager/SignInManager work against AppUser without also
+/// creating Identity's separate role store. FoundU's fixed AppUser.Role value is the single
+/// authorization source of truth and is embedded into each JWT as a role claim.
 /// </summary>
-public class FoundUDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
+public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
 {
     public FoundUDbContext(DbContextOptions<FoundUDbContext> options) : base(options)
     {
@@ -55,22 +53,18 @@ public class FoundUDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Gu
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Sets up Identity's own schema first (AspNetUsers, AspNetRoles, AspNetUserRoles,
-        // AspNetUserClaims, AspNetUserLogins, AspNetUserTokens, AspNetRoleClaims).
+        // Sets up Identity's user schema (users, claims, logins, and tokens) first.
         base.OnModelCreating(modelBuilder);
 
         // Applies every IEntityTypeConfiguration<T> in this assembly - one file per entity,
         // Fluent API only, no data annotations. AppUserConfiguration renames the Identity user
         // table from "AspNetUsers" to "AppUsers" and configures FoundU's custom columns; the
-        // rest of the Identity tables are renamed directly below for a consistent naming scheme.
+        // remaining user-related Identity tables are renamed below for consistency.
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
-        modelBuilder.Entity<IdentityRole<Guid>>().ToTable("AppRoles");
-        modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("AppUserRoles");
         modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("AppUserClaims");
         modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("AppUserLogins");
         modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("AppUserTokens");
-        modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AppRoleClaims");
     }
 
     public override int SaveChanges()
