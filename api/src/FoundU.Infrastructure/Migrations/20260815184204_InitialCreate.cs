@@ -15,20 +15,6 @@ namespace FoundU.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "AppRoles",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    NormalizedName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    ConcurrencyStamp = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AppRoles", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AppUsers",
                 columns: table => new
                 {
@@ -127,27 +113,6 @@ namespace FoundU.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AppRoleClaims",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    RoleId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ClaimType = table.Column<string>(type: "text", nullable: true),
-                    ClaimValue = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AppRoleClaims", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_AppRoleClaims_AppRoles_RoleId",
-                        column: x => x.RoleId,
-                        principalTable: "AppRoles",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AppUserClaims",
                 columns: table => new
                 {
@@ -182,30 +147,6 @@ namespace FoundU.Infrastructure.Migrations
                     table.PrimaryKey("PK_AppUserLogins", x => new { x.LoginProvider, x.ProviderKey });
                     table.ForeignKey(
                         name: "FK_AppUserLogins_AppUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AppUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "AppUserRoles",
-                columns: table => new
-                {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RoleId = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AppUserRoles", x => new { x.UserId, x.RoleId });
-                    table.ForeignKey(
-                        name: "FK_AppUserRoles_AppRoles_RoleId",
-                        column: x => x.RoleId,
-                        principalTable: "AppRoles",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_AppUserRoles_AppUsers_UserId",
                         column: x => x.UserId,
                         principalTable: "AppUsers",
                         principalColumn: "Id",
@@ -964,17 +905,6 @@ namespace FoundU.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_AppRoleClaims_RoleId",
-                table: "AppRoleClaims",
-                column: "RoleId");
-
-            migrationBuilder.CreateIndex(
-                name: "RoleNameIndex",
-                table: "AppRoles",
-                column: "NormalizedName",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_ApprovalDecisions_ClaimId",
                 table: "ApprovalDecisions",
                 column: "ClaimId");
@@ -1003,11 +933,6 @@ namespace FoundU.Infrastructure.Migrations
                 name: "IX_AppUserLogins_UserId",
                 table: "AppUserLogins",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AppUserRoles_RoleId",
-                table: "AppUserRoles",
-                column: "RoleId");
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
@@ -1349,9 +1274,6 @@ namespace FoundU.Infrastructure.Migrations
                 name: "AgentSteps");
 
             migrationBuilder.DropTable(
-                name: "AppRoleClaims");
-
-            migrationBuilder.DropTable(
                 name: "ApprovalDecisions");
 
             migrationBuilder.DropTable(
@@ -1359,9 +1281,6 @@ namespace FoundU.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "AppUserLogins");
-
-            migrationBuilder.DropTable(
-                name: "AppUserRoles");
 
             migrationBuilder.DropTable(
                 name: "AppUserTokens");
@@ -1398,9 +1317,6 @@ namespace FoundU.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "StorageTransfers");
-
-            migrationBuilder.DropTable(
-                name: "AppRoles");
 
             migrationBuilder.DropTable(
                 name: "VerificationQuestions");

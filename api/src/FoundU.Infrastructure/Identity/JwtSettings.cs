@@ -1,6 +1,6 @@
 namespace FoundU.Infrastructure.Identity;
 
-/// <summary>Bound from configuration section "Jwt". SigningKey belongs in appsettings.Development.json / environment variables - never the base appsettings.json.</summary>
+/// <summary>Bound from configuration section "Jwt". SigningKey belongs in User Secrets or an environment variable, never committed configuration.</summary>
 public class JwtSettings
 {
     public const string SectionName = "Jwt";
