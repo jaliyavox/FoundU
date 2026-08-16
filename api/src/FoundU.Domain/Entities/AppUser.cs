@@ -1,25 +1,26 @@
-using FoundU.Domain.Common;
 using FoundU.Domain.Enums;
-
+using Microsoft.AspNetCore.Identity;
+using FoundU.Domain.Common;
 namespace FoundU.Domain.Entities;
 
-public class AppUser : BaseEntity, ISoftDeletable
+/// <summary>
+/// Identity user for FoundU. Inherits ASP.NET Core Identity's IdentityUser&lt;Guid&gt;, which
+/// supplies Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
+/// PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed,
+/// TwoFactorEnabled, LockoutEnd, LockoutEnabled and AccessFailedCount out of the box.
+///
+/// Convention: UserName is always set equal to Email at registration time, so Identity's own
+/// unique index on NormalizedUserName ("UserNameIndex") gives us case-insensitive email
+/// uniqueness for free - there is no separate custom NormalizedEmail sync logic anymore.
+/// </summary>
+public class AppUser : IdentityUser<Guid>, ISoftDeletable
 {
     public string FullName { get; set; } = default!;
-    public string Email { get; set; } = default!;
 
-    /// <summary>
-    /// Uppercased, trimmed copy of Email used for case-insensitive uniqueness
-    /// (so "remo@email.com" and "Remo@email.com" cannot both register). Kept in sync
-    /// automatically by FoundUDbContext.SaveChanges - do not set this manually.
-    /// </summary>
-    public string NormalizedEmail { get; set; } = default!;
-
-    public string PasswordHash { get; set; } = default!;
+    /// <summary>Role-based authorization source of truth (Student/Staff/Admin), embedded into the JWT as a role claim.</summary>
     public UserRole Role { get; set; }
 
     public string? StudentNumber { get; set; }
-    public string? PhoneNumber { get; set; }
 
     public bool IsSuspended { get; set; }
     public string? SuspensionReason { get; set; }
@@ -30,6 +31,9 @@ public class AppUser : BaseEntity, ISoftDeletable
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
 
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
     // Navigation
     public ICollection<LostReport> LostReports { get; set; } = new List<LostReport>();
     public ICollection<FoundReport> FoundReports { get; set; } = new List<FoundReport>();
@@ -38,4 +42,5 @@ public class AppUser : BaseEntity, ISoftDeletable
     public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
     public ICollection<StorageTransfer> StorageTransfers { get; set; } = new List<StorageTransfer>();
     public ICollection<ApprovalDecision> ApprovalDecisions { get; set; } = new List<ApprovalDecision>();
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

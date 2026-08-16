@@ -1,15 +1,16 @@
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace FoundU.Infrastructure.Persistence.Seed;
 
 /// <summary>
-/// Seeds a local development/demo Admin account. Deliberately kept OUT of EF Core's HasData
-/// (migration-baked seeding) because HasData runs unconditionally in every environment,
-/// including production - which is exactly how a placeholder credential ends up looking like
-/// a real one in a deployed system.
+/// Seeds a local development/demo Admin account through UserManager, so the password goes
+/// through Identity's own PasswordHasher&lt;AppUser&gt; (never a hand-rolled hash). Deliberately
+/// kept OUT of EF Core's HasData (migration-baked seeding), because HasData runs unconditionally
+/// in every environment including production.
 ///
 /// Call this only when the hosting environment is Development, e.g. in Program.cs:
 ///
@@ -17,19 +18,19 @@ namespace FoundU.Infrastructure.Persistence.Seed;
 ///   {
 ///       using var scope = app.Services.CreateScope();
 ///       await DevelopmentDataSeeder.SeedAsync(
+///           scope.ServiceProvider.GetRequiredService&lt;UserManager&lt;AppUser&gt;&gt;(),
 ///           scope.ServiceProvider.GetRequiredService&lt;FoundUDbContext&gt;(),
 ///           scope.ServiceProvider.GetRequiredService&lt;IConfiguration&gt;());
 ///   }
 ///
 /// The admin password comes from configuration/environment variables
-/// (Seed:DevAdminPassword or DEV_ADMIN_PASSWORD), never a hardcoded hash, and a warning is
-/// logged if it falls back to the default so nobody mistakes it for a secure setup.
+/// (Seed:DevAdminPassword or DEV_ADMIN_PASSWORD), never a hardcoded hash.
 /// </summary>
 public static class DevelopmentDataSeeder
 {
-    public static async Task SeedAsync(FoundUDbContext db, IConfiguration configuration)
+    public static async Task SeedAsync(UserManager<AppUser> userManager, FoundUDbContext db, IConfiguration configuration)
     {
-        var alreadySeeded = await db.AppUsers.IgnoreQueryFilters().AnyAsync(u => u.Role == UserRole.Admin);
+        var alreadySeeded = await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Role == UserRole.Admin);
         if (alreadySeeded)
         {
             return;
@@ -39,19 +40,26 @@ public static class DevelopmentDataSeeder
             ?? Environment.GetEnvironmentVariable("DEV_ADMIN_PASSWORD")
             ?? "DevOnly-ChangeMe-123!"; // clearly-labelled fallback, dev environments only
 
+        const string email = "dev-admin@foundu.local";
+
         var admin = new AppUser
         {
             Id = SeedIds.AdminUserId,
+            UserName = email, // UserName == Email by convention - see AppUser.cs
+            Email = email,
+            EmailConfirmed = true,
             FullName = "FoundU Dev Administrator",
-            Email = "dev-admin@foundu.local",
-            NormalizedEmail = "DEV-ADMIN@FOUNDU.LOCAL",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(devPassword),
             Role = UserRole.Admin,
             IsSuspended = false,
             IsDeleted = false
         };
 
-        db.AppUsers.Add(admin);
-        await db.SaveChangesAsync();
+        var result = await userManager.CreateAsync(admin, devPassword);
+
+        if (!result.Succeeded)
+        {
+            var errors = string.Join("; ", result.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Failed to seed development Admin account: {errors}");
+        }
     }
 }

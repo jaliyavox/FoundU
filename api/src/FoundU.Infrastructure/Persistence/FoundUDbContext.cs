@@ -1,17 +1,25 @@
 using System.Reflection;
 using FoundU.Domain.Common;
 using FoundU.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace FoundU.Infrastructure.Persistence;
 
-public class FoundUDbContext : DbContext
+/// <summary>
+/// Inherits IdentityDbContext so UserManager/SignInManager work against AppUser out of the box.
+/// IdentityRole&lt;Guid&gt; is used as-is (no custom role entity needed) since FoundU's actual
+/// authorization source of truth is AppUser.Role, embedded into the JWT as a role claim at
+/// login - the AspNetRoles/AspNetUserRoles tables exist because Identity requires them, but the
+/// app does not use ASP.NET's many-role-per-user assignment model.
+/// </summary>
+public class FoundUDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
 {
     public FoundUDbContext(DbContextOptions<FoundUDbContext> options) : base(options)
     {
     }
 
-    public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<ItemType> ItemTypes => Set<ItemType>();
     public DbSet<CampusLocation> CampusLocations => Set<CampusLocation>();
@@ -43,13 +51,26 @@ public class FoundUDbContext : DbContext
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Sets up Identity's own schema first (AspNetUsers, AspNetRoles, AspNetUserRoles,
+        // AspNetUserClaims, AspNetUserLogins, AspNetUserTokens, AspNetRoleClaims).
         base.OnModelCreating(modelBuilder);
 
         // Applies every IEntityTypeConfiguration<T> in this assembly - one file per entity,
-        // Fluent API only, no data annotations.
+        // Fluent API only, no data annotations. AppUserConfiguration renames the Identity user
+        // table from "AspNetUsers" to "AppUsers" and configures FoundU's custom columns; the
+        // rest of the Identity tables are renamed directly below for a consistent naming scheme.
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        modelBuilder.Entity<IdentityRole<Guid>>().ToTable("AppRoles");
+        modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("AppUserRoles");
+        modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("AppUserClaims");
+        modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("AppUserLogins");
+        modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("AppUserTokens");
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AppRoleClaims");
     }
 
     public override int SaveChanges()
@@ -65,8 +86,9 @@ public class FoundUDbContext : DbContext
     }
 
     /// <summary>
-    /// Automatically stamps CreatedAt/UpdatedAt (UTC) on every tracked BaseEntity, and converts
-    /// hard deletes into soft deletes for entities implementing ISoftDeletable.
+    /// Stamps CreatedAt/UpdatedAt (UTC) on every tracked BaseEntity, converts hard deletes into
+    /// soft deletes for ISoftDeletable entities, and does the same for AppUser - which can't
+    /// extend BaseEntity itself because it already inherits IdentityUser&lt;Guid&gt;.
     /// </summary>
     private void ApplyAuditTimestamps()
     {
@@ -84,20 +106,32 @@ public class FoundUDbContext : DbContext
                     entry.Entity.UpdatedAt = utcNow;
                     break;
                 case EntityState.Deleted when entry.Entity is ISoftDeletable softDeletable:
-                    // Convert physical delete into a soft delete.
                     entry.State = EntityState.Modified;
                     softDeletable.IsDeleted = true;
                     softDeletable.DeletedAt = utcNow;
                     entry.Entity.UpdatedAt = utcNow;
                     break;
             }
+        }
 
-            // Keep NormalizedEmail in sync whenever an AppUser is inserted or its Email changes,
-            // so the case-insensitive unique index always reflects the current Email value.
-            if (entry.Entity is AppUser user
-                && (entry.State == EntityState.Added || entry.State == EntityState.Modified))
+        foreach (var entry in ChangeTracker.Entries<AppUser>())
+        {
+            switch (entry.State)
             {
-                user.NormalizedEmail = user.Email.Trim().ToUpperInvariant();
+                case EntityState.Added:
+                    entry.Entity.CreatedAt = utcNow;
+                    entry.Entity.UpdatedAt = utcNow;
+                    break;
+                case EntityState.Modified:
+                    entry.Entity.UpdatedAt = utcNow;
+                    break;
+                case EntityState.Deleted:
+                    // AppUser is ISoftDeletable - convert hard deletes into soft deletes here too.
+                    entry.State = EntityState.Modified;
+                    entry.Entity.IsDeleted = true;
+                    entry.Entity.DeletedAt = utcNow;
+                    entry.Entity.UpdatedAt = utcNow;
+                    break;
             }
         }
     }
