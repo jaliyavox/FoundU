@@ -3,7 +3,7 @@ using FoundU.Domain.Enums;
 
 namespace FoundU.Domain.Entities;
 
-/// <summary>One delegated step executed within an AgentRun by a specific named agent.</summary>
+/// <summary>One delegated step executed within an AgentRun by a specific named agent</summary>
 public class AgentStep : BaseEntity
 {
     public Guid AgentRunId { get; set; }
