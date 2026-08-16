@@ -165,6 +165,7 @@ public sealed class AuthServiceTests
     }
 }
 
+[Collection(WebApplicationTestCollection.Name)]
 public sealed class AuthEndpointTests : IClassFixture<FoundUWebApplicationFactory>
 {
     private readonly FoundUWebApplicationFactory _factory;
