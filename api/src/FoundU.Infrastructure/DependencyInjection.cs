@@ -5,6 +5,7 @@ using FoundU.Application.Auth;
 using FoundU.Application.Auth.Validators;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
+using FoundU.Infrastructure.Claims;
 using FoundU.Infrastructure.Identity;
 using FoundU.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -88,6 +89,7 @@ public static class DependencyInjection
 
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IClaimService, ClaimService>();
 
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
 
