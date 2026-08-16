@@ -13,11 +13,12 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-  </ItemGroup>
 
-  <ItemGroup>
     <ProjectReference Include="..\FoundU.Application\FoundU.Application.csproj" />
     <ProjectReference Include="..\FoundU.Infrastructure\FoundU.Infrastructure.csproj" />
-  </ItemGroup>
+  
+  <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+  <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.3" />
+</ItemGroup>
 
 </Project>
