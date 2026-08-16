@@ -22,7 +22,7 @@ public class FoundUDbContextFactory : IDesignTimeDbContextFactory<FoundUDbContex
 
         var connectionString = config.GetConnectionString("FoundUDatabase")
             ?? Environment.GetEnvironmentVariable("FOUNDU_CONNECTION_STRING")
-            ?? "Host=localhost;Port=5432;Database=foundu;Username=postgres;Password=qwerty";
+            ?? "Host=localhost;Port=5432;Database=foundu;Username=postgres;Password=YOUR_PASSWORD";
 
         var optionsBuilder = new DbContextOptionsBuilder<FoundUDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
