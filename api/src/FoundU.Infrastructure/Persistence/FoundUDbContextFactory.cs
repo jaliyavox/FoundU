@@ -13,20 +13,52 @@ public class FoundUDbContextFactory : IDesignTimeDbContextFactory<FoundUDbContex
 {
     public FoundUDbContext CreateDbContext(string[] args)
     {
+        // `dotnet ef` runs from the build output folder, not the project folder, so a relative
+        // "../FoundU.Api" path silently misses every file and leaves the config empty.
+        var apiDirectory = ResolveApiDirectory();
+
         var config = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("../FoundU.Api/appsettings.json", optional: true)
-            .AddJsonFile("../FoundU.Api/appsettings.Development.json", optional: true)
+            .SetBasePath(apiDirectory)
+            .AddJsonFile("appsettings.json", optional: true)
+            .AddJsonFile("appsettings.Development.json", optional: true)
             .AddEnvironmentVariables()
             .Build();
 
+        // Deliberately no hardcoded fallback: a wrong-but-plausible default connects to whatever
+        // is on localhost:5432 and fails later with a confusing error, instead of here.
         var connectionString = config.GetConnectionString("FoundUDatabase")
             ?? Environment.GetEnvironmentVariable("FOUNDU_CONNECTION_STRING")
-            ?? "Host=localhost;Port=5432;Database=foundu;Username=postgres;Password=YOUR_PASSWORD";
+            ?? throw new InvalidOperationException(
+                $"No connection string found. Looked for ConnectionStrings:FoundUDatabase in " +
+                $"{apiDirectory}/appsettings.Development.json and the FOUNDU_CONNECTION_STRING " +
+                "environment variable.");
 
         var optionsBuilder = new DbContextOptionsBuilder<FoundUDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
 
         return new FoundUDbContext(optionsBuilder.Options);
+    }
+
+    /// <summary>
+    /// Walks up from the assembly's output folder (bin/Debug/net8.0) until it finds the sibling
+    /// FoundU.Api project directory, so design-time config resolution does not depend on the
+    /// working directory the EF tooling happens to use.
+    /// </summary>
+    private static string ResolveApiDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, "FoundU.Api");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return Directory.GetCurrentDirectory();
     }
 }

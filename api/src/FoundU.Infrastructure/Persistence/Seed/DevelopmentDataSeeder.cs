@@ -40,7 +40,7 @@ public static class DevelopmentDataSeeder
             ?? Environment.GetEnvironmentVariable("DEV_ADMIN_PASSWORD")
             ?? "DevOnly-ChangeMe-123!"; // clearly-labelled fallback, dev environments only
 
-        const string email = "dev-admin@foundu.local";
+        const string email = "admin@foundu.com";
 
         var admin = new AppUser
         {
