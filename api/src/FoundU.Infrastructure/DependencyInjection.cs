@@ -7,6 +7,7 @@ using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Identity;
 using FoundU.Infrastructure.Persistence;
+using FoundU.Infrastructure.Reporting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -82,12 +83,19 @@ public static class DependencyInjection
             });
 
         services.AddAuthorizationBuilder()
+            // Student is deliberately exclusive: "acts as a student on their own reports" is a
+            // different capability from administering the system, so Admin is NOT included here.
             .AddPolicy(PolicyNames.Student, p => p.RequireRole(nameof(UserRole.Student)))
-            .AddPolicy(PolicyNames.Staff, p => p.RequireRole(nameof(UserRole.Staff)))
+            // Staff means "staff-level access", which an Admin also has - otherwise an Admin
+            // could not work the lost-and-found desk they administer.
+            .AddPolicy(PolicyNames.Staff, p => p.RequireRole(nameof(UserRole.Staff), nameof(UserRole.Admin)))
             .AddPolicy(PolicyNames.Admin, p => p.RequireRole(nameof(UserRole.Admin)));
 
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IReferenceDataService, ReferenceDataService>();
+        services.AddScoped<IFoundReportService, FoundReportService>();
+        services.AddScoped<ILostReportService, LostReportService>();
 
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
 

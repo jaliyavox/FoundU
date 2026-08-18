@@ -9,7 +9,7 @@ export function ForbiddenPage() {
         Your account does not have permission to view that page.
       </p>
       {/* Base UI composes via `render`, not Radix's `asChild`. */}
-      <Button variant="outline" render={<Link to="/" />}>
+      <Button variant="outline" nativeButton={false} render={<Link to="/" />}>
         Back to your dashboard
       </Button>
     </section>

@@ -6,6 +6,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    /* FoundU brand ramp - mist / sage / green / forest. Use these only when a colour is
+       genuinely "the brand"; everything else should use the semantic tokens below. */
+    --color-brand-mist: var(--brand-mist);
+    --color-brand-sage: var(--brand-sage);
+    --color-brand-green: var(--brand-green);
+    --color-brand-forest: var(--brand-forest);
+
+    --animate-fu-float: fu-float 7s ease-in-out infinite;
+    --animate-fu-draw: fu-draw 1.4s ease-out both;
+
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
@@ -49,72 +59,81 @@
 }
 
 :root {
+    /* Brand ramp - fixed values, identical in both themes. */
+    --brand-mist: oklch(0.953 0.017 153.6);
+    --brand-sage: oklch(0.830 0.083 144.8);
+    --brand-green: oklch(0.721 0.141 146.1);
+    --brand-forest: oklch(0.424 0.113 143.5);
+
     --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    --foreground: oklch(0.205 0.020 150);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.205 0.020 150);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.205 0.020 150);
+    /* Forest carries white text at ~8:1, so it is the actionable colour. The mid green is
+       too light to sit under white text and is used for accents and rings instead. */
+    --primary: oklch(0.424 0.113 143.5);
+    --primary-foreground: oklch(0.985 0.006 150);
+    --secondary: oklch(0.953 0.017 153.6);
+    --secondary-foreground: oklch(0.424 0.113 143.5);
+    --muted: oklch(0.966 0.012 153);
+    --muted-foreground: oklch(0.480 0.028 150);
+    --accent: oklch(0.953 0.017 153.6);
+    --accent-foreground: oklch(0.424 0.113 143.5);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --border: oklch(0.898 0.021 150);
+    --input: oklch(0.898 0.021 150);
+    --ring: oklch(0.721 0.141 146.1);
+    --chart-1: oklch(0.424 0.113 143.5);
+    --chart-2: oklch(0.660 0.145 145.7);
+    --chart-3: oklch(0.721 0.141 146.1);
+    --chart-4: oklch(0.830 0.083 144.8);
+    --chart-5: oklch(0.953 0.017 153.6);
+    --radius: 0.75rem;
+    --sidebar: oklch(0.978 0.011 153);
+    --sidebar-foreground: oklch(0.205 0.020 150);
+    --sidebar-primary: oklch(0.424 0.113 143.5);
+    --sidebar-primary-foreground: oklch(0.985 0.006 150);
+    --sidebar-accent: oklch(0.941 0.024 152);
+    --sidebar-accent-foreground: oklch(0.424 0.113 143.5);
+    --sidebar-border: oklch(0.898 0.021 150);
+    --sidebar-ring: oklch(0.721 0.141 146.1);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --background: oklch(0.201 0.031 147.8);
+    --foreground: oklch(0.960 0.010 150);
+    --card: oklch(0.239 0.037 148.4);
+    --card-foreground: oklch(0.960 0.010 150);
+    --popover: oklch(0.239 0.037 148.4);
+    --popover-foreground: oklch(0.960 0.010 150);
+    /* Inverted: on a dark ground the mid green is the readable, energetic one. */
+    --primary: oklch(0.721 0.141 146.1);
+    --primary-foreground: oklch(0.180 0.030 148);
+    --secondary: oklch(0.285 0.042 148);
+    --secondary-foreground: oklch(0.950 0.010 150);
+    --muted: oklch(0.285 0.042 148);
+    --muted-foreground: oklch(0.745 0.032 150);
+    --accent: oklch(0.310 0.050 148);
+    --accent-foreground: oklch(0.955 0.010 150);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 16%);
+    --ring: oklch(0.721 0.141 146.1);
+    --chart-1: oklch(0.830 0.083 144.8);
+    --chart-2: oklch(0.721 0.141 146.1);
+    --chart-3: oklch(0.660 0.145 145.7);
+    --chart-4: oklch(0.520 0.120 144);
+    --chart-5: oklch(0.424 0.113 143.5);
+    --sidebar: oklch(0.180 0.028 148);
+    --sidebar-foreground: oklch(0.960 0.010 150);
+    --sidebar-primary: oklch(0.721 0.141 146.1);
+    --sidebar-primary-foreground: oklch(0.180 0.030 148);
+    --sidebar-accent: oklch(0.285 0.042 148);
+    --sidebar-accent-foreground: oklch(0.955 0.010 150);
+    --sidebar-border: oklch(1 0 0 / 12%);
+    --sidebar-ring: oklch(0.721 0.141 146.1);
 }
 
 @layer base {
@@ -127,4 +146,149 @@
   html {
     @apply font-sans;
     }
+}
+/* ---------------------------------------------------------------------------
+   Motion. Every animation here is opt-in via a class, and every one of them is
+   switched off under prefers-reduced-motion at the bottom of this file.
+--------------------------------------------------------------------------- */
+
+@keyframes fu-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+@keyframes fu-draw {
+  from { stroke-dashoffset: var(--fu-dash, 900); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes fu-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Scroll reveal: element starts hidden, .is-visible is added by useInView. */
+.fu-reveal {
+  opacity: 0;
+}
+
+.fu-reveal.is-visible {
+  animation: fu-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--fu-delay, 0ms);
+}
+
+/* Monoline illustrations draw themselves in once on screen. */
+.fu-draw path,
+.fu-draw circle,
+.fu-draw rect,
+.fu-draw line,
+.fu-draw polyline {
+  stroke-dasharray: var(--fu-dash, 900);
+}
+
+.fu-draw.is-visible path,
+.fu-draw.is-visible circle,
+.fu-draw.is-visible rect,
+.fu-draw.is-visible line,
+.fu-draw.is-visible polyline {
+  animation: var(--animate-fu-draw);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-reveal,
+  .fu-reveal.is-visible,
+  .fu-draw.is-visible path,
+  .fu-draw.is-visible circle,
+  .fu-draw.is-visible rect,
+  .fu-draw.is-visible line,
+  .fu-draw.is-visible polyline {
+    animation: none;
+    opacity: 1;
+    stroke-dasharray: none;
+    transform: none;
+  }
+
+  .animate-fu-float {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Hero: animated aurora background, network nodes and the live ticker.
+--------------------------------------------------------------------------- */
+
+@keyframes fu-aurora-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(8%, -6%, 0) scale(1.15); }
+  66%      { transform: translate3d(-6%, 7%, 0) scale(0.92); }
+}
+
+@keyframes fu-aurora-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  40%      { transform: translate3d(-9%, 5%, 0) scale(0.9); }
+  75%      { transform: translate3d(6%, -8%, 0) scale(1.2); }
+}
+
+@keyframes fu-aurora-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50%      { transform: translate3d(5%, 8%, 0) scale(1.25); }
+}
+
+/* Flowing dashes along the connector lines - the "something is happening" cue. */
+@keyframes fu-flow {
+  to { stroke-dashoffset: -240; }
+}
+
+@keyframes fu-ping {
+  0%        { transform: scale(1);   opacity: 0.75; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+@keyframes fu-node-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes fu-swap-in {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.fu-aurora-a { animation: fu-aurora-a 22s ease-in-out infinite; }
+.fu-aurora-b { animation: fu-aurora-b 27s ease-in-out infinite; }
+.fu-aurora-c { animation: fu-aurora-c 19s ease-in-out infinite; }
+.fu-flow     { stroke-dasharray: 5 11; animation: fu-flow 5s linear infinite; }
+.fu-ping     { animation: fu-ping 2.6s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.fu-node-in  { animation: fu-node-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fu-swap-in  { animation: fu-swap-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-aurora-a,
+  .fu-aurora-b,
+  .fu-aurora-c,
+  .fu-flow,
+  .fu-ping,
+  .fu-node-in,
+  .fu-swap-in {
+    animation: none;
+  }
+
+  .fu-flow { stroke-dasharray: 5 11; }
+}
+
+/* ---------------------------------------------------------------------------
+   Anchor scrolling. scroll-padding keeps a section's heading clear of the
+   fixed nav; the smooth behaviour is skipped for reduced-motion users, who get
+   an instant jump instead.
+--------------------------------------------------------------------------- */
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

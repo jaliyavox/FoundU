@@ -7,7 +7,7 @@ export function NotFoundPage() {
       <p className="text-sm font-medium text-muted-foreground">404</p>
       <h1 className="text-2xl font-semibold tracking-tight">Page not found</h1>
       {/* Base UI composes via `render`, not Radix's `asChild`. */}
-      <Button variant="outline" render={<Link to="/" />}>
+      <Button variant="outline" nativeButton={false} render={<Link to="/" />}>
         Back to FoundU
       </Button>
     </main>

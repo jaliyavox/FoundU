@@ -4,25 +4,22 @@ import { LoginPage } from '@/features/auth/login-page'
 import { ProtectedRoute } from './protected-route'
 import { AdminPage } from '@/pages/admin-page'
 import { ItemsPage } from '@/pages/items-page'
+import { LandingPage } from '@/pages/landing-page'
 import { MyReportsPage } from '@/pages/my-reports-page'
 import { ForbiddenPage } from '@/pages/forbidden-page'
 import { NotFoundPage } from '@/pages/not-found-page'
-import { RoleHomeRedirect } from './role-home-redirect'
 
 export const router = createBrowserRouter([
-  {
-    path: '/login',
-    element: <LoginPage />,
-  },
+  // Public. Signed-in visitors are redirected to their role's home from inside the page.
+  { path: '/', element: <LandingPage /> },
+  { path: '/login', element: <LoginPage /> },
+
   {
     element: <ProtectedRoute />,
     children: [
       {
         element: <AppLayout />,
         children: [
-          // "/" is role-dependent, so it redirects rather than rendering anything itself.
-          { index: true, element: <RoleHomeRedirect /> },
-
           {
             element: <ProtectedRoute allow={['Staff', 'Admin']} />,
             children: [{ path: 'items', element: <ItemsPage /> }],
@@ -41,5 +38,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
+
   { path: '*', element: <NotFoundPage /> },
 ])

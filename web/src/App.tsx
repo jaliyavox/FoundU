@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '@/features/auth/auth-provider'
 import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApiError } from '@/lib/api/client'
 import { router } from '@/routes/router'
 
@@ -22,7 +23,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <RouterProvider router={router} />
+        {/* Sidebar menu buttons render tooltips when collapsed to icons. */}
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
         <Toaster richColors position="top-right" />
       </AuthProvider>
     </QueryClientProvider>

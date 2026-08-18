@@ -9,18 +9,38 @@ scaffolded as we need them.
 
 ---
 
-## Environment status (checked 2026-08-06)
+## Environment status (re-checked 2026-08-18)
 
 | Tool | Required | Installed | Note |
 |------|----------|-----------|------|
 | Node / npm | 20+ | Yes 24.13.1 / 11.8.0 | ready for `/web` |
-| .NET SDK | 8 | Yes 8.0.423 | ready for `/api` |
-| Python | 3.11 | No, have 3.9.6 | fine to defer; upgrade before `/ai` |
+| .NET SDK | 8 | Yes 8.0.423 (+ `dotnet ef` 8.0.11) | ready for `/api` |
+| Docker | any | Yes, Desktop installed | Postgres 16 + Ollama running |
+| Python | 3.11 | No, have 3.9.6 | upgrade before `/ai` |
 | Flutter | stable | No, not installed | install before mobile phase |
-| Docker | any | No, not on PATH | needed for Postgres + Ollama compose |
 
-**Action items before later phases:** install Flutter (`brew install --cask flutter`),
-install Docker Desktop, and install Python 3.11 (`brew install python@3.11`).
+**Action items before later phases:** install Flutter (`brew install --cask flutter`)
+and Python 3.11 (`brew install python@3.11`).
+
+### Local ports (this machine)
+
+Two native EnterpriseDB PostgreSQL installs already occupy **5432** and **5433**, so
+`docker-compose.yml` maps Docker's Postgres 16 to **5434**. Teammates on a clean machine
+can use the default 5432 — just keep `appsettings.Development.json` in step.
+
+| Service | URL |
+|---------|-----|
+| PostgreSQL 16 (Docker) | `localhost:5434` — db/user/pass all `foundu` |
+| Ollama | `localhost:11434` |
+| API | `http://localhost:5292` (Swagger at `/swagger`) |
+| Web dev server | `http://localhost:5173` |
+
+`api/src/FoundU.Api/appsettings.Development.json` is **gitignored** and missing from a fresh
+clone. The API will not start without it — the JWT signing-key check rejects placeholders.
+It needs `ConnectionStrings:FoundUDatabase`, `Jwt:SigningKey`, and `Seed:DevAdminPassword`.
+
+**Dev accounts** (Development seed / registration):
+`admin@foundu.com` · `student@foundu.com` · `student2@foundu.com`
 
 ---
 
@@ -49,21 +69,22 @@ Goal: the four sub-project folders exist and each builds on its own.
 
 We can build the web dashboard's structure now and wire it to the API as the API lands.
 
-### A1 · Web shell (subset of Step 4a)
-- [ ] Scaffold Vite + React + TS in `/web`
-- [ ] Router with public + role-guarded routes (React Router)
-- [ ] TanStack Query set up
-- [ ] Typed fetch client that attaches JWT and refreshes on 401
-- [ ] App layout (sidebar + header)
-- [ ] Login page
-- [ ] Toast system
-- [ ] Feature-first folder structure
-- [ ] Env config for API base URL
+### A1 · Web shell (subset of Step 4a) — DONE 2026-08-18
+- [x] Scaffold Vite + React + TS in `/web`
+- [x] Router with public + role-guarded routes (React Router v7)
+- [x] TanStack Query set up (status-aware retries: 4xx never retried)
+- [x] Typed fetch client that attaches JWT and refreshes on 401 (single-flight refresh)
+- [x] App layout — collapsible shadcn sidebar + header, role-filtered nav
+- [x] Login page with field-level validation errors
+- [x] Toast system (sonner)
+- [x] Feature-first folder structure
+- [x] Env config for API base URL
+- [x] Tailwind v4 + shadcn/ui (`base-nova`, Base UI) — conventions in `/docs/design.md`
 
-### A2 · Auth wiring
-- [ ] Login calls `POST /api/auth/login`, stores tokens, routes by role
-- [ ] Route guards for Student / Staff / Admin
-- [ ] (Uses mock/stub API responses until `/api` auth exists — see Track C)
+### A2 · Auth wiring — DONE 2026-08-18
+- [x] Login calls `POST /api/auth/login`, stores tokens, routes by role
+- [x] Route guards for Student / Staff / Admin, with return-to-intended-URL
+- [x] Wired to the real `/api` auth (no stubs needed — Step 3 landed first)
 
 ### A3 · Feature screens (built as API endpoints come online)
 - [ ] Found-item log form + items table (staff sees private fields) — needs Step 6 API
@@ -101,9 +122,10 @@ We can build the web dashboard's structure now and wire it to the API as the API
 
 The web app needs real endpoints to be more than a shell. Minimum to unblock Track A:
 
-- [ ] **Step 2** — EF Core domain model + initial migration (schema is the contract)
-- [ ] **Step 3** — JWT auth + Identity, roles, ProblemDetails envelope, FluentValidation, Swagger, `/docs/api-conventions.md`
-- [ ] **Step 6** — Reporting slice API
+- [x] **Step 2** — EF Core domain model + initial migration (25 entities, 27 tables, taxonomy seeded via `HasData`)
+- [x] **Step 3** — JWT auth + Identity, roles, ProblemDetails envelope, FluentValidation, Swagger
+      *(still owed: `/docs/api-conventions.md` — referenced from code but not yet written)*
+- [x] **Step 6** — Reporting slice API (reference lookups, found reports, lost reports)
 - [ ] **Step 7** — Claims + staff review API
 - [ ] **Step 8** — Notifications + resolution API
 - [ ] **Step 9** — Admin + analytics + dispute API
@@ -125,6 +147,52 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 10. **B1–B3** — Flutter app (login -> features -> polish)
 11. **Step 5 / 10–13** — AI agents + integration
 12. **Steps 14–17** — tests, docs, seed data, demo
+
+---
+
+---
+
+## Progress log
+
+Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-08-18 — Step 6 reporting API
+
+- **Reference lookups** — `GET /api/reference/{categories,locations,storage-locations}`.
+  Categories return their item types nested so one call fills both dropdowns.
+- **Found reports** (Staff/Admin) — create, paged/filtered/sorted list, detail.
+- **Lost reports** — students create, read and withdraw their own; Staff/Admin list and read all.
+- `PrivateVerificationDetails` appears only in the Staff detail DTO. The list DTO exposes a
+  `hasVerificationDetails` boolean instead, and free-text search deliberately does **not** cover
+  that column — a searchable secret is not a secret.
+- Sorting goes through an allow-list, never string-interpolated SQL.
+- **Behaviour change:** `PolicyNames.Staff` was `RequireRole(Staff)`, which locked Admins out of
+  every staff endpoint. Now `RequireRole(Staff, Admin)`. `Student` stays exclusive.
+- Verified against the live DB: 201 on create, 400 on category/item-type mismatch and unknown
+  status, 401 unauthenticated, 403 for student→staff, admin→student and student→other-student's
+  report, 409 on double withdraw.
+
+### 2026-08-18 — A1/A2 web shell
+
+- Replaced the Vite starter with the real shell (see A1/A2 above).
+- Tailwind v4 + shadcn/ui installed; UI conventions written up in **`/docs/design.md`** — read it
+  before writing screens.
+- **Gotcha:** this shadcn style is built on Base UI, so composition uses `render={<Link/>}`,
+  **not** Radix's `asChild`. Most tutorials online show the wrong one.
+- **Gotcha:** the `@/` alias must be declared in **both** `tsconfig.json` and `tsconfig.app.json`.
+  Without the root one, `shadcn add` silently writes components into a literal `./@` folder.
+
+### 2026-08-18 — environment repairs
+
+- Fixed `FoundUDbContextFactory`: it resolved config relative to the working directory, but
+  `dotnet ef` runs from `bin/Debug/net8.0`, so both `AddJsonFile` calls silently no-opped and it
+  fell back to a hardcoded `localhost:5432 / postgres` string. Now walks up from
+  `AppContext.BaseDirectory` to find `FoundU.Api`, and **throws** instead of guessing.
+- Docker Postgres remapped to **5434** (see Local ports above).
+- Wiped a stale `foundu_pgdata` volume still holding the superseded `20260806081522_InitialSchema`.
+  **If migrations fail with "relation already exists", the volume is stale** — drop and re-apply.
+- Dev admin seed is now `admin@foundu.com`. The seeder no-ops when any Admin exists, so changing
+  the seed requires dropping the database, not just editing the constant.
 
 ---
 

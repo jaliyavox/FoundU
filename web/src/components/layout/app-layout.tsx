@@ -1,8 +1,40 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOutIcon, PackageSearchIcon, ShieldIcon, FileTextIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+  ChevronsUpDownIcon,
+  FileTextIcon,
+  LogOutIcon,
+  PackageSearchIcon,
+  ShieldIcon,
+} from 'lucide-react'
+import { FoundUMark } from '@/components/brand/foundu-logo'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Separator } from '@/components/ui/separator'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
 import { useAuth } from '@/features/auth/use-auth'
-import { cn } from '@/lib/utils'
 import type { UserRole } from '@/lib/api/types'
 
 interface NavItem {
@@ -18,67 +50,121 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin', label: 'Administration', icon: ShieldIcon, allow: ['Admin'] },
 ]
 
+/** First letters of the first and last name, e.g. "FoundU Dev Administrator" -> "FA". */
+function initialsOf(fullName: string) {
+  const parts = fullName.trim().split(/\s+/)
+  const first = parts.at(0)?.[0] ?? ''
+  const last = parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : ''
+  return (first + last).toUpperCase()
+}
+
 export function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   async function handleLogout() {
     await logout()
     navigate('/login', { replace: true })
   }
 
-  // The guard guarantees a user here, but narrowing keeps TypeScript honest.
+  // The route guard guarantees a user here; narrowing keeps TypeScript honest.
   if (!user) return null
 
   const visibleItems = NAV_ITEMS.filter((item) => item.allow.includes(user.role))
+  const currentItem = visibleItems.find((item) => location.pathname.startsWith(item.to))
 
   return (
-    <div className="flex min-h-svh">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground sm:flex">
-        <div className="px-5 py-5">
-          <p className="text-lg font-semibold tracking-tight">FoundU</p>
-          <p className="text-xs text-muted-foreground">Campus lost &amp; found</p>
-        </div>
-
-        <nav aria-label="Main" className="flex flex-1 flex-col gap-1 px-3">
-          {visibleItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
-                  'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-                  isActive
-                    ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                    : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground',
-                )
-              }
-            >
-              <Icon className="size-4" aria-hidden="true" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{user.fullName}</p>
-            <p className="text-xs text-muted-foreground">{user.role}</p>
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <FoundUMark decorative className="size-8 rounded-lg" />
+            <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+              <span className="truncate text-sm font-semibold">FoundU</span>
+              <span className="truncate text-xs text-muted-foreground">Campus lost &amp; found</span>
+            </div>
           </div>
+        </SidebarHeader>
 
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOutIcon aria-hidden="true" />
-            Sign out
-          </Button>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleItems.map(({ to, label, icon: Icon }) => (
+                  <SidebarMenuItem key={to}>
+                    <SidebarMenuButton
+                      isActive={location.pathname.startsWith(to)}
+                      tooltip={label}
+                      render={<NavLink to={to} />}
+                    >
+                      <Icon aria-hidden="true" />
+                      <span>{label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <SidebarMenuButton size="lg" tooltip={user.fullName}>
+                      <Avatar className="size-8 rounded-md">
+                        <AvatarFallback className="rounded-md text-xs">
+                          {initialsOf(user.fullName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="grid flex-1 text-left leading-tight">
+                        <span className="truncate text-sm font-medium">{user.fullName}</span>
+                        <span className="truncate text-xs text-muted-foreground">{user.role}</span>
+                      </div>
+                      <ChevronsUpDownIcon className="ml-auto size-4" aria-hidden="true" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <DropdownMenuContent align="end" side="top" className="w-56">
+                  {/* Base UI requires a group around a group label - unlike Radix, a bare
+                      DropdownMenuLabel throws "MenuGroupContext is missing" at render. */}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="grid leading-tight">
+                        <span className="truncate text-sm font-medium">{user.fullName}</span>
+                        <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                      </div>
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOutIcon aria-hidden="true" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+
+        <SidebarRail />
+      </Sidebar>
+
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <h1 className="text-sm font-medium">{currentItem?.label ?? 'FoundU'}</h1>
         </header>
 
-        <main className="flex-1 px-6 py-6">
+        <main className="flex-1 p-6">
           <Outlet />
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
