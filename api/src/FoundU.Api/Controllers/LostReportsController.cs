@@ -44,7 +44,7 @@ public class LostReportsController : ControllerBase
     public async Task<ActionResult<PagedResult<LostReportFeedItemDto>>> Feed(
         [FromQuery] LostReportQuery query,
         CancellationToken cancellationToken)
-        => Ok(await _lostReports.GetPublicFeedAsync(query, cancellationToken));
+        => Ok(await _lostReports.GetPublicFeedAsync(query, User.GetUserIdOrNull(), cancellationToken));
 
     /// <summary>Staff/Admin view across every student's reports.</summary>
     [HttpGet]
@@ -84,6 +84,17 @@ public class LostReportsController : ControllerBase
 
         return Ok(await _lostReports.AddPhotosAsync(id, User.GetUserId(), uploads, cancellationToken));
     }
+
+    /// <summary>
+    /// Records "I found this" against the report, which is what the author's card shows as
+    /// the "someone found it" checkpoint. Any signed-in user except the author, and pressing
+    /// it twice records one claim, not two.
+    /// </summary>
+    [HttpPost("{id:guid}/found-claims")]
+    public async Task<ActionResult<LostReportFoundClaimDto>> RegisterFoundClaim(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.RegisterFoundClaimAsync(id, User.GetUserId(), cancellationToken));
 
     /// <summary>
     /// Message the report's author - typically "I have found this and handed it in".

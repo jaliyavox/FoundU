@@ -57,6 +57,12 @@ export interface LostReportListItem {
   estimatedLostFromAt: string
   estimatedLostToAt: string
   status: string
+  photoUrls: string[]
+  /** Messages from finders. A message on a lost report only ever means "I found this". */
+  messageCount: number
+  /** How many people pressed "I found this" - one per person, however often they press. */
+  foundClaimCount: number
+  lastFoundClaimAt: string | null
   createdAt: string
 }
 

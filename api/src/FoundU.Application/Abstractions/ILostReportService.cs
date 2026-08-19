@@ -24,7 +24,7 @@ public interface ILostReportService
     /// Public, unauthenticated feed. Active reports only - withdrawn and resolved ones drop off,
     /// so the board reflects what people are still looking for.
     /// </summary>
-    Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(LostReportQuery query, CancellationToken cancellationToken = default);
+    Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(LostReportQuery query, Guid? requesterId = null, CancellationToken cancellationToken = default);
 
     Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
 
@@ -38,6 +38,12 @@ public interface ILostReportService
     /// Sends a message to the report's author. Requires a signed-in sender, who may not be
     /// the author themselves, and only works while the report is still Active.
     /// </summary>
+    /// <summary>Records "I found this" from a signed-in user. Idempotent per person.</summary>
+    Task<LostReportFoundClaimDto> RegisterFoundClaimAsync(
+        Guid reportId,
+        Guid finderId,
+        CancellationToken cancellationToken = default);
+
     Task<LostReportMessageDto> SendMessageAsync(Guid reportId, Guid senderId, string body, CancellationToken cancellationToken = default);
 
     /// <summary>The report author's messages. Staff may also read them for dispute handling.</summary>

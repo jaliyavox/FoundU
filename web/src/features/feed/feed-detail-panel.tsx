@@ -1,13 +1,19 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeftIcon, ClockIcon, HandHeartIcon, MapPinIcon } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { ActivityIcon, ArrowLeftIcon, ClockIcon, HandHeartIcon, MapPinIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuth } from '@/features/auth/use-auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-import { formatWindow, timeAgo, type LostReportFeedItem } from './feed-api'
-import { ItemIllustration } from './item-illustration'
+import { formatWindow, registerFoundClaim, timeAgo, type LostReportFeedItem } from './feed-api'
+import { FoundConfirmDialog } from './found-confirm-dialog'
+import { ItemMedia } from './item-media'
+import { ZoomButton } from './photo-lightbox'
+import { ApiError } from '@/lib/api/client'
 import { MessageAuthor } from './message-author'
 
 /**
@@ -23,16 +29,33 @@ export function FeedDetailPanel({
   item,
   showHandIn,
   onShowHandIn,
+  onZoom,
   onClose,
 }: {
   item: LostReportFeedItem | null
   /** Lifted to the page: the spotlight card shows the matching caution beside itself. */
   showHandIn: boolean
   onShowHandIn: (show: boolean) => void
+  /** Also lifted: the full photo opens next to the spotlight card, not over this panel. */
+  onZoom: () => void
   onClose: () => void
 }) {
   const { user } = useAuth()
   const isMobile = useIsMobile()
+  const [confirming, setConfirming] = useState(false)
+
+  // Recorded before the steps appear: the author's card should update the moment a finder
+  // commits, not only if they go on to write a message.
+  const claim = useMutation({
+    mutationFn: (reportId: string) => registerFoundClaim(reportId),
+    onSuccess: () => {
+      setConfirming(false)
+      onShowHandIn(true)
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.')
+    },
+  })
 
   return (
     <Sheet open={item !== null} onOpenChange={(open) => !open && onClose()}>
@@ -64,11 +87,15 @@ export function FeedDetailPanel({
                 aria-hidden="true"
                 className="pointer-events-none absolute -top-10 -right-8 size-48 rounded-full bg-brand-green/25 blur-2xl"
               />
-              <ItemIllustration
+              <ItemMedia
+                photoUrl={item.photoUrls?.[0]}
                 itemType={item.itemTypeName}
                 category={item.categoryName}
-                className="absolute inset-0 m-auto size-28 text-brand-forest/65"
+                illustrationClassName="absolute inset-0 m-auto size-28 text-brand-forest/65"
               />
+
+              {/* Only over a real photo - there is nothing to zoom into on an illustration. */}
+              {item.photoUrls?.length > 0 && <ZoomButton onClick={onZoom} />}
             </div>
 
             <div className="flex flex-col gap-5 p-6">
@@ -78,6 +105,20 @@ export function FeedDetailPanel({
                   Reported by {item.postedByName} · {timeAgo(item.createdAt)}
                 </SheetDescription>
               </SheetHeader>
+
+              {/* The hero image is hidden on mobile to keep the sheet short, so the photo
+                  gets a compact strip here instead - otherwise there is no way to see it
+                  on a phone at all. */}
+              {isMobile && item.photoUrls?.length > 0 && (
+                <div className="relative h-28 overflow-hidden rounded-xl border border-neutral-900/8">
+                  <ItemMedia
+                    photoUrl={item.photoUrls[0]}
+                    itemType={item.itemTypeName}
+                    category={item.categoryName}
+                  />
+                  <ZoomButton onClick={onZoom} className="right-2 bottom-2 size-8" />
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="secondary" className="bg-neutral-900/6 text-neutral-700">
@@ -111,27 +152,48 @@ export function FeedDetailPanel({
                 </div>
               </dl>
 
-              {!showHandIn ? (
+              {item.isMine ? (
+                /* Your own post. "I found this" would be nonsense here, and the API refuses
+                   both the hand-in message and a self-message anyway - so the slot holds the
+                   one action that does make sense: go and watch its progress. */
                 <>
                   <Button
                     size="lg"
                     className="bg-brand-forest text-white hover:bg-brand-forest/90"
-                    onClick={() => onShowHandIn(true)}
+                    nativeButton={false}
+                    render={<Link to="/my-reports" />}
                   >
-                    <HandHeartIcon aria-hidden="true" />
-                    I found this
+                    <ActivityIcon aria-hidden="true" />
+                    View status
                   </Button>
 
+                  <p className="text-sm text-pretty text-neutral-500">
+                    This is your report. Its progress - and anyone who says they have found it -
+                    shows on your reports page.
+                  </p>
+                </>
+              ) : !showHandIn ? (
+                <Button
+                  size="lg"
+                  className="bg-brand-forest text-white hover:bg-brand-forest/90"
+                  onClick={() => (user ? setConfirming(true) : onShowHandIn(true))}
+                >
+                  <HandHeartIcon aria-hidden="true" />
+                  I found this
+                </Button>
+              ) : (
+                <div className="fu-reveal flex flex-col gap-5">
+                  <p className="text-sm text-pretty text-neutral-600">
+                    The three steps are shown with the card. Hand it in first - then tell
+                    {' '}{item.postedByName.split(' ')[0]} where it went.
+                  </p>
+
+                  {/* Messaging only opens once someone says they found it. Before that the
+                      panel is a notice board, and a message box invites contact for its own
+                      sake rather than to report a hand-in. */}
                   <div className="border-t border-neutral-900/8 pt-5">
                     <MessageAuthor reportId={item.id} authorName={item.postedByName} />
                   </div>
-                </>
-              ) : (
-                <div className="flex flex-col gap-5">
-                  <p className="text-sm text-pretty text-neutral-600">
-                    The three steps are shown with the card. Nothing else to do here - take it
-                    to a desk and staff will handle the rest.
-                  </p>
 
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -158,6 +220,16 @@ export function FeedDetailPanel({
           </>
         )}
       </SheetContent>
+
+      {item && user && (
+        <FoundConfirmDialog
+          item={item}
+          open={confirming}
+          onOpenChange={(open) => !open && setConfirming(false)}
+          onConfirm={() => claim.mutate(item.id)}
+          isPending={claim.isPending}
+        />
+      )}
     </Sheet>
   )
 }
