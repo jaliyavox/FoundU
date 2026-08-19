@@ -186,6 +186,73 @@ public class LostReportService : ILostReportService
         return await LoadDetailAsync(report.Id, cancellationToken);
     }
 
+    public async Task<LostReportMessageDto> SendMessageAsync(
+        Guid reportId,
+        Guid senderId,
+        string body,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        if (report.StudentId == senderId)
+        {
+            throw new ValidationAppException(nameof(LostReportMessage.Body),
+                "This is your own report - you cannot message yourself.");
+        }
+
+        // A withdrawn or resolved report is no longer looking for anything.
+        if (report.Status != LostReportStatus.Active)
+        {
+            throw new ConflictAppException("This report is closed and is no longer accepting messages.");
+        }
+
+        var message = new LostReportMessage
+        {
+            LostReportId = reportId,
+            SenderId = senderId,
+            Body = body.Trim(),
+        };
+
+        _db.LostReportMessages.Add(message);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var senderName = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.Id == senderId)
+            .Select(u => u.FullName)
+            .FirstAsync(cancellationToken);
+
+        return new LostReportMessageDto(message.Id, senderName, message.Body, message.IsRead, message.CreatedAt);
+    }
+
+    public async Task<IReadOnlyList<LostReportMessageDto>> GetMessagesAsync(
+        Guid reportId,
+        Guid requesterId,
+        bool requesterIsStaff,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        // Only the author reads their own messages. Staff may read them to settle a dispute.
+        if (!requesterIsStaff && report.StudentId != requesterId)
+        {
+            throw new ForbiddenAppException("You can only read messages on your own reports.");
+        }
+
+        return await _db.LostReportMessages
+            .AsNoTracking()
+            .Where(m => m.LostReportId == reportId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => new LostReportMessageDto(m.Id, m.Sender.FullName, m.Body, m.IsRead, m.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
     private async Task<PagedResult<LostReportListItemDto>> SearchCoreAsync(
         IQueryable<LostReport> reports,
         LostReportQuery query,

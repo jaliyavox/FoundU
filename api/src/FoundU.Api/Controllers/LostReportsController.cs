@@ -66,6 +66,24 @@ public class LostReportsController : ControllerBase
     public async Task<ActionResult<LostReportDetailDto>> GetById(Guid id, CancellationToken cancellationToken)
         => Ok(await _lostReports.GetByIdAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
 
+    /// <summary>
+    /// Message the report's author - typically "I have found this and handed it in".
+    /// Any signed-in user except the author. Nothing here exposes either side's contact details.
+    /// </summary>
+    [HttpPost("{id:guid}/messages")]
+    public async Task<ActionResult<LostReportMessageDto>> SendMessage(
+        Guid id,
+        [FromBody] SendLostReportMessageRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.SendMessageAsync(id, User.GetUserId(), request.Body, cancellationToken));
+
+    /// <summary>The author's messages for this report. Staff may also read them.</summary>
+    [HttpGet("{id:guid}/messages")]
+    public async Task<ActionResult<IReadOnlyList<LostReportMessageDto>>> GetMessages(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetMessagesAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
+
     [HttpPost("{id:guid}/withdraw")]
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<LostReportDetailDto>> Withdraw(

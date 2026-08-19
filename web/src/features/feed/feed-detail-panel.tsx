@@ -4,8 +4,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuth } from '@/features/auth/use-auth'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 import { formatWindow, timeAgo, type LostReportFeedItem } from './feed-api'
 import { ItemIllustration } from './item-illustration'
+import { MessageAuthor } from './message-author'
 
 /**
  * Post detail as a right-hand side panel. The feed stays on screen behind it, so the
@@ -29,16 +32,34 @@ export function FeedDetailPanel({
   onClose: () => void
 }) {
   const { user } = useAuth()
+  const isMobile = useIsMobile()
 
   return (
     <Sheet open={item !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
-        side="right"
-        className="w-full gap-0 overflow-y-auto border-brand-forest/10 bg-linear-to-b from-white to-brand-mist text-neutral-900 sm:max-w-md"
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'w-full gap-0 overflow-y-auto border-brand-forest/10 bg-linear-to-b from-white to-brand-mist text-neutral-900',
+          // Bottom sheet stops short of the top so the spotlight card stays visible above
+          // it, and gives up more room once the steps appear.
+          //
+          // The height must be written as a data-[side=bottom] variant: the base component
+          // sets `data-[side=bottom]:h-auto`, and a plain `h-*` loses to it on specificity -
+          // which left the sheet content-sized and overlapping the steps.
+          isMobile && 'rounded-t-3xl transition-[height] duration-500 ease-out',
+          isMobile &&
+            (showHandIn ? 'data-[side=bottom]:h-[46svh]' : 'data-[side=bottom]:h-[76svh]'),
+          !isMobile && 'sm:max-w-md',
+        )}
       >
         {item && (
           <>
-            <div className="relative aspect-video shrink-0 overflow-hidden border-b border-brand-forest/10 bg-linear-to-br from-brand-mist via-white to-brand-sage/45">
+            <div
+              className={cn(
+                'relative aspect-video shrink-0 overflow-hidden border-b border-brand-forest/10 bg-linear-to-br from-brand-mist via-white to-brand-sage/45',
+                isMobile && 'hidden',
+              )}
+            >
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -top-10 -right-8 size-48 rounded-full bg-brand-green/25 blur-2xl"
@@ -91,18 +112,24 @@ export function FeedDetailPanel({
               </dl>
 
               {!showHandIn ? (
-                <Button
-                  size="lg"
-                  className="bg-brand-forest text-white hover:bg-brand-forest/90"
-                  onClick={() => onShowHandIn(true)}
-                >
-                  <HandHeartIcon aria-hidden="true" />
-                  I found this
-                </Button>
+                <>
+                  <Button
+                    size="lg"
+                    className="bg-brand-forest text-white hover:bg-brand-forest/90"
+                    onClick={() => onShowHandIn(true)}
+                  >
+                    <HandHeartIcon aria-hidden="true" />
+                    I found this
+                  </Button>
+
+                  <div className="border-t border-neutral-900/8 pt-5">
+                    <MessageAuthor reportId={item.id} authorName={item.postedByName} />
+                  </div>
+                </>
               ) : (
                 <div className="flex flex-col gap-5">
                   <p className="text-sm text-pretty text-neutral-600">
-                    Three steps, shown beside the card. Nothing else to do here - just take it
+                    The three steps are shown with the card. Nothing else to do here - take it
                     to a desk and staff will handle the rest.
                   </p>
 

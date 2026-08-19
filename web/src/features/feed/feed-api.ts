@@ -70,3 +70,17 @@ export function formatWindow(fromIso: string, toIso: string) {
 
   return `${day}, ${time(from)}-${time(to)}`
 }
+
+/* ------------------------------------------------------------------ messages */
+
+export interface LostReportMessage {
+  id: string
+  senderName: string
+  body: string
+  isRead: boolean
+  createdAt: string
+}
+
+/** Authenticated - this is the point of the sign-in gate on the feed. */
+export const sendMessage = (reportId: string, body: string) =>
+  api.post<LostReportMessage>(`/api/lost-reports/${reportId}/messages`, { body })

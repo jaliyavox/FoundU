@@ -77,3 +77,17 @@ public class LostReportQuery : PaginationQuery
     public Guid? ItemTypeId { get; set; }
     public Guid? LastSeenLocationId { get; set; }
 }
+
+/// <summary>Written by a signed-in user to the author of a lost report.</summary>
+public record SendLostReportMessageRequest(string Body);
+
+/// <summary>
+/// A message as the report's author sees it. Carries the sender's display name only - never
+/// their email or student number, the same rule the public feed follows.
+/// </summary>
+public record LostReportMessageDto(
+    Guid Id,
+    string SenderName,
+    string Body,
+    bool IsRead,
+    DateTime CreatedAt);
