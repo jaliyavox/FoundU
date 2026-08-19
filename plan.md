@@ -87,7 +87,8 @@ We can build the web dashboard's structure now and wire it to the API as the API
 - [x] Wired to the real `/api` auth (no stubs needed — Step 3 landed first)
 
 ### A3 · Feature screens (built as API endpoints come online)
-- [ ] Found-item log form + items table (staff sees private fields) — needs Step 6 API
+- [ ] Found-item log form + items table (staff sees private fields) - needs Step 6 API **<- in progress**
+- [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
 - [ ] Claims review queue + claim detail (approve/reject) — needs Step 7 API
 - [ ] Staff notification log — needs Step 8 API
 - [ ] Admin: users table, analytics (Recharts), dispute review — needs Step 9 API
@@ -155,6 +156,25 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-08-19 - public landing, brand, and the lost feed
+
+- **Brand applied** - four greens (mist/sage/green/forest) as `--brand-*` tokens, logo mark
+  (`FoundUMark`/`FoundULogo`) plus favicon. Full reference in **`/docs/design.md`**.
+- **Landing page** - dark bento sections: animated hero, capability strip, How it works,
+  parallax divider (light band), Features, FAQ (light band), CTA, footer. Reusable shells live
+  in `components/landing/bento.tsx`.
+- **Auth pages** - `/login` and `/register` share `AuthLayout` (split form + brand panel with a
+  four-step process animation). Register wires to `POST /api/auth/register`.
+- **Lost feed** - **new public endpoint `GET /api/lost-reports/feed`**, anonymous, active
+  reports only, paginated and searchable. Returns the poster's display name and **no other
+  personal data** (no email, student number or user id). Page at `/feed`, open to visitors;
+  posting requires an account.
+- **Model change:** lost reports are now publicly listable. This reverses the earlier
+  "nothing student-facing is published" stance - found items remain staff-only, which is what
+  protects claim verification.
+- **House style:** no pill/badge "tags" anywhere - eyebrows are plain
+  `text-sm font-medium text-brand-green`. Plain `-` instead of en/em dashes in UI copy.
 
 ### 2026-08-18 — Step 6 reporting API
 

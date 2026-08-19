@@ -4,8 +4,6 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClockIcon,
-  MapPinIcon,
   PlusIcon,
   RotateCwIcon,
   SearchIcon,
@@ -13,13 +11,16 @@ import {
 } from 'lucide-react'
 import { GradientDivider } from '@/components/landing/bento'
 import { SiteNav } from '@/components/landing/site-nav'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/use-auth'
-import { formatWindow, getFeed, timeAgo, type LostReportFeedItem } from './feed-api'
+import { getFeed, type LostReportFeedItem } from './feed-api'
+import { FeedCard } from './feed-card'
+import { CardConnector } from './card-connector'
+import { FeedDetailPanel } from './feed-detail-panel'
+import { FeedSpotlight } from './feed-spotlight'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { homeRouteForRole } from '@/routes/role-home'
@@ -35,6 +36,8 @@ const NAV_LINKS = [
 export function FeedPage() {
   const { user } = useAuth()
   const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<LostReportFeedItem | null>(null)
+  const [showHandIn, setShowHandIn] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
 
@@ -51,8 +54,9 @@ export function FeedPage() {
     setSearch(searchInput)
   }
 
-  // Anonymous visitors are sent to sign in; the create form itself lands with Step 6's UI.
-  const postHref = user ? homeRouteForRole(user.role) : '/login'
+  // Students go straight to the form; staff have no lost-report form, so they land on
+  // their own workspace instead.
+  const postHref = !user ? '/login' : user.role === 'Student' ? '/my-reports/new' : homeRouteForRole(user.role)
   const postLabel = user ? 'Post a lost item' : 'Sign in to post'
 
   return (
@@ -118,7 +122,23 @@ export function FeedPage() {
 
         <GradientDivider />
 
-        <section aria-label="Lost item reports" className="mx-auto w-full max-w-5xl px-6 py-10">
+        <section
+          aria-label="Lost item reports"
+          className="relative overflow-hidden bg-brand-mist"
+        >
+          {/* Same light ground as the FAQ band, so the dark cards read as raised panels. */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(ellipse 70% 80% at 50% 0%, rgba(255,255,255,0.95), transparent 70%)',
+              }}
+            />
+            <div className="fu-aurora-c absolute right-[6%] -bottom-32 size-96 rounded-full bg-brand-sage/35 blur-3xl" />
+          </div>
+
+          <div className="relative mx-auto w-full max-w-5xl px-6 py-12">
           {isPending ? (
             <FeedSkeleton />
           ) : isError ? (
@@ -134,20 +154,27 @@ export function FeedPage() {
             />
           ) : (
             <>
-              <p className="pb-5 text-xs text-white/40">
+              <p className="pb-5 text-xs text-brand-forest/60">
                 {data.totalCount} open {data.totalCount === 1 ? 'report' : 'reports'}
                 {search && ` matching “${search}”`}
               </p>
 
               <ul
                 className={cn(
-                  'grid gap-4 transition-opacity duration-200 sm:grid-cols-2 lg:grid-cols-3',
+                  'grid gap-5 transition-opacity duration-200 sm:grid-cols-2 lg:grid-cols-3',
                   isFetching && 'opacity-60',
                 )}
               >
                 {data.items.map((item) => (
                   <li key={item.id}>
-                    <FeedCard item={item} />
+                    <FeedCard
+                      item={item}
+                      isActive={selected?.id === item.id}
+                      onOpen={() => {
+                        setSelected(item)
+                        setShowHandIn(false)
+                      }}
+                    />
                   </li>
                 ))}
               </ul>
@@ -161,13 +188,13 @@ export function FeedPage() {
                     variant="outline"
                     disabled={!data.hasPreviousPage}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="border-white/15 bg-white/[0.06] text-white hover:bg-white/12 hover:text-white"
+                    className="border-brand-forest/15 bg-white/80 text-brand-forest hover:bg-white"
                   >
                     <ChevronLeftIcon aria-hidden="true" />
                     Previous
                   </Button>
 
-                  <span className="text-xs text-white/45 tabular-nums">
+                  <span className="text-xs text-brand-forest/60 tabular-nums">
                     Page {data.page} of {data.totalPages}
                   </span>
 
@@ -175,7 +202,7 @@ export function FeedPage() {
                     variant="outline"
                     disabled={!data.hasNextPage}
                     onClick={() => setPage((p) => p + 1)}
-                    className="border-white/15 bg-white/[0.06] text-white hover:bg-white/12 hover:text-white"
+                    className="border-brand-forest/15 bg-white/80 text-brand-forest hover:bg-white"
                   >
                     Next
                     <ChevronRightIcon aria-hidden="true" />
@@ -184,80 +211,39 @@ export function FeedPage() {
               )}
             </>
           )}
+          </div>
         </section>
       </main>
+
+      <FeedDetailPanel
+        item={selected}
+        showHandIn={showHandIn}
+        onShowHandIn={setShowHandIn}
+        onClose={() => setSelected(null)}
+      />
+      <FeedSpotlight item={selected} showHandIn={showHandIn} />
+      <CardConnector cardId={selected?.id ?? null} showHandIn={showHandIn} />
     </div>
   )
 }
 
 /* -------------------------------------------------------------------------- */
 
-function FeedCard({ item }: { item: LostReportFeedItem }) {
-  const initials = item.postedByName
-    .trim()
-    .split(/\s+/)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-
-  return (
-    <article className="group flex h-full flex-col rounded-2xl border border-white/10 bg-linear-to-b from-white/[0.07] to-white/[0.015] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-green/35">
-      <header className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-brand-green/15 text-xs font-medium text-brand-green">
-          {initials}
-        </span>
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-sm font-medium text-white/90">{item.postedByName}</p>
-          <p className="text-xs text-white/40">{timeAgo(item.createdAt)}</p>
-        </div>
-      </header>
-
-      <div className="flex flex-wrap gap-1.5 pt-4">
-        <Badge variant="secondary" className="bg-white/[0.08] text-white/75">
-          {item.itemTypeName}
-        </Badge>
-        {item.primaryColor && (
-          <Badge variant="secondary" className="bg-white/[0.08] text-white/75">
-            {item.primaryColor}
-          </Badge>
-        )}
-      </div>
-
-      <p className="flex-1 pt-3 text-sm text-pretty text-white/65">{item.description}</p>
-
-      <footer className="flex flex-col gap-1.5 pt-4 text-xs text-white/45">
-        <span className="flex items-center gap-1.5">
-          <MapPinIcon className="size-3.5 shrink-0 text-brand-green/70" aria-hidden="true" />
-          <span className="truncate">{item.lastSeenLocationName}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <ClockIcon className="size-3.5 shrink-0 text-brand-green/70" aria-hidden="true" />
-          {formatWindow(item.estimatedLostFromAt, item.estimatedLostToAt)}
-        </span>
-      </footer>
-    </article>
-  )
-}
-
 function FeedSkeleton() {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading reports">
+    <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading reports">
       {Array.from({ length: 6 }).map((_, index) => (
-        <li key={index} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex items-center gap-3">
-            <Skeleton className="size-9 rounded-full bg-white/10" />
-            <div className="flex-1 space-y-1.5">
-              <Skeleton className="h-3 w-24 bg-white/10" />
-              <Skeleton className="h-2.5 w-16 bg-white/10" />
+        <li key={index} className="overflow-hidden rounded-2xl bg-[oklch(0.21_0.03_148)] ring-1 ring-white/8">
+          <Skeleton className="aspect-4/3 rounded-none bg-white/6" />
+          <div className="flex flex-col gap-2 p-5">
+            <Skeleton className="h-5 w-28 bg-white/10" />
+            <Skeleton className="h-3.5 w-36 bg-white/8" />
+            <div className="space-y-2 pt-1">
+              <Skeleton className="h-3.5 w-full bg-white/8" />
+              <Skeleton className="h-3.5 w-4/5 bg-white/8" />
             </div>
+            <Skeleton className="mt-3 h-3 w-32 bg-white/8" />
           </div>
-          <Skeleton className="mt-4 h-5 w-20 rounded-full bg-white/10" />
-          <div className="mt-4 space-y-2">
-            <Skeleton className="h-3 w-full bg-white/10" />
-            <Skeleton className="h-3 w-4/5 bg-white/10" />
-          </div>
-          <Skeleton className="mt-5 h-3 w-32 bg-white/10" />
         </li>
       ))}
     </ul>
@@ -266,14 +252,14 @@ function FeedSkeleton() {
 
 function FeedEmpty({ search, onClear }: { search: string; onClear: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-16 text-center">
-      <span className="flex size-12 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.05]">
-        <SearchXIcon className="size-5 text-white/40" aria-hidden="true" />
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-brand-forest/10 bg-white/70 px-6 py-16 text-center">
+      <span className="flex size-12 items-center justify-center rounded-2xl border border-brand-forest/10 bg-brand-mist">
+        <SearchXIcon className="size-5 text-brand-forest/50" aria-hidden="true" />
       </span>
-      <p className="text-base font-medium text-white/85">
+      <p className="text-base font-medium text-brand-forest">
         {search ? `Nothing matching “${search}”` : 'No open reports right now'}
       </p>
-      <p className="max-w-sm text-sm text-white/50">
+      <p className="max-w-sm text-sm text-brand-forest/65">
         {search
           ? 'Try a broader term - an item type like “backpack”, a colour, or a building.'
           : 'When someone reports something lost, it will appear here.'}
@@ -300,10 +286,10 @@ function FeedError({ error, onRetry }: { error: unknown; onRetry: () => void }) 
   return (
     <div
       role="alert"
-      className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-6 py-16 text-center"
+      className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-6 py-16 text-center"
     >
-      <p className="text-base font-medium text-white/90">The feed could not be loaded</p>
-      <p className="max-w-sm text-sm text-white/60">{message}</p>
+      <p className="text-base font-medium text-brand-forest">The feed could not be loaded</p>
+      <p className="max-w-sm text-sm text-brand-forest/70">{message}</p>
       <Button
         variant="outline"
         onClick={onRetry}

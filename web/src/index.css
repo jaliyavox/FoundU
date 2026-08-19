@@ -313,3 +313,37 @@ html {
     opacity: 0;
   }
 }
+
+/* Spotlight card rising into place when a feed post is opened. */
+@keyframes fu-spotlight-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+.fu-spotlight-in {
+  animation: fu-spotlight-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-spotlight-in {
+    animation: none;
+  }
+}
+
+/* Rail linking the hand-in steps, drawn downward as the section appears. */
+@keyframes fu-rail-in {
+  from { transform: translateX(-50%) scaleY(0); }
+  to   { transform: translateX(-50%) scaleY(1); }
+}
+
+.fu-rail-in {
+  transform-origin: top;
+  animation: fu-rail-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-rail-in {
+    animation: none;
+    transform: translateX(-50%);
+  }
+}
