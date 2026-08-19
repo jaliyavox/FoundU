@@ -20,5 +20,11 @@ public interface ILostReportService
 
     Task<LostReportDetailDto> GetByIdAsync(Guid id, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Public, unauthenticated feed. Active reports only - withdrawn and resolved ones drop off,
+    /// so the board reflects what people are still looking for.
+    /// </summary>
+    Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(LostReportQuery query, CancellationToken cancellationToken = default);
+
     Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
 }

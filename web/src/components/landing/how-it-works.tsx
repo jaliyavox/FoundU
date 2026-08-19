@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 /*  found items, so nothing here is claimed as a statistic.                     */
 /* -------------------------------------------------------------------------- */
 
-const ATTRIBUTE_PILLS = ['Backpack', 'Navy', 'Library', '2–3pm', 'Laptop sleeve']
+const ATTRIBUTE_PILLS = ['Backpack', 'Navy', 'Library', '2-3pm', 'Laptop sleeve']
 
 const CAMPUS_PINS = [
   { label: 'Library', x: 26, y: 33 },

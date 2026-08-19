@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button'
 import { useScrolled } from '@/hooks/use-scrolled'
 import { cn } from '@/lib/utils'
 
-const LINKS = [
+export interface NavLinkItem {
+  href: string
+  label: string
+}
+
+const DEFAULT_LINKS: NavLinkItem[] = [
   { href: '#how-it-works', label: 'How it works' },
   { href: '#features', label: 'Features' },
   { href: '#faq', label: 'FAQ' },
@@ -17,7 +22,16 @@ const LINKS = [
  * page scrolls past the hero it swaps to the themed surface so it stays readable on the
  * light sections below.
  */
-export function SiteNav({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: string }) {
+export function SiteNav({
+  ctaHref,
+  ctaLabel,
+  links = DEFAULT_LINKS,
+}: {
+  ctaHref: string
+  ctaLabel: string
+  /** Defaults to the landing page's in-page anchors; other pages pass their own. */
+  links?: NavLinkItem[]
+}) {
   const scrolled = useScrolled(120)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -49,7 +63,7 @@ export function SiteNav({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: stri
           </Link>
 
           <ul className="hidden items-center gap-1 md:flex">
-            {LINKS.map(({ href, label }) => (
+            {links.map(({ href, label }) => (
               <li key={href}>
                 <a
                   href={href}
@@ -99,7 +113,7 @@ export function SiteNav({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: stri
 
         {menuOpen && (
           <ul id="site-nav-mobile" className="flex flex-col gap-0.5 border-t border-border/40 p-2 md:hidden">
-            {LINKS.map(({ href, label }) => (
+            {links.map(({ href, label }) => (
               <li key={href}>
                 <a
                   href={href}

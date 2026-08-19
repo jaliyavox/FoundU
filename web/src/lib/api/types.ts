@@ -31,3 +31,14 @@ export interface ProblemDetails {
   /** Field-level messages, present only on 400s raised by ValidationAppException. */
   errors?: Record<string, string[]>
 }
+
+/** Mirrors FoundU.Application.Common.Pagination.PagedResult<T>. */
+export interface PagedResult<T> {
+  items: T[]
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+}

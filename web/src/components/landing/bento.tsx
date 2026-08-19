@@ -49,11 +49,8 @@ export function SectionHeading({
 }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
-      {eyebrow && (
-        <span className="rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-medium text-white/75 backdrop-blur-md">
-          {eyebrow}
-        </span>
-      )}
+      {/* Plain text eyebrow - see docs/design.md. Pill badges are not used in this project. */}
+      {eyebrow && <p className="text-sm font-medium text-brand-green">{eyebrow}</p>}
       <h2 id={id} className="text-3xl font-semibold tracking-tight text-balance sm:text-5xl">
         {title}
       </h2>

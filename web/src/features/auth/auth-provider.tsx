@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AuthContext, type AuthContextValue } from './auth-context'
+import { AuthContext, type AuthContextValue, type RegisterInput } from './auth-context'
 import * as authApi from './auth-api'
 import { setOnSessionExpired } from '@/lib/api/client'
 import { tokenStore } from '@/lib/api/tokens'
@@ -23,6 +23,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return auth.user
   }, [])
 
+  const register = useCallback(async (input: RegisterInput) => {
+    // The API signs the new student straight in, so there is no second login round-trip.
+    const auth = await authApi.register(
+      input.fullName,
+      input.email,
+      input.password,
+      input.studentNumber,
+    )
+    tokenStore.save(auth)
+    setUser(auth.user)
+    return auth.user
+  }, [])
+
   const logout = useCallback(async () => {
     const refreshToken = tokenStore.getRefreshToken()
 
@@ -39,8 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: user !== null, login, logout }),
-    [user, login, logout],
+    () => ({ user, isAuthenticated: user !== null, login, register, logout }),
+    [user, login, register, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

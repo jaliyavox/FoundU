@@ -6,6 +6,7 @@ import {
   BackpackIcon,
   HeadphonesIcon,
   KeyRoundIcon,
+  NewspaperIcon,
   SmartphoneIcon,
   WalletIcon,
 } from 'lucide-react'
@@ -98,16 +99,7 @@ export function Hero({
       </div>
 
       {/* --- centre column --------------------------------------------------- */}
-      <div className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-7 px-6 pt-32 pb-28 text-center sm:pt-36">
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3.5 py-1.5 text-xs font-medium text-white/85 backdrop-blur-md">
-          <span className="relative flex size-1.5">
-            <span className="fu-ping absolute inline-flex size-full rounded-full bg-brand-green" />
-            <span className="relative inline-flex size-1.5 rounded-full bg-brand-green" />
-          </span>
-          Matching across campus, all day
-          <ArrowRightIcon className="size-3" aria-hidden="true" />
-        </span>
-
+      <div className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-7 px-6 pt-44 pb-24 text-center sm:pt-52 sm:pb-28">
         <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl">
           Lost it here?{' '}
           <span className="bg-linear-to-r from-white via-brand-sage to-brand-green/70 bg-clip-text text-transparent">
@@ -116,33 +108,40 @@ export function Hero({
         </h1>
 
         <p className="max-w-xl text-base text-pretty text-white/65 sm:text-lg">
-          FoundU connects the things students lose with the things staff find — describe it once,
+          FoundU connects the things students lose with the things staff find - describe it once,
           and let the matching do the walking.
         </p>
 
-        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-center gap-4 pt-2">
+          {/* The single loudest thing on the page: the feed is the one part a visitor can use
+              with no account. The sweeping bar reads as "something is always happening"
+              without the twitchiness of a pulsing ring. */}
           <Button
-            size="lg"
-            className="group rounded-xl bg-white text-brand-forest hover:bg-white/90"
+            className="group relative h-15 overflow-hidden rounded-2xl bg-brand-green px-10 text-lg font-semibold text-[oklch(0.16_0.028_148)] shadow-2xl shadow-brand-green/35 transition-all duration-300 hover:bg-brand-green hover:shadow-brand-green/50"
             nativeButton={false}
-            render={<Link to={ctaHref} />}
+            render={<Link to="/feed" />}
           >
-            {primaryLabel}
+            <NewspaperIcon aria-hidden="true" className="size-5" />
+            Go to lost feed
             <ArrowRightIcon
               aria-hidden="true"
-              className="transition-transform duration-200 group-hover:translate-x-0.5"
+              className="size-5 transition-transform duration-200 group-hover:translate-x-1"
+            />
+
+            <span
+              aria-hidden="true"
+              className="fu-loadbar absolute bottom-0 left-0 h-[3px] w-1/3 rounded-full bg-[oklch(0.16_0.028_148)]/45"
             />
           </Button>
 
-          <Button
-            size="lg"
-            variant="outline"
-            className="rounded-xl border-white/20 bg-white/8 text-white backdrop-blur-md hover:bg-white/15 hover:text-white"
-            nativeButton={false}
-            render={<a href="#how-it-works" />}
+          {/* Secondary, and deliberately quiet - reporting needs an account, so it is the
+              step after browsing rather than a competing choice. */}
+          <Link
+            to={ctaHref}
+            className="rounded text-sm text-white/55 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
-            See how it works
-          </Button>
+            {primaryLabel}
+          </Link>
         </div>
       </div>
 
@@ -150,11 +149,12 @@ export function Hero({
       <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-4 px-6 pb-8 sm:flex-row sm:justify-between">
         <a
           href="#how-it-works"
-          className="group inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/8 py-1.5 pr-4 pl-1.5 text-sm text-white/75 backdrop-blur-md transition-colors hover:bg-white/15 hover:text-white focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="group inline-flex items-center gap-2 text-sm text-white/60 transition-colors hover:text-white focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
-          <span className="flex size-8 items-center justify-center rounded-full border border-white/20">
-            <ArrowDownIcon className="size-4 transition-transform duration-200 group-hover:translate-y-0.5" />
-          </span>
+          <ArrowDownIcon
+            className="size-4 transition-transform duration-200 group-hover:translate-y-0.5"
+            aria-hidden="true"
+          />
           Scroll to explore
         </a>
 

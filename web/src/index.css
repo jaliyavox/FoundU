@@ -292,3 +292,24 @@ html {
     scroll-behavior: auto;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Indeterminate loading bar. Used on the primary call to action to suggest
+   something is always being processed, rather than a decorative pulse.
+--------------------------------------------------------------------------- */
+
+@keyframes fu-loadbar {
+  0%        { transform: translateX(-100%); }
+  55%, 100% { transform: translateX(320%); }
+}
+
+.fu-loadbar {
+  animation: fu-loadbar 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-loadbar {
+    animation: none;
+    opacity: 0;
+  }
+}

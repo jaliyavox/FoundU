@@ -1,6 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/app-layout'
 import { LoginPage } from '@/features/auth/login-page'
+import { FeedPage } from '@/features/feed/feed-page'
+import { RegisterPage } from '@/features/auth/register-page'
 import { ProtectedRoute } from './protected-route'
 import { AdminPage } from '@/pages/admin-page'
 import { ItemsPage } from '@/pages/items-page'
@@ -13,6 +15,8 @@ export const router = createBrowserRouter([
   // Public. Signed-in visitors are redirected to their role's home from inside the page.
   { path: '/', element: <LandingPage /> },
   { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
+  { path: '/feed', element: <FeedPage /> },
 
   {
     element: <ProtectedRoute />,

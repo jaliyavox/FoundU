@@ -75,6 +75,55 @@ public class LostReportService : ILostReportService
         CancellationToken cancellationToken = default)
         => SearchCoreAsync(_db.LostReports.AsNoTracking().Where(r => r.StudentId == studentId), query, cancellationToken);
 
+    public async Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(
+        LostReportQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        // Active only: a withdrawn or resolved report is no longer something to look out for.
+        var reports = _db.LostReports
+            .AsNoTracking()
+            .Where(r => r.Status == LostReportStatus.Active);
+
+        if (query.CategoryId is { } categoryId) reports = reports.Where(r => r.CategoryId == categoryId);
+        if (query.ItemTypeId is { } itemTypeId) reports = reports.Where(r => r.ItemTypeId == itemTypeId);
+        if (query.LastSeenLocationId is { } locationId) reports = reports.Where(r => r.LastSeenLocationId == locationId);
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = $"%{query.Search.Trim()}%";
+
+            reports = reports.Where(r =>
+                EF.Functions.ILike(r.Description, term) ||
+                (r.PrimaryColor != null && EF.Functions.ILike(r.PrimaryColor, term)) ||
+                EF.Functions.ILike(r.ItemType.Name, term) ||
+                EF.Functions.ILike(r.Category.Name, term) ||
+                EF.Functions.ILike(r.LastSeenLocation.Name, term));
+        }
+
+        // Newest first, always - a feed has one sensible order and no caller-supplied sort.
+        reports = reports.OrderByDescending(r => r.CreatedAt);
+
+        var totalCount = await reports.CountAsync(cancellationToken);
+
+        var items = await reports
+            .Skip(query.Skip)
+            .Take(query.PageSize)
+            .Select(r => new LostReportFeedItemDto(
+                r.Id,
+                r.Student.FullName,
+                r.Category.Name,
+                r.ItemType.Name,
+                r.LastSeenLocation.Name,
+                r.Description,
+                r.PrimaryColor,
+                r.EstimatedLostFromAt,
+                r.EstimatedLostToAt,
+                r.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        return PagedResult<LostReportFeedItemDto>.Create(items, query.Page, query.PageSize, totalCount);
+    }
+
     public async Task<LostReportDetailDto> GetByIdAsync(
         Guid id,
         Guid requesterId,

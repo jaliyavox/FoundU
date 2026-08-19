@@ -34,6 +34,17 @@ public class LostReportsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
+    /// <summary>
+    /// Public community feed - no authentication. Returns active reports only, with a reduced
+    /// projection that carries the poster's display name but no email or student number.
+    /// </summary>
+    [HttpGet("feed")]
+    [AllowAnonymous]
+    public async Task<ActionResult<PagedResult<LostReportFeedItemDto>>> Feed(
+        [FromQuery] LostReportQuery query,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetPublicFeedAsync(query, cancellationToken));
+
     /// <summary>Staff/Admin view across every student's reports.</summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.Staff)]

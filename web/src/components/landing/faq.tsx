@@ -1,4 +1,3 @@
-import { HelpCircleIcon } from 'lucide-react'
 import {
   Accordion,
   AccordionContent,
@@ -21,7 +20,7 @@ const FAQS = [
   {
     question: 'How does FoundU know an item is really mine?',
     answer:
-      'When staff log a found item they record a detail that is never shown to anyone claiming it — what is in the front pocket, a sticker on the lid, the colour of a keychain. To claim it you describe that detail from memory. Get it right and staff confirm the handover.',
+      'When staff log a found item they record a detail that is never shown to anyone claiming it - what is in the front pocket, a sticker on the lid, the colour of a keychain. To claim it you describe that detail from memory. Get it right and staff confirm the handover.',
   },
   {
     question: 'Can other students see what I have reported?',
@@ -61,10 +60,7 @@ export function Faq() {
 
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-20 sm:py-28 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
         <div className="flex flex-col items-start gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-forest/15 bg-white/70 px-3 py-1 text-xs font-medium text-brand-forest">
-            <HelpCircleIcon className="size-3" aria-hidden="true" />
-            FAQ
-          </span>
+          <p className="text-sm font-medium text-brand-green">FAQ</p>
 
           <h2
             id="faq-heading"

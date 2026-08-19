@@ -51,6 +51,23 @@ public record LostReportDetailDto(
 
 public record WithdrawLostReportRequest(string? Reason);
 
+/// <summary>
+/// Anonymous public feed projection. Carries the poster's display name because the feed is a
+/// community board, but deliberately nothing else identifying - no email, no student number,
+/// no internal ids beyond the report itself.
+/// </summary>
+public record LostReportFeedItemDto(
+    Guid Id,
+    string PostedByName,
+    string CategoryName,
+    string ItemTypeName,
+    string LastSeenLocationName,
+    string Description,
+    string? PrimaryColor,
+    DateTime EstimatedLostFromAt,
+    DateTime EstimatedLostToAt,
+    DateTime CreatedAt);
+
 public class LostReportQuery : PaginationQuery
 {
     /// <summary>Filter by LostReportStatus name (Active, Matched, Resolved, Withdrawn).</summary>
