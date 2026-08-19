@@ -16,6 +16,8 @@ public record CreateLostReportRequest(
     DateTime EstimatedLostFromAt,
     DateTime EstimatedLostToAt);
 
+public record LostReportPhotoDto(Guid Id, string Url);
+
 public record LostReportListItemDto(
     Guid Id,
     string CategoryName,
@@ -26,6 +28,7 @@ public record LostReportListItemDto(
     DateTime EstimatedLostFromAt,
     DateTime EstimatedLostToAt,
     string Status,
+    IReadOnlyList<string> PhotoUrls,
     DateTime CreatedAt);
 
 public record LostReportDetailDto(
@@ -66,6 +69,7 @@ public record LostReportFeedItemDto(
     string? PrimaryColor,
     DateTime EstimatedLostFromAt,
     DateTime EstimatedLostToAt,
+    IReadOnlyList<string> PhotoUrls,
     DateTime CreatedAt);
 
 public class LostReportQuery : PaginationQuery

@@ -347,3 +347,19 @@ html {
     transform: translateX(-50%);
   }
 }
+
+/* Wizard step transition. Direction is set per-render so going back slides the other way. */
+@keyframes fu-step-in {
+  from { opacity: 0; transform: translateX(var(--fu-step-from, 14px)); }
+  to   { opacity: 1; transform: none; }
+}
+
+.fu-step-in {
+  animation: fu-step-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-step-in {
+    animation: none;
+  }
+}

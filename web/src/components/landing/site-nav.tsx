@@ -6,6 +6,11 @@ import { Button } from '@/components/ui/button'
 import { useScrolled } from '@/hooks/use-scrolled'
 import { cn } from '@/lib/utils'
 
+/** Hash targets need a real anchor; anything else is an app route. */
+function isAnchor(href: string) {
+  return href.startsWith('#')
+}
+
 export interface NavLinkItem {
   href: string
   label: string
@@ -65,18 +70,25 @@ export function SiteNav({
           <ul className="hidden items-center gap-1 md:flex">
             {links.map(({ href, label }) => (
               <li key={href}>
-                <a
-                  href={href}
-                  className={cn(
-                    'rounded-lg px-3 py-1.5 text-sm transition-colors duration-200',
+                {(() => {
+                  const className = cn(
+                    'block rounded-lg px-3 py-1.5 text-sm transition-colors duration-200',
                     'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                     scrolled
                       ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
                       : 'text-white/70 hover:bg-white/10 hover:text-white',
-                  )}
-                >
-                  {label}
-                </a>
+                  )
+
+                  return isAnchor(href) ? (
+                    <a href={href} className={className}>
+                      {label}
+                    </a>
+                  ) : (
+                    <Link to={href} className={className}>
+                      {label}
+                    </Link>
+                  )
+                })()}
               </li>
             ))}
           </ul>
@@ -115,16 +127,23 @@ export function SiteNav({
           <ul id="site-nav-mobile" className="flex flex-col gap-0.5 border-t border-border/40 p-2 md:hidden">
             {links.map(({ href, label }) => (
               <li key={href}>
-                <a
-                  href={href}
-                  onClick={() => setMenuOpen(false)}
-                  className={cn(
+                {(() => {
+                  const className = cn(
                     'block rounded-lg px-3 py-2 text-sm transition-colors',
                     scrolled ? 'text-foreground hover:bg-muted' : 'text-white/80 hover:bg-white/10',
-                  )}
-                >
-                  {label}
-                </a>
+                  )
+                  const close = () => setMenuOpen(false)
+
+                  return isAnchor(href) ? (
+                    <a href={href} onClick={close} className={className}>
+                      {label}
+                    </a>
+                  ) : (
+                    <Link to={href} onClick={close} className={className}>
+                      {label}
+                    </Link>
+                  )
+                })()}
               </li>
             ))}
           </ul>

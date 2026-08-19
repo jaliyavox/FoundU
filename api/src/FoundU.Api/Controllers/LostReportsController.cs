@@ -1,6 +1,7 @@
 using FoundU.Api.Extensions;
 using FoundU.Application.Abstractions;
 using FoundU.Application.Auth;
+using FoundU.Application.Common;
 using FoundU.Application.Common.Pagination;
 using FoundU.Application.LostReports.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -65,6 +66,24 @@ public class LostReportsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<LostReportDetailDto>> GetById(Guid id, CancellationToken cancellationToken)
         => Ok(await _lostReports.GetByIdAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
+
+    /// <summary>
+    /// Attaches up to two photos to the caller's own report. Multipart form data; the field
+    /// name is "photos". Limits are enforced here, not just in the browser.
+    /// </summary>
+    [HttpPost("{id:guid}/photos")]
+    [RequestSizeLimit(PhotoRules.MaxPhotosPerReport * PhotoRules.MaxBytes + 1024 * 1024)]
+    public async Task<ActionResult<IReadOnlyList<LostReportPhotoDto>>> AddPhotos(
+        Guid id,
+        [FromForm] IFormFileCollection photos,
+        CancellationToken cancellationToken)
+    {
+        var uploads = photos
+            .Select(f => new PhotoUpload(f.FileName, f.ContentType, f.Length, f.OpenReadStream()))
+            .ToList();
+
+        return Ok(await _lostReports.AddPhotosAsync(id, User.GetUserId(), uploads, cancellationToken));
+    }
 
     /// <summary>
     /// Message the report's author - typically "I have found this and handed it in".

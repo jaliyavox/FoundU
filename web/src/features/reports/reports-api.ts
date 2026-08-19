@@ -60,6 +60,40 @@ export interface LostReportListItem {
   createdAt: string
 }
 
+/** Mirrors FoundU.Application.Common.PhotoRules - kept in step by hand, and by the API. */
+export const PHOTO_RULES = {
+  maxPhotos: 2,
+  maxBytes: 5 * 1024 * 1024,
+  maxSizeLabel: '5 MB',
+  accept: 'image/jpeg,image/png,image/webp',
+} as const
+
+/**
+ * Photos are attached after the report exists, because the API keys them to its id. A failure
+ * here leaves the report in place - the caller decides how loudly to complain.
+ */
+export async function uploadLostReportPhotos(reportId: string, files: File[]) {
+  const body = new FormData()
+  files.forEach((file) => body.append('photos', file))
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_BASE_URL}/api/lost-reports/${reportId}/photos`,
+    {
+      method: 'POST',
+      // FormData sets its own multipart boundary; setting Content-Type here breaks it.
+      headers: { Authorization: `Bearer ${localStorage.getItem('foundu.accessToken') ?? ''}` },
+      body,
+    },
+  )
+
+  if (!response.ok) {
+    const problem = await response.json().catch(() => ({}))
+    throw new Error(problem.detail ?? 'The photos could not be uploaded.')
+  }
+
+  return (await response.json()) as { id: string; url: string }[]
+}
+
 export const createLostReport = (input: CreateLostReportInput) =>
   api.post<{ id: string }>('/api/lost-reports', input)
 

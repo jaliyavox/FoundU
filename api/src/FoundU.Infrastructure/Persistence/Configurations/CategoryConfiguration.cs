@@ -33,6 +33,7 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
             new Category { Id = SeedIds.CategoryKeys, Name = "Keys", Description = "House, locker, or vehicle keys", IsActive = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp },
             new Category { Id = SeedIds.CategoryJewelryAccessories, Name = "Jewelry & Accessories", Description = "Watches, jewelry, glasses", IsActive = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp },
             new Category { Id = SeedIds.CategoryBooksStationery, Name = "Books & Stationery", Description = "Textbooks, notebooks, stationery", IsActive = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp },
+            new Category { Id = SeedIds.CategoryIdentityDocuments, Name = "ID & Licences", Description = "University ID, national ID, driving licence, passport", IsActive = true, IsHighlighted = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp },
             new Category { Id = SeedIds.CategoryOther, Name = "Other", Description = "Anything not covered above", IsActive = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp }
         );
     }

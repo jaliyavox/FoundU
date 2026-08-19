@@ -1,4 +1,5 @@
 using FoundU.Application.Abstractions;
+using FoundU.Application.Common;
 using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Common.Pagination;
 using FoundU.Application.LostReports.Dtos;
@@ -12,10 +13,12 @@ namespace FoundU.Infrastructure.Reporting;
 public class LostReportService : ILostReportService
 {
     private readonly FoundUDbContext _db;
+    private readonly IPhotoStorage _photoStorage;
 
-    public LostReportService(FoundUDbContext db)
+    public LostReportService(FoundUDbContext db, IPhotoStorage photoStorage)
     {
         _db = db;
+        _photoStorage = photoStorage;
     }
 
     public async Task<LostReportDetailDto> CreateAsync(
@@ -118,6 +121,7 @@ public class LostReportService : ILostReportService
                 r.PrimaryColor,
                 r.EstimatedLostFromAt,
                 r.EstimatedLostToAt,
+                r.Photos.Select(p => p.Url).ToList(),
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -184,6 +188,73 @@ public class LostReportService : ILostReportService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(report.Id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LostReportPhotoDto>> AddPhotosAsync(
+        Guid reportId,
+        Guid ownerId,
+        IReadOnlyList<PhotoUpload> uploads,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        if (report.StudentId != ownerId)
+        {
+            throw new ForbiddenAppException("You can only add photos to your own reports.");
+        }
+
+        if (uploads.Count == 0)
+        {
+            throw new ValidationAppException("photos", "Choose at least one image.");
+        }
+
+        var existing = await _db.LostItemPhotos.CountAsync(p => p.LostReportId == reportId, cancellationToken);
+
+        if (existing + uploads.Count > PhotoRules.MaxPhotosPerReport)
+        {
+            throw new ValidationAppException("photos",
+                $"A report can have at most {PhotoRules.MaxPhotosPerReport} photos. This one already has {existing}.");
+        }
+
+        var saved = new List<LostItemPhoto>();
+
+        foreach (var upload in uploads)
+        {
+            if (upload.Length > PhotoRules.MaxBytes)
+            {
+                throw new ValidationAppException("photos",
+                    $"'{upload.FileName}' is larger than {PhotoRules.MaxSizeLabel}.");
+            }
+
+            // Read the header and check what the file actually is. The declared content type
+            // and the extension both come from the client, so neither can be trusted.
+            var header = new byte[12];
+            var read = await upload.Content.ReadAsync(header, cancellationToken);
+            upload.Content.Position = 0;
+
+            var extension = PhotoRules.ResolveExtension(header.AsSpan(0, read));
+
+            if (extension is null)
+            {
+                throw new ValidationAppException("photos",
+                    $"'{upload.FileName}' is not a JPEG, PNG or WebP image.");
+            }
+
+            var url = await _photoStorage.SaveAsync(
+                upload with { FileName = extension },
+                $"uploads/lost-reports/{reportId:N}",
+                cancellationToken);
+
+            saved.Add(new LostItemPhoto { LostReportId = reportId, Url = url });
+        }
+
+        _db.LostItemPhotos.AddRange(saved);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return saved.Select(p => new LostReportPhotoDto(p.Id, p.Url)).ToList();
     }
 
     public async Task<LostReportMessageDto> SendMessageAsync(
@@ -301,6 +372,7 @@ public class LostReportService : ILostReportService
                 r.EstimatedLostFromAt,
                 r.EstimatedLostToAt,
                 r.Status.ToString(),
+                r.Photos.Select(p => p.Url).ToList(),
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 
