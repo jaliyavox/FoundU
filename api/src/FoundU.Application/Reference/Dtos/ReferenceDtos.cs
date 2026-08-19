@@ -1,7 +1,12 @@
 namespace FoundU.Application.Reference.Dtos;
 
 /// <summary>A category with its item types nested, so a form can populate both dropdowns in one call.</summary>
-public record CategoryDto(Guid Id, string Name, string? Description, IReadOnlyList<ItemTypeDto> ItemTypes);
+public record CategoryDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    bool IsHighlighted,
+    IReadOnlyList<ItemTypeDto> ItemTypes);
 
 public record ItemTypeDto(Guid Id, Guid CategoryId, string Name);
 

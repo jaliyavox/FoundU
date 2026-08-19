@@ -35,7 +35,10 @@ public class StorageLocationConfiguration : IEntityTypeConfiguration<StorageLoca
                 IsActive = true,
                 CreatedAt = SeedTimestamp,
                 UpdatedAt = SeedTimestamp
-            }
+            },
+            new StorageLocation { Id = SeedIds.StorageLibraryDesk, Name = "Library Front Desk", Building = "Building C", Capacity = 80, IsActive = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp },
+            new StorageLocation { Id = SeedIds.StorageSportsComplexOffice, Name = "Sports Complex Office", Building = "Sports Block", Capacity = 60, IsActive = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp },
+            new StorageLocation { Id = SeedIds.StorageStudentServices, Name = "Student Services", Building = "Building A", Capacity = 120, IsActive = true, CreatedAt = SeedTimestamp, UpdatedAt = SeedTimestamp }
         );
     }
 }

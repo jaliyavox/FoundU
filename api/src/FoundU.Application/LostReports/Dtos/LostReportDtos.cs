@@ -16,6 +16,8 @@ public record CreateLostReportRequest(
     DateTime EstimatedLostFromAt,
     DateTime EstimatedLostToAt);
 
+public record LostReportPhotoDto(Guid Id, string Url);
+
 public record LostReportListItemDto(
     Guid Id,
     string CategoryName,
@@ -26,6 +28,7 @@ public record LostReportListItemDto(
     DateTime EstimatedLostFromAt,
     DateTime EstimatedLostToAt,
     string Status,
+    IReadOnlyList<string> PhotoUrls,
     DateTime CreatedAt);
 
 public record LostReportDetailDto(
@@ -66,6 +69,7 @@ public record LostReportFeedItemDto(
     string? PrimaryColor,
     DateTime EstimatedLostFromAt,
     DateTime EstimatedLostToAt,
+    IReadOnlyList<string> PhotoUrls,
     DateTime CreatedAt);
 
 public class LostReportQuery : PaginationQuery
@@ -77,3 +81,17 @@ public class LostReportQuery : PaginationQuery
     public Guid? ItemTypeId { get; set; }
     public Guid? LastSeenLocationId { get; set; }
 }
+
+/// <summary>Written by a signed-in user to the author of a lost report.</summary>
+public record SendLostReportMessageRequest(string Body);
+
+/// <summary>
+/// A message as the report's author sees it. Carries the sender's display name only - never
+/// their email or student number, the same rule the public feed follows.
+/// </summary>
+public record LostReportMessageDto(
+    Guid Id,
+    string SenderName,
+    string Body,
+    bool IsRead,
+    DateTime CreatedAt);

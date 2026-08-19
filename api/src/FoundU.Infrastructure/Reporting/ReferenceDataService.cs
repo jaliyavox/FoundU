@@ -21,14 +21,19 @@ public class ReferenceDataService : IReferenceDataService
         return await _db.Categories
             .AsNoTracking()
             .Where(c => c.IsActive)
-            .OrderBy(c => c.Name)
+            // Highlighted categories first - identity documents should not be buried
+            // alphabetically between "Electronics" and "Keys".
+            .OrderByDescending(c => c.IsHighlighted)
+            .ThenBy(c => c.Name)
             .Select(c => new CategoryDto(
                 c.Id,
                 c.Name,
                 c.Description,
+                c.IsHighlighted,
                 c.ItemTypes
                     .Where(t => t.IsActive)
-                    .OrderBy(t => t.Name)
+                    .OrderBy(t => t.Name == "Other")
+                    .ThenBy(t => t.Name)
                     .Select(t => new ItemTypeDto(t.Id, t.CategoryId, t.Name))
                     .ToList()))
             .ToListAsync(cancellationToken);

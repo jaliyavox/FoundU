@@ -163,6 +163,15 @@ export function MyReportsPage() {
   )
 }
 
+/** Where a report sits in its life. Withdrawn is off this path, not a stage of it. */
+const LIFECYCLE = ['Posted', 'Matched', 'Returned'] as const
+
+const STAGE_BY_STATUS: Record<string, number> = {
+  Active: 0,
+  Matched: 1,
+  Resolved: 2,
+}
+
 function ReportCard({
   report,
   onWithdraw,
@@ -172,47 +181,115 @@ function ReportCard({
   onWithdraw: () => void
   isWithdrawing: boolean
 }) {
+  const isWithdrawn = report.status === 'Withdrawn'
+  const stage = STAGE_BY_STATUS[report.status] ?? 0
+
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{report.itemTypeName}</span>
-            <Badge
-              variant="secondary"
-              className={cn(STATUS_STYLES[report.status] ?? 'bg-muted text-muted-foreground')}
+    <Card className="group overflow-hidden bg-linear-to-b from-card to-muted/30 transition-shadow duration-300 hover:shadow-md">
+      <CardContent className="flex flex-col gap-4 pt-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-medium">{report.itemTypeName}</h2>
+              <Badge
+                variant="secondary"
+                className={cn(STATUS_STYLES[report.status] ?? 'bg-muted text-muted-foreground')}
+              >
+                {report.status}
+              </Badge>
+              {report.primaryColor && (
+                <span className="text-xs text-muted-foreground">{report.primaryColor}</span>
+              )}
+            </div>
+
+            <p className="pt-2 text-sm text-pretty text-muted-foreground">{report.description}</p>
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <MapPinIcon className="size-3.5 text-brand-green" aria-hidden="true" />
+                {report.lastSeenLocationName}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <ClockIcon className="size-3.5 text-brand-green" aria-hidden="true" />
+                {formatDateTime(report.estimatedLostFromAt)} - {formatDateTime(report.estimatedLostToAt)}
+              </span>
+            </div>
+          </div>
+
+          {report.status === 'Active' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onWithdraw}
+              disabled={isWithdrawing}
+              className="shrink-0"
             >
-              {report.status}
-            </Badge>
-            {report.primaryColor && <Badge variant="secondary">{report.primaryColor}</Badge>}
-          </div>
-
-          <p className="pt-2 text-sm text-pretty text-muted-foreground">{report.description}</p>
-
-          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <MapPinIcon className="size-3.5" aria-hidden="true" />
-              {report.lastSeenLocationName}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <ClockIcon className="size-3.5" aria-hidden="true" />
-              {formatDateTime(report.estimatedLostFromAt)} - {formatDateTime(report.estimatedLostToAt)}
-            </span>
-          </div>
+              {isWithdrawing && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+              Withdraw
+            </Button>
+          )}
         </div>
 
-        {report.status === 'Active' && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onWithdraw}
-            disabled={isWithdrawing}
-            className="shrink-0"
-          >
-            {isWithdrawing && <Loader2Icon className="animate-spin" aria-hidden="true" />}
-            Withdraw
-          </Button>
-        )}
+        {/* Progress rail. Withdrawn reports show the path greyed out rather than a fake
+            position on it - the report left the process, it did not advance through it. */}
+        <div className="border-t pt-4">
+          {isWithdrawn ? (
+            <p className="text-xs text-muted-foreground">
+              Withdrawn - this report is no longer on the feed or being matched.
+            </p>
+          ) : (
+            <ol className="flex items-center">
+              {LIFECYCLE.map((label, index) => {
+                const isDone = index < stage
+                const isCurrent = index === stage
+
+                return (
+                  <li
+                    key={label}
+                    className={cn('flex items-center gap-2', index > 0 && 'flex-1')}
+                  >
+                    {index > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'h-px flex-1 transition-colors duration-500',
+                          isDone || isCurrent ? 'bg-brand-green' : 'bg-border',
+                        )}
+                      />
+                    )}
+
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex size-2">
+                        {isCurrent && (
+                          <span className="fu-ping absolute inline-flex size-full rounded-full bg-brand-green" />
+                        )}
+                        <span
+                          className={cn(
+                            'relative inline-flex size-2 rounded-full transition-colors duration-500',
+                            isDone || isCurrent ? 'bg-brand-green' : 'bg-border',
+                          )}
+                        />
+                      </span>
+
+                      <span
+                        className={cn(
+                          'text-xs transition-colors duration-500',
+                          isCurrent
+                            ? 'font-medium text-foreground'
+                            : isDone
+                              ? 'text-muted-foreground'
+                              : 'text-muted-foreground/60',
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </span>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

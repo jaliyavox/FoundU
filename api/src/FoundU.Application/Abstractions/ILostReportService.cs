@@ -27,4 +27,19 @@ public interface ILostReportService
     Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(LostReportQuery query, CancellationToken cancellationToken = default);
 
     Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attaches photos to a report the caller owns. Enforces the count, size and real file
+    /// type - the client's checks are a convenience, these are the ones that hold.
+    /// </summary>
+    Task<IReadOnlyList<LostReportPhotoDto>> AddPhotosAsync(Guid reportId, Guid ownerId, IReadOnlyList<PhotoUpload> uploads, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a message to the report's author. Requires a signed-in sender, who may not be
+    /// the author themselves, and only works while the report is still Active.
+    /// </summary>
+    Task<LostReportMessageDto> SendMessageAsync(Guid reportId, Guid senderId, string body, CancellationToken cancellationToken = default);
+
+    /// <summary>The report author's messages. Staff may also read them for dispute handling.</summary>
+    Task<IReadOnlyList<LostReportMessageDto>> GetMessagesAsync(Guid reportId, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
 }

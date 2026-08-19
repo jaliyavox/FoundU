@@ -3,6 +3,7 @@ using System;
 using FoundU.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FoundU.Infrastructure.Migrations
 {
     [DbContext(typeof(FoundUDbContext))]
-    partial class FoundUDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260819111521_SeedMoreItemTypesAndStorage")]
+    partial class SeedMoreItemTypesAndStorage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -488,9 +491,6 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsHighlighted")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -514,7 +514,6 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Phones, laptops, chargers, headphones",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Electronics",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -525,7 +524,6 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Backpacks, handbags, wallets, purses",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Bags & Wallets",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -536,7 +534,6 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Jackets, hats, scarves and other apparel",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Clothing",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -547,7 +544,6 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Student IDs, cards, documents",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Documents & Cards",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -558,7 +554,6 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "House, locker, or vehicle keys",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Keys",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -569,7 +564,6 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Watches, jewelry, glasses",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Jewelry & Accessories",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -580,19 +574,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Textbooks, notebooks, stationery",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Books & Stationery",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("21111111-1111-1111-1111-111111111119"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "University ID, national ID, driving licence, passport",
-                            IsActive = true,
-                            IsDeleted = false,
-                            IsHighlighted = true,
-                            Name = "ID & Licences",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
@@ -602,7 +584,6 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Anything not covered above",
                             IsActive = true,
                             IsDeleted = false,
-                            IsHighlighted = false,
                             Name = "Other",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
@@ -1263,136 +1244,6 @@ namespace FoundU.Infrastructure.Migrations
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Charger",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111131"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "University ID",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111132"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "National ID",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111133"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Driving Licence",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111134"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Passport",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111141"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111142"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111112"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111143"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111113"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111144"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111114"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111145"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111115"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111146"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111116"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111147"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111117"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111148"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111118"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = new Guid("51111111-1111-1111-1111-111111111149"),
-                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Other",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });

@@ -4,7 +4,7 @@ import { LoginPage } from '@/features/auth/login-page'
 import { FeedPage } from '@/features/feed/feed-page'
 import { RegisterPage } from '@/features/auth/register-page'
 import { ProtectedRoute } from './protected-route'
-import { AdminPage } from '@/pages/admin-page'
+import { AdminUsersPage } from '@/features/admin/admin-users-page'
 import { ItemsPage } from '@/pages/items-page'
 import { LandingPage } from '@/pages/landing-page'
 import { MyReportsPage } from '@/features/reports/my-reports-page'
@@ -38,7 +38,7 @@ export const router = createBrowserRouter([
           },
           {
             element: <ProtectedRoute allow={['Admin']} />,
-            children: [{ path: 'admin', element: <AdminPage /> }],
+            children: [{ path: 'admin', element: <AdminUsersPage /> }],
           },
 
           { path: 'forbidden', element: <ForbiddenPage /> },

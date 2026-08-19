@@ -5,6 +5,7 @@ using FoundU.Domain.Entities;
 using FoundU.Infrastructure;
 using FoundU.Infrastructure.Persistence.Seed;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
@@ -86,6 +87,19 @@ if (app.Environment.IsDevelopment())
             scope.ServiceProvider.GetRequiredService<FoundUDbContext>(),
             scope.ServiceProvider.GetRequiredService<IConfiguration>());
     }
+
+// Uploaded photos are served from wwwroot. The feed is public, so these are too.
+//
+// The directory is created here rather than relied upon: if wwwroot does not exist when the
+// host starts, WebRootPath is null and UseStaticFiles() silently serves nothing - uploads
+// save fine and then 404. An explicit provider makes the root unambiguous either way.
+var webRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(webRoot);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(webRoot),
+});
 
 app.UseHttpsRedirection();
 app.UseCors("ReactDev");

@@ -23,7 +23,7 @@ interface Segment {
   y2: number
 }
 
-function segmentBetween(from: Element, to: Element): Segment {
+function horizontalSegment(from: Element, to: Element): Segment {
   const a = from.getBoundingClientRect()
   const b = to.getBoundingClientRect()
   return {
@@ -33,6 +33,14 @@ function segmentBetween(from: Element, to: Element): Segment {
     // The panel is tall; aim at its upper area rather than its centre so the line stays flat.
     y2: b.top + Math.min(b.height / 2, 220),
   }
+}
+
+/** Mobile stacks card over sheet, so the connector drops instead of reaching across. */
+function verticalSegment(from: Element, to: Element): Segment {
+  const a = from.getBoundingClientRect()
+  const b = to.getBoundingClientRect()
+  const x = a.left + a.width / 2
+  return { x1: x, y1: a.bottom, x2: x, y2: b.top }
 }
 
 export function CardConnector({
@@ -50,9 +58,9 @@ export function CardConnector({
       return
     }
 
-    // Below `sm` the panel is full width and covers the feed, so there is nothing to join.
-    if (window.matchMedia('(max-width: 639px)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const isMobile = window.matchMedia('(max-width: 767px)').matches
 
     let frame = 0
 
@@ -62,12 +70,21 @@ export function CardConnector({
       const panel = document.querySelector('[data-slot="sheet-content"]')
 
       if (card && panel) {
-        // Chain through the steps when they are showing, so the eye follows the flow.
-        setSegments(
-          showHandIn && steps
-            ? [segmentBetween(card, steps), segmentBetween(steps, panel)]
-            : [segmentBetween(card, panel)],
-        )
+        if (isMobile) {
+          // Same chain as desktop, just stacked.
+          setSegments(
+            showHandIn && steps
+              ? [verticalSegment(card, steps), verticalSegment(steps, panel)]
+              : [verticalSegment(card, panel)],
+          )
+        } else {
+          // Chain through the steps when they are showing, so the eye follows the flow.
+          setSegments(
+            showHandIn && steps
+              ? [horizontalSegment(card, steps), horizontalSegment(steps, panel)]
+              : [horizontalSegment(card, panel)],
+          )
+        }
       }
 
       frame = window.requestAnimationFrame(measure)
@@ -86,8 +103,12 @@ export function CardConnector({
       style={{ width: '100vw', height: '100vh' }}
     >
       {segments.map(({ x1, y1, x2, y2 }, index) => {
+        const isVertical = Math.abs(x2 - x1) < 1
         const midX = x1 + (x2 - x1) / 2
-        const path = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
+        const midY = y1 + (y2 - y1) / 2
+        const path = isVertical
+          ? `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`
+          : `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
 
         return (
           <g key={index}>

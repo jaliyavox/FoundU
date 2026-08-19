@@ -27,7 +27,7 @@ import { homeRouteForRole } from '@/routes/role-home'
 
 const PAGE_SIZE = 9
 
-const NAV_LINKS = [
+const PUBLIC_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/#how-it-works', label: 'How it works' },
   { href: '/#faq', label: 'FAQ' },
@@ -61,7 +61,12 @@ export function FeedPage() {
 
   return (
     <div className="flex min-h-svh flex-col bg-[oklch(0.17_0.028_148)] text-white">
-      <SiteNav ctaHref={user ? homeRouteForRole(user.role) : '/login'} ctaLabel={user ? 'Dashboard' : 'Sign in'} links={NAV_LINKS} />
+      {/* The dashboard is the CTA button - listing it in the links as well showed it twice. */}
+      <SiteNav
+        ctaHref={user ? homeRouteForRole(user.role) : '/login'}
+        ctaLabel={user ? 'Dashboard' : 'Sign in'}
+        links={PUBLIC_LINKS}
+      />
 
       <main className="flex-1">
         <section className="relative isolate overflow-hidden pt-32 pb-10 sm:pt-36">

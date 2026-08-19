@@ -1,4 +1,5 @@
 using FoundU.Application.Abstractions;
+using FoundU.Application.Common;
 using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Common.Pagination;
 using FoundU.Application.LostReports.Dtos;
@@ -12,10 +13,12 @@ namespace FoundU.Infrastructure.Reporting;
 public class LostReportService : ILostReportService
 {
     private readonly FoundUDbContext _db;
+    private readonly IPhotoStorage _photoStorage;
 
-    public LostReportService(FoundUDbContext db)
+    public LostReportService(FoundUDbContext db, IPhotoStorage photoStorage)
     {
         _db = db;
+        _photoStorage = photoStorage;
     }
 
     public async Task<LostReportDetailDto> CreateAsync(
@@ -118,6 +121,7 @@ public class LostReportService : ILostReportService
                 r.PrimaryColor,
                 r.EstimatedLostFromAt,
                 r.EstimatedLostToAt,
+                r.Photos.Select(p => p.Url).ToList(),
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -186,6 +190,140 @@ public class LostReportService : ILostReportService
         return await LoadDetailAsync(report.Id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<LostReportPhotoDto>> AddPhotosAsync(
+        Guid reportId,
+        Guid ownerId,
+        IReadOnlyList<PhotoUpload> uploads,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        if (report.StudentId != ownerId)
+        {
+            throw new ForbiddenAppException("You can only add photos to your own reports.");
+        }
+
+        if (uploads.Count == 0)
+        {
+            throw new ValidationAppException("photos", "Choose at least one image.");
+        }
+
+        var existing = await _db.LostItemPhotos.CountAsync(p => p.LostReportId == reportId, cancellationToken);
+
+        if (existing + uploads.Count > PhotoRules.MaxPhotosPerReport)
+        {
+            throw new ValidationAppException("photos",
+                $"A report can have at most {PhotoRules.MaxPhotosPerReport} photos. This one already has {existing}.");
+        }
+
+        var saved = new List<LostItemPhoto>();
+
+        foreach (var upload in uploads)
+        {
+            if (upload.Length > PhotoRules.MaxBytes)
+            {
+                throw new ValidationAppException("photos",
+                    $"'{upload.FileName}' is larger than {PhotoRules.MaxSizeLabel}.");
+            }
+
+            // Read the header and check what the file actually is. The declared content type
+            // and the extension both come from the client, so neither can be trusted.
+            var header = new byte[12];
+            var read = await upload.Content.ReadAsync(header, cancellationToken);
+            upload.Content.Position = 0;
+
+            var extension = PhotoRules.ResolveExtension(header.AsSpan(0, read));
+
+            if (extension is null)
+            {
+                throw new ValidationAppException("photos",
+                    $"'{upload.FileName}' is not a JPEG, PNG or WebP image.");
+            }
+
+            var url = await _photoStorage.SaveAsync(
+                upload with { FileName = extension },
+                $"uploads/lost-reports/{reportId:N}",
+                cancellationToken);
+
+            saved.Add(new LostItemPhoto { LostReportId = reportId, Url = url });
+        }
+
+        _db.LostItemPhotos.AddRange(saved);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return saved.Select(p => new LostReportPhotoDto(p.Id, p.Url)).ToList();
+    }
+
+    public async Task<LostReportMessageDto> SendMessageAsync(
+        Guid reportId,
+        Guid senderId,
+        string body,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        if (report.StudentId == senderId)
+        {
+            throw new ValidationAppException(nameof(LostReportMessage.Body),
+                "This is your own report - you cannot message yourself.");
+        }
+
+        // A withdrawn or resolved report is no longer looking for anything.
+        if (report.Status != LostReportStatus.Active)
+        {
+            throw new ConflictAppException("This report is closed and is no longer accepting messages.");
+        }
+
+        var message = new LostReportMessage
+        {
+            LostReportId = reportId,
+            SenderId = senderId,
+            Body = body.Trim(),
+        };
+
+        _db.LostReportMessages.Add(message);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var senderName = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.Id == senderId)
+            .Select(u => u.FullName)
+            .FirstAsync(cancellationToken);
+
+        return new LostReportMessageDto(message.Id, senderName, message.Body, message.IsRead, message.CreatedAt);
+    }
+
+    public async Task<IReadOnlyList<LostReportMessageDto>> GetMessagesAsync(
+        Guid reportId,
+        Guid requesterId,
+        bool requesterIsStaff,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        // Only the author reads their own messages. Staff may read them to settle a dispute.
+        if (!requesterIsStaff && report.StudentId != requesterId)
+        {
+            throw new ForbiddenAppException("You can only read messages on your own reports.");
+        }
+
+        return await _db.LostReportMessages
+            .AsNoTracking()
+            .Where(m => m.LostReportId == reportId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => new LostReportMessageDto(m.Id, m.Sender.FullName, m.Body, m.IsRead, m.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
     private async Task<PagedResult<LostReportListItemDto>> SearchCoreAsync(
         IQueryable<LostReport> reports,
         LostReportQuery query,
@@ -234,6 +372,7 @@ public class LostReportService : ILostReportService
                 r.EstimatedLostFromAt,
                 r.EstimatedLostToAt,
                 r.Status.ToString(),
+                r.Photos.Select(p => p.Url).ToList(),
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 
