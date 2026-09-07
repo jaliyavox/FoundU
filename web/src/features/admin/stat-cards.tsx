@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ShieldOffIcon, TrendingUpIcon, UserCogIcon, UsersIcon } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { PanelSheen } from '@/components/layout/dashboard-panel'
+import { panelSurface } from '@/components/layout/panel-surface'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserStats } from './admin-api'
 import { cn } from '@/lib/utils'
@@ -20,13 +21,12 @@ export function StatCards() {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Card key={index}>
-            <CardContent className="pt-6">
-              <Skeleton className="h-3.5 w-24" />
-              <Skeleton className="mt-3 h-9 w-16" />
-              <Skeleton className="mt-3 h-3 w-32" />
-            </CardContent>
-          </Card>
+          <div key={index} className={cn(panelSurface, 'p-5')}>
+            <PanelSheen />
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="mt-3 h-9 w-16" />
+            <Skeleton className="mt-3 h-3 w-32" />
+          </div>
         ))}
       </div>
     )
@@ -56,13 +56,19 @@ export function StatCards() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map(({ label, value, hint, icon: Icon, featured }) => (
-        <Card
+        <div
           key={label}
           className={cn(
-            'relative overflow-hidden bg-linear-to-b from-card to-muted/40 transition-shadow duration-300 hover:shadow-md',
-            featured && 'border-transparent bg-linear-to-br from-brand-forest to-[oklch(0.32_0.09_144)] text-white',
+            panelSurface,
+            'p-5 transition-shadow duration-300 hover:shadow-md',
+            // The headline count keeps the brand slab, so one card leads the row - but it
+            // wears the same stroke and rounding as the rest.
+            featured &&
+              'border-brand-forest/60 from-brand-forest via-brand-forest to-[oklch(0.32_0.09_144)] text-white dark:border-brand-forest/60 dark:from-brand-forest dark:via-brand-forest dark:to-[oklch(0.32_0.09_144)]',
           )}
         >
+          <PanelSheen className={cn(featured && 'via-white/45')} />
+
           {featured && (
             <div
               aria-hidden="true"
@@ -70,7 +76,7 @@ export function StatCards() {
             />
           )}
 
-          <CardContent className="relative pt-6">
+          <div className="relative">
             <div className="flex items-center justify-between">
               <p className={cn('text-sm', featured ? 'text-white/70' : 'text-muted-foreground')}>
                 {label}
@@ -94,8 +100,8 @@ export function StatCards() {
               )}
               {hint}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ))}
     </div>
   )

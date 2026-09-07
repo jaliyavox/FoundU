@@ -38,11 +38,14 @@ export function FeedPage() {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<LostReportFeedItem | null>(null)
   const [showHandIn, setShowHandIn] = useState(false)
+  const [zoomed, setZoomed] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
 
   const { data, isPending, isError, error, isFetching, refetch } = useQuery({
-    queryKey: ['lost-feed', { page, search }],
+    // The signed-in user is part of the key because the response is: `isMine` is computed
+    // per caller, so a cached anonymous page must not survive a sign-in.
+    queryKey: ['lost-feed', { page, search, viewer: user?.id ?? null }],
     queryFn: () => getFeed({ page, pageSize: PAGE_SIZE, search }),
     // Keeps the previous page on screen while the next one loads, instead of flashing skeletons.
     placeholderData: keepPreviousData,
@@ -178,6 +181,7 @@ export function FeedPage() {
                       onOpen={() => {
                         setSelected(item)
                         setShowHandIn(false)
+                        setZoomed(false)
                       }}
                     />
                   </li>
@@ -223,10 +227,19 @@ export function FeedPage() {
       <FeedDetailPanel
         item={selected}
         showHandIn={showHandIn}
+        onZoom={() => setZoomed(true)}
         onShowHandIn={setShowHandIn}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setSelected(null)
+          setZoomed(false)
+        }}
       />
-      <FeedSpotlight item={selected} showHandIn={showHandIn} />
+      <FeedSpotlight
+        item={selected}
+        showHandIn={showHandIn}
+        zoomed={zoomed}
+        onCloseZoom={() => setZoomed(false)}
+      />
       <CardConnector cardId={selected?.id ?? null} showHandIn={showHandIn} />
     </div>
   )

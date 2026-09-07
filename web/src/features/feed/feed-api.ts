@@ -5,6 +5,8 @@ import type { PagedResult } from '@/lib/api/types'
 export interface LostReportFeedItem {
   id: string
   postedByName: string
+  /** Server-computed: true when the signed-in caller posted this. */
+  isMine: boolean
   categoryName: string
   itemTypeName: string
   lastSeenLocationName: string
@@ -12,6 +14,7 @@ export interface LostReportFeedItem {
   primaryColor: string | null
   estimatedLostFromAt: string
   estimatedLostToAt: string
+  photoUrls: string[]
   createdAt: string
 }
 
@@ -22,15 +25,15 @@ export interface FeedQuery {
 }
 
 /**
- * Public feed. `anonymous: true` skips the bearer token and the 401-refresh dance - this
- * endpoint is deliberately readable without an account.
+ * Public feed. Readable without an account, but the token goes along when there is one so
+ * the API can mark the caller's own posts - see `optionalAuth`.
  */
 export function getFeed({ page, pageSize, search }: FeedQuery) {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
   if (search?.trim()) params.set('search', search.trim())
 
   return api.get<PagedResult<LostReportFeedItem>>(`/api/lost-reports/feed?${params}`, {
-    anonymous: true,
+    optionalAuth: true,
   })
 }
 
@@ -70,6 +73,21 @@ export function formatWindow(fromIso: string, toIso: string) {
 
   return `${day}, ${time(from)}-${time(to)}`
 }
+
+/* --------------------------------------------------------------- found claims */
+
+export interface LostReportFoundClaim {
+  reportId: string
+  totalFinders: number
+  createdAt: string
+}
+
+/**
+ * "I found this". Recorded against the report so the author sees it immediately, whether or
+ * not the finder goes on to write a message. Pressing it twice records one claim.
+ */
+export const registerFoundClaim = (reportId: string) =>
+  api.post<LostReportFoundClaim>(`/api/lost-reports/${reportId}/found-claims`)
 
 /* ------------------------------------------------------------------ messages */
 

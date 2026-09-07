@@ -80,6 +80,7 @@ public class LostReportService : ILostReportService
 
     public async Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(
         LostReportQuery query,
+        Guid? requesterId = null,
         CancellationToken cancellationToken = default)
     {
         // Active only: a withdrawn or resolved report is no longer something to look out for.
@@ -114,6 +115,7 @@ public class LostReportService : ILostReportService
             .Select(r => new LostReportFeedItemDto(
                 r.Id,
                 r.Student.FullName,
+                requesterId != null && r.StudentId == requesterId,
                 r.Category.Name,
                 r.ItemType.Name,
                 r.LastSeenLocation.Name,
@@ -257,6 +259,44 @@ public class LostReportService : ILostReportService
         return saved.Select(p => new LostReportPhotoDto(p.Id, p.Url)).ToList();
     }
 
+    public async Task<LostReportFoundClaimDto> RegisterFoundClaimAsync(
+        Guid reportId,
+        Guid finderId,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        if (report.StudentId == finderId)
+        {
+            throw new ForbiddenAppException("This is your own report - you cannot report finding it.");
+        }
+
+        if (report.Status != LostReportStatus.Active)
+        {
+            throw new ConflictAppException("This report is closed and is no longer looking for the item.");
+        }
+
+        var existing = await _db.LostReportFoundClaims
+            .FirstOrDefaultAsync(c => c.LostReportId == reportId && c.FinderId == finderId, cancellationToken);
+
+        // Pressing it again is the same claim, not a second finder. Returning the original
+        // keeps the button safe to press twice without inflating what the author sees.
+        if (existing is null)
+        {
+            existing = new LostReportFoundClaim { LostReportId = reportId, FinderId = finderId };
+            _db.LostReportFoundClaims.Add(existing);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        var totalFinders = await _db.LostReportFoundClaims
+            .CountAsync(c => c.LostReportId == reportId, cancellationToken);
+
+        return new LostReportFoundClaimDto(reportId, totalFinders, existing.CreatedAt);
+    }
+
     public async Task<LostReportMessageDto> SendMessageAsync(
         Guid reportId,
         Guid senderId,
@@ -373,6 +413,11 @@ public class LostReportService : ILostReportService
                 r.EstimatedLostToAt,
                 r.Status.ToString(),
                 r.Photos.Select(p => p.Url).ToList(),
+                _db.LostReportMessages.Count(m => m.LostReportId == r.Id),
+                _db.LostReportFoundClaims.Count(c => c.LostReportId == r.Id),
+                _db.LostReportFoundClaims
+                    .Where(c => c.LostReportId == r.Id)
+                    .Max(c => (DateTime?)c.CreatedAt),
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 

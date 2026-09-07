@@ -10,7 +10,7 @@ import {
   SearchSceneIllustration,
 } from '@/components/illustrations'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { DashboardPanel } from '@/components/layout/dashboard-panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -168,57 +168,57 @@ export function ReportLostPage() {
     return (
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <Skeleton className="h-7 w-72" />
-        <Card>
-          <CardContent className="flex flex-col gap-4 pt-6">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="flex flex-col gap-2">
-                <Skeleton className="h-3.5 w-24" />
-                <Skeleton className="h-9 w-full" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <DashboardPanel className="flex flex-col gap-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex flex-col gap-2">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ))}
+        </DashboardPanel>
       </section>
     )
   }
 
   if (referenceFailed) {
     return (
-      <Card role="alert" className="mx-auto w-full max-w-5xl border-destructive/40 bg-destructive/5">
-        <CardHeader>
-          <CardTitle className="text-base">Could not load the form</CardTitle>
-          <CardDescription>
+      <DashboardPanel
+        role="alert"
+        className="mx-auto flex w-full max-w-5xl flex-col items-start gap-3 border-destructive/40 from-destructive/8 via-destructive/5 to-transparent dark:from-destructive/15 dark:via-destructive/8"
+      >
+        <div>
+          <p className="font-heading text-base font-medium">Could not load the form</p>
+          <p className="pt-1 text-sm text-muted-foreground">
             The categories and locations this form needs are unavailable. Check the API is
             running, then try again.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            onClick={() => {
-              categories.refetch()
-              locations.refetch()
-            }}
-          >
-            <RotateCwIcon aria-hidden="true" />
-            Try again
-          </Button>
-        </CardContent>
-      </Card>
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            categories.refetch()
+            locations.refetch()
+          }}
+        >
+          <RotateCwIcon aria-hidden="true" />
+          Try again
+        </Button>
+      </DashboardPanel>
     )
   }
 
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-      <WizardSteps steps={STEPS} current={step} />
+      <DashboardPanel className="py-5">
+        <WizardSteps steps={STEPS} current={step} />
+      </DashboardPanel>
 
       <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
-        <Card>
-          <CardContent
-            key={step}
-            className="fu-step-in pt-6"
-            style={{ '--fu-step-from': direction === 'forward' ? '14px' : '-14px' } as React.CSSProperties}
-          >
+        <DashboardPanel
+          key={step}
+          className="fu-step-in"
+          style={{ '--fu-step-from': direction === 'forward' ? '14px' : '-14px' } as React.CSSProperties}
+        >
             {step === 0 && (
               <div className="flex flex-col gap-5">
                 <Field label="Category" htmlFor="category" errors={fieldErrors.CategoryId}>
@@ -356,18 +356,21 @@ export function ReportLostPage() {
                 <Summary label="Description" value={description.trim()} />
               </dl>
             )}
-          </CardContent>
-        </Card>
+        </DashboardPanel>
 
         {/* Context panel: what this step is for, and why it matters. */}
-        <aside key={`aside-${step}`} className="fu-step-in flex flex-col gap-4">
+        <DashboardPanel
+          key={`aside-${step}`}
+          aria-label="About this step"
+          className="fu-step-in flex h-fit flex-col gap-4"
+        >
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-balance">{current.title}</h1>
             <p className="pt-2 text-sm text-pretty text-muted-foreground">{current.body}</p>
           </div>
 
           <Illustration className="mx-auto w-full max-w-56 text-primary/70" />
-        </aside>
+        </DashboardPanel>
       </div>
 
       {/* -------------------------------------------------------------- footer */}

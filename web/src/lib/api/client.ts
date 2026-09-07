@@ -64,11 +64,24 @@ async function performRefresh(): Promise<string | null> {
   return auth.accessToken
 }
 
+/**
+ * Absolute URL for a file the API serves out of its own wwwroot. Upload URLs come back
+ * host-relative ("/uploads/..."), which in dev would resolve against the Vite origin on
+ * 5173 rather than the API, and 404.
+ */
+export const assetUrl = (path: string) => (path.startsWith('http') ? path : `${BASE_URL}${path}`)
+
 export interface RequestOptions {
   method?: string
   body?: unknown
   /** Skip the bearer token and the 401-refresh retry - for login, register and refresh itself. */
   anonymous?: boolean
+  /**
+   * Send the token when there is one, but never refresh or expire the session over it. For
+   * endpoints that work signed out and only say a little more to someone signed in: an
+   * expired token there should degrade to anonymous, not sign the reader out mid-browse.
+   */
+  optionalAuth?: boolean
   signal?: AbortSignal
 }
 
@@ -107,7 +120,7 @@ async function toApiError(response: Response): Promise<ApiError> {
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   let response = await send(path, options, tokenStore.getAccessToken())
 
-  if (response.status === 401 && !options.anonymous) {
+  if (response.status === 401 && !options.anonymous && !options.optionalAuth) {
     const freshToken = await refreshAccessToken()
 
     if (!freshToken) {

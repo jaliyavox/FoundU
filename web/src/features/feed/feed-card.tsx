@@ -1,6 +1,6 @@
 import { ArrowUpRightIcon } from 'lucide-react'
 import { timeAgo, type LostReportFeedItem } from './feed-api'
-import { ItemIllustration } from './item-illustration'
+import { ItemMedia } from './item-media'
 import { cn } from '@/lib/utils'
 
 /** Collapsed feed post. Details open in a side panel - see feed-detail-panel.tsx. */
@@ -50,10 +50,12 @@ export function FeedCard({
       />
 
       <div className="relative aspect-4/3 overflow-hidden bg-[oklch(0.25_0.035_148)]">
-        <ItemIllustration
+        <ItemMedia
+          photoUrl={item.photoUrls?.[0]}
           itemType={item.itemTypeName}
           category={item.categoryName}
-          className="absolute inset-0 m-auto size-20 text-brand-sage/70 transition-transform duration-300 group-hover:scale-105"
+          className="transition-transform duration-300 group-hover:scale-105"
+          illustrationClassName="absolute inset-0 m-auto size-20 text-brand-sage/70 transition-transform duration-300 group-hover:scale-105"
         />
       </div>
 
@@ -80,7 +82,7 @@ export function FeedCard({
           <span className="flex size-5 items-center justify-center rounded-full bg-brand-green/20 text-[10px] font-medium text-brand-green">
             {initials}
           </span>
-          <span className="truncate">{item.postedByName}</span>
+          <span className="truncate">{item.isMine ? 'You' : item.postedByName}</span>
           <span aria-hidden="true">·</span>
           <span className="shrink-0">{timeAgo(item.createdAt)}</span>
         </div>

@@ -3,6 +3,7 @@ using System;
 using FoundU.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FoundU.Infrastructure.Migrations
 {
     [DbContext(typeof(FoundUDbContext))]
-    partial class FoundUDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260819163315_AddLostReportFoundClaims")]
+    partial class AddLostReportFoundClaims
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

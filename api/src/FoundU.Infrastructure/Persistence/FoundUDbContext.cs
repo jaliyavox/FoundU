@@ -26,6 +26,7 @@ public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<LostItemPhoto> LostItemPhotos => Set<LostItemPhoto>();
     public DbSet<LostReportStatusHistory> LostReportStatusHistories => Set<LostReportStatusHistory>();
     public DbSet<LostReportMessage> LostReportMessages => Set<LostReportMessage>();
+    public DbSet<LostReportFoundClaim> LostReportFoundClaims => Set<LostReportFoundClaim>();
 
     public DbSet<FoundReport> FoundReports => Set<FoundReport>();
     public DbSet<FoundItemPhoto> FoundItemPhotos => Set<FoundItemPhoto>();
