@@ -25,17 +25,24 @@ export function FeedSpotlight({
   item,
   showHandIn,
   zoomed,
+  hidden,
   onCloseZoom,
 }: {
   item: LostReportFeedItem | null
   showHandIn: boolean
   /** The photo viewer opens here rather than as a modal - see photo-lightbox.tsx. */
   zoomed: boolean
+  /**
+   * Stand down entirely. The "are you sure" confirmation is a centred dialog, and a fixed
+   * card pinned over the same space either covers it or gets covered - so the card yields
+   * for the moment the question is on screen.
+   */
+  hidden: boolean
   onCloseZoom: () => void
 }) {
   const isMobile = useIsMobile()
 
-  if (!item) return null
+  if (!item || hidden) return null
 
   const meta = [item.primaryColor, item.lastSeenLocationName].filter(Boolean).join(' · ')
 

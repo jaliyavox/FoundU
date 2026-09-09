@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -30,6 +29,8 @@ export function FeedDetailPanel({
   showHandIn,
   onShowHandIn,
   onZoom,
+  confirming,
+  onConfirmingChange,
   onClose,
 }: {
   item: LostReportFeedItem | null
@@ -38,18 +39,19 @@ export function FeedDetailPanel({
   onShowHandIn: (show: boolean) => void
   /** Also lifted: the full photo opens next to the spotlight card, not over this panel. */
   onZoom: () => void
+  /** Lifted too: the spotlight card stands down while the confirmation is on screen. */
+  confirming: boolean
+  onConfirmingChange: (confirming: boolean) => void
   onClose: () => void
 }) {
   const { user } = useAuth()
   const isMobile = useIsMobile()
-  const [confirming, setConfirming] = useState(false)
-
   // Recorded before the steps appear: the author's card should update the moment a finder
   // commits, not only if they go on to write a message.
   const claim = useMutation({
     mutationFn: (reportId: string) => registerFoundClaim(reportId),
     onSuccess: () => {
-      setConfirming(false)
+      onConfirmingChange(false)
       onShowHandIn(true)
     },
     onError: (error) => {
@@ -176,7 +178,7 @@ export function FeedDetailPanel({
                 <Button
                   size="lg"
                   className="bg-brand-forest text-white hover:bg-brand-forest/90"
-                  onClick={() => (user ? setConfirming(true) : onShowHandIn(true))}
+                  onClick={() => (user ? onConfirmingChange(true) : onShowHandIn(true))}
                 >
                   <HandHeartIcon aria-hidden="true" />
                   I found this
@@ -225,7 +227,7 @@ export function FeedDetailPanel({
         <FoundConfirmDialog
           item={item}
           open={confirming}
-          onOpenChange={(open) => !open && setConfirming(false)}
+          onOpenChange={(open) => !open && onConfirmingChange(false)}
           onConfirm={() => claim.mutate(item.id)}
           isPending={claim.isPending}
         />

@@ -39,6 +39,9 @@ export function FeedPage() {
   const [selected, setSelected] = useState<LostReportFeedItem | null>(null)
   const [showHandIn, setShowHandIn] = useState(false)
   const [zoomed, setZoomed] = useState(false)
+  // Lifted because the spotlight has to stand down while the confirmation is open - see
+  // FeedSpotlight. A centred dialog and a fixed card in the same space fight over z-order.
+  const [confirming, setConfirming] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
 
@@ -182,6 +185,7 @@ export function FeedPage() {
                         setSelected(item)
                         setShowHandIn(false)
                         setZoomed(false)
+                        setConfirming(false)
                       }}
                     />
                   </li>
@@ -229,18 +233,22 @@ export function FeedPage() {
         showHandIn={showHandIn}
         onZoom={() => setZoomed(true)}
         onShowHandIn={setShowHandIn}
+        confirming={confirming}
+        onConfirmingChange={setConfirming}
         onClose={() => {
           setSelected(null)
           setZoomed(false)
+          setConfirming(false)
         }}
       />
       <FeedSpotlight
         item={selected}
         showHandIn={showHandIn}
         zoomed={zoomed}
+        hidden={confirming}
         onCloseZoom={() => setZoomed(false)}
       />
-      <CardConnector cardId={selected?.id ?? null} showHandIn={showHandIn} />
+      <CardConnector cardId={confirming ? null : (selected?.id ?? null)} showHandIn={showHandIn} />
     </div>
   )
 }
