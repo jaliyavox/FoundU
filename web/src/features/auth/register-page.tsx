@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthLayout } from './auth-layout'
+import { AuthLoading } from './auth-loading'
 import { useAuth } from './use-auth'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
@@ -20,7 +21,7 @@ const PASSWORD_RULES = [
 ]
 
 export function RegisterPage() {
-  const { user, register } = useAuth()
+  const { user, isInitializing, register } = useAuth()
   const navigate = useNavigate()
 
   const [fullName, setFullName] = useState('')
@@ -36,6 +37,8 @@ export function RegisterPage() {
     [password],
   )
   const metCount = rules.filter((rule) => rule.passed).length
+
+  if (isInitializing) return <AuthLoading />
 
   if (user) {
     return <Navigate to={homeRouteForRole(user.role)} replace />

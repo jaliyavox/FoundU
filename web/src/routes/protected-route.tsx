@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/use-auth'
+import { AuthLoading } from '@/features/auth/auth-loading'
 import type { UserRole } from '@/lib/api/types'
 
 interface ProtectedRouteProps {
@@ -13,8 +14,10 @@ interface ProtectedRouteProps {
  * stored role gets a nicer-looking page and still receives 403s from every endpoint.
  */
 export function ProtectedRoute({ allow }: ProtectedRouteProps) {
-  const { user } = useAuth()
+  const { user, isInitializing } = useAuth()
   const location = useLocation()
+
+  if (isInitializing) return <AuthLoading />
 
   if (!user) {
     // Remember the attempted URL so login can send them back to it.

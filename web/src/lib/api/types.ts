@@ -11,6 +11,17 @@ export interface User {
   isSuspended: boolean
 }
 
+/** Identity fields available from both login/refresh and /api/auth/me. */
+export type AuthUser = Pick<User, 'id' | 'fullName' | 'email' | 'role'>
+
+/** /me is a claims projection, not the full UserDto returned by login. */
+export interface MeResponse {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+}
+
 /** Mirrors FoundU.Application.Auth.Dtos.AuthResponse. */
 export interface AuthResponse {
   accessToken: string
