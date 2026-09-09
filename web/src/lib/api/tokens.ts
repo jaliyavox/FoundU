@@ -1,4 +1,4 @@
-import type { AuthResponse, User } from './types'
+import type { AuthResponse } from './types'
 
 const ACCESS_TOKEN_KEY = 'foundu.accessToken'
 const REFRESH_TOKEN_KEY = 'foundu.refreshToken'
@@ -18,23 +18,11 @@ export const tokenStore = {
 
   getRefreshToken: () => localStorage.getItem(REFRESH_TOKEN_KEY),
 
-  /** The cached user, so a reload renders immediately instead of flashing the login page. */
-  getUser(): User | null {
-    const raw = localStorage.getItem(USER_KEY)
-    if (!raw) return null
-
-    try {
-      return JSON.parse(raw) as User
-    } catch {
-      // Corrupt entry (hand-edited, or written by an older version) - treat as logged out.
-      return null
-    }
-  },
-
   save(auth: AuthResponse) {
     localStorage.setItem(ACCESS_TOKEN_KEY, auth.accessToken)
     localStorage.setItem(REFRESH_TOKEN_KEY, auth.refreshToken)
-    localStorage.setItem(USER_KEY, JSON.stringify(auth.user))
+    // Identity is validated through /me on reload; discard the old cached-user format.
+    localStorage.removeItem(USER_KEY)
   },
 
   clear() {

@@ -1,7 +1,14 @@
 import { tokenStore } from './tokens'
-import type { AuthResponse, ProblemDetails } from './types'
+import type { AuthResponse, AuthUser, ProblemDetails } from './types'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '')
+
+function apiUrl(path: string) {
+  if (!BASE_URL) {
+    throw new Error('Set VITE_API_BASE_URL in web/.env.local using web/.env.example, then restart Vite.')
+  }
+  return `${BASE_URL}${path}`
+}
 
 /** Thrown for every non-2xx response, carrying the ProblemDetails envelope from the API. */
 export class ApiError extends Error {
@@ -21,11 +28,37 @@ export class ApiError extends Error {
   }
 }
 
-/** Registered by AuthProvider so this module can end a session without importing the router. */
-let onSessionExpired: (() => void) | null = null
+/** The provider owns React state/cache; the client owns request/session sequencing. */
+let onSessionChanged: ((user: AuthUser | null) => void) | null = null
+let sessionVersion = 0
 
-export function setOnSessionExpired(handler: () => void) {
-  onSessionExpired = handler
+export function setOnSessionChanged(handler: typeof onSessionChanged) {
+  onSessionChanged = handler
+}
+
+export function getSessionVersion() {
+  return sessionVersion
+}
+
+function assertCurrentSession(version: number) {
+  if (version !== sessionVersion) {
+    throw new DOMException('The authentication session changed.', 'AbortError')
+  }
+}
+
+export function clearSession() {
+  sessionVersion++
+  refreshPromise = null
+  tokenStore.clear()
+  onSessionChanged?.(null)
+}
+
+/** Used after login/register; an older response cannot replace a newer session. */
+export function startSession(auth: AuthResponse, version: number) {
+  assertCurrentSession(version)
+  sessionVersion++
+  tokenStore.save(auth)
+  onSessionChanged?.(auth.user)
 }
 
 /**
@@ -37,30 +70,40 @@ export function setOnSessionExpired(handler: () => void) {
  */
 let refreshPromise: Promise<string | null> | null = null
 
-function refreshAccessToken(): Promise<string | null> {
-  refreshPromise ??= performRefresh().finally(() => {
-    refreshPromise = null
-  })
+function refreshAccessToken(version: number): Promise<string | null> {
+  assertCurrentSession(version)
+  if (!refreshPromise) {
+    const pending = performRefresh(version).finally(() => {
+      if (refreshPromise === pending) refreshPromise = null
+    })
+    refreshPromise = pending
+  }
   return refreshPromise
 }
 
-async function performRefresh(): Promise<string | null> {
+async function performRefresh(version: number): Promise<string | null> {
   const refreshToken = tokenStore.getRefreshToken()
   if (!refreshToken) return null
 
-  const response = await fetch(`${BASE_URL}/api/auth/refresh`, {
+  const response = await fetch(apiUrl('/api/auth/refresh'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
   })
+  assertCurrentSession(version)
 
   if (!response.ok) {
-    tokenStore.clear()
-    return null
+    if (response.status === 400 || response.status === 401 || response.status === 403) {
+      clearSession()
+      return null
+    }
+    throw await toApiError(response)
   }
 
   const auth = (await response.json()) as AuthResponse
+  assertCurrentSession(version)
   tokenStore.save(auth)
+  onSessionChanged?.(auth.user)
   return auth.accessToken
 }
 
@@ -73,7 +116,8 @@ export const assetUrl = (path: string) => (path.startsWith('http') ? path : `${B
 
 export interface RequestOptions {
   method?: string
-  body?: unknown
+  /** Plain values are JSON encoded; FormData is sent as multipart with its browser boundary. */
+  body?: unknown | FormData
   /** Skip the bearer token and the 401-refresh retry - for login, register and refresh itself. */
   anonymous?: boolean
   /**
@@ -87,8 +131,9 @@ export interface RequestOptions {
 
 function send(path: string, options: RequestOptions, token: string | null) {
   const headers: Record<string, string> = {}
+  const body = options.body
 
-  if (options.body !== undefined) {
+  if (body !== undefined && !(body instanceof FormData)) {
     headers['Content-Type'] = 'application/json'
   }
 
@@ -96,10 +141,14 @@ function send(path: string, options: RequestOptions, token: string | null) {
     headers.Authorization = `Bearer ${token}`
   }
 
-  return fetch(`${BASE_URL}${path}`, {
+  return fetch(apiUrl(path), {
     method: options.method ?? 'GET',
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: body === undefined
+      ? undefined
+      : body instanceof FormData
+        ? body
+        : JSON.stringify(body),
     signal: options.signal,
   })
 }
@@ -118,20 +167,29 @@ async function toApiError(response: Response): Promise<ApiError> {
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  let response = await send(path, options, tokenStore.getAccessToken())
+  const version = sessionVersion
+  const originalToken = tokenStore.getAccessToken()
+  let response = await send(path, options, originalToken)
+  if (!options.anonymous) assertCurrentSession(version)
 
   if (response.status === 401 && !options.anonymous && !options.optionalAuth) {
-    const freshToken = await refreshAccessToken()
+    // A late 401 may arrive after another request already finished rotating tokens.
+    const currentToken = tokenStore.getAccessToken()
+    const freshToken = currentToken && currentToken !== originalToken
+      ? currentToken
+      : await refreshAccessToken(version)
 
     if (!freshToken) {
-      tokenStore.clear()
-      onSessionExpired?.()
+      if (version === sessionVersion) clearSession()
       throw await toApiError(response)
     }
+    assertCurrentSession(version)
 
     // Retried exactly once. A second 401 means the new token is genuinely rejected,
     // so the error surfaces instead of looping.
     response = await send(path, options, freshToken)
+    assertCurrentSession(version)
+    if (response.status === 401) clearSession()
   }
 
   if (!response.ok) {
@@ -143,7 +201,9 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     return undefined as T
   }
 
-  return (await response.json()) as T
+  const result = (await response.json()) as T
+  if (!options.anonymous) assertCurrentSession(version)
+  return result
 }
 
 export const api = {

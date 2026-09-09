@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { User } from '@/lib/api/types'
+import type { AuthUser } from '@/lib/api/types'
 
 export interface RegisterInput {
   fullName: string
@@ -9,10 +9,11 @@ export interface RegisterInput {
 }
 
 export interface AuthContextValue {
-  user: User | null
+  user: AuthUser | null
+  isInitializing: boolean
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<User>
-  register: (input: RegisterInput) => Promise<User>
+  login: (email: string, password: string) => Promise<AuthUser>
+  register: (input: RegisterInput) => Promise<AuthUser>
   logout: () => Promise<void>
 }
 

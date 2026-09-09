@@ -82,22 +82,12 @@ export async function uploadLostReportPhotos(reportId: string, files: File[]) {
   const body = new FormData()
   files.forEach((file) => body.append('photos', file))
 
-  const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/api/lost-reports/${reportId}/photos`,
-    {
-      method: 'POST',
-      // FormData sets its own multipart boundary; setting Content-Type here breaks it.
-      headers: { Authorization: `Bearer ${localStorage.getItem('foundu.accessToken') ?? ''}` },
-      body,
-    },
+  // The shared client adds auth and refreshes expired access tokens. It also leaves the
+  // Content-Type unset for FormData so the browser can supply the multipart boundary.
+  return api.post<{ id: string; url: string }[]>(
+    `/api/lost-reports/${reportId}/photos`,
+    body,
   )
-
-  if (!response.ok) {
-    const problem = await response.json().catch(() => ({}))
-    throw new Error(problem.detail ?? 'The photos could not be uploaded.')
-  }
-
-  return (await response.json()) as { id: string; url: string }[]
 }
 
 export const createLostReport = (input: CreateLostReportInput) =>

@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthLayout } from './auth-layout'
+import { AuthLoading } from './auth-loading'
 import { useAuth } from './use-auth'
 import { ApiError } from '@/lib/api/client'
 import { homeRouteForRole } from '@/routes/role-home'
 
 export function LoginPage() {
-  const { user, login } = useAuth()
+  const { user, isInitializing, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -20,6 +21,8 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+
+  if (isInitializing) return <AuthLoading />
 
   // Already signed in - skip the form entirely.
   if (user) {
@@ -35,8 +38,13 @@ export function LoginPage() {
       const signedIn = await login(email, password)
 
       // Return them to wherever the guard interrupted, otherwise their role's home.
-      const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname
-      navigate(from ?? homeRouteForRole(signedIn.role), { replace: true })
+      const from = (location.state as {
+        from?: { pathname: string; search?: string; hash?: string }
+      } | null)?.from
+      const destination = from
+        ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
+        : homeRouteForRole(signedIn.role)
+      navigate(destination, { replace: true })
     } catch (error) {
       if (error instanceof ApiError) {
         setFieldErrors(error.fieldErrors)

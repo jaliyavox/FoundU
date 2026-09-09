@@ -1,5 +1,5 @@
 import { api } from '@/lib/api/client'
-import type { AuthResponse, User } from '@/lib/api/types'
+import type { AuthResponse, AuthUser, MeResponse } from '@/lib/api/types'
 
 /**
  * These three are anonymous: login and register have no token yet, and logout deliberately
@@ -25,5 +25,9 @@ export function logout(refreshToken: string) {
 
 /** Authenticated: proves the stored access token is still valid. */
 export function me() {
-  return api.get<User>('/api/auth/me')
+  return api.get<MeResponse>('/api/auth/me')
+}
+
+export function authUserFromMe(profile: MeResponse): AuthUser {
+  return { id: profile.id, email: profile.email, fullName: profile.name, role: profile.role }
 }
