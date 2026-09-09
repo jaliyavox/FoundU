@@ -3,6 +3,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { timeAgo, type LostReportFeedItem } from './feed-api'
 import { HandInSteps } from './hand-in-steps'
 import { ItemMedia } from './item-media'
+import { FoundConfirmPanel } from './found-confirm-panel'
 import { PhotoViewer } from './photo-lightbox'
 
 /**
@@ -25,24 +26,27 @@ export function FeedSpotlight({
   item,
   showHandIn,
   zoomed,
-  hidden,
+  confirming,
   onCloseZoom,
+  onCancelConfirm,
+  onConfirmed,
 }: {
   item: LostReportFeedItem | null
   showHandIn: boolean
   /** The photo viewer opens here rather than as a modal - see photo-lightbox.tsx. */
   zoomed: boolean
   /**
-   * Stand down entirely. The "are you sure" confirmation is a centred dialog, and a fixed
-   * card pinned over the same space either covers it or gets covered - so the card yields
-   * for the moment the question is on screen.
+   * The "are you sure" check, in the same slot as the steps. The finder is being asked to
+   * compare what is in their hand against this card, so the question belongs beside it.
    */
-  hidden: boolean
+  confirming: boolean
   onCloseZoom: () => void
+  onCancelConfirm: () => void
+  onConfirmed: () => void
 }) {
   const isMobile = useIsMobile()
 
-  if (!item || hidden) return null
+  if (!item) return null
 
   const meta = [item.primaryColor, item.lastSeenLocationName].filter(Boolean).join(' · ')
 
@@ -75,11 +79,9 @@ export function FeedSpotlight({
     }
 
     return createPortal(
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 top-0 z-60 flex flex-col items-center gap-4 px-4 pt-5"
-      >
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-60 flex flex-col items-center gap-4 px-4 pt-5">
         <div
+          aria-hidden="true"
           data-feed-spotlight={item.id}
           key={item.id}
           className="fu-spotlight-in flex w-full max-w-sm items-center gap-3 rounded-2xl bg-[oklch(0.21_0.03_148)] p-3 shadow-2xl shadow-black/50 ring-2 ring-brand-green/60"
@@ -99,11 +101,21 @@ export function FeedSpotlight({
           </div>
         </div>
 
+        {confirming && (
+          <FoundConfirmPanel
+            item={item}
+            onCancel={onCancelConfirm}
+            onConfirmed={onConfirmed}
+            className="max-w-sm"
+          />
+        )}
+
         {/* Same block as desktop, stacked under the card instead of beside it. The sheet
             shrinks to make room - see feed-detail-panel.tsx. */}
-        {showHandIn && (
+        {showHandIn && !confirming && (
           <div
-            data-feed-steps="true"
+            aria-hidden="true"
+            data-feed-middle="true"
             className="fu-spotlight-in w-full max-w-sm rounded-2xl bg-linear-to-b from-white to-brand-mist p-4 shadow-2xl shadow-black/40 ring-1 ring-neutral-900/8"
           >
             <HandInSteps tone="light" />
@@ -166,11 +178,20 @@ export function FeedSpotlight({
           />
         )}
 
+        {confirming && !showPhoto && (
+          <FoundConfirmPanel
+            item={item}
+            onCancel={onCancelConfirm}
+            onConfirmed={onConfirmed}
+            className="max-w-[19rem]"
+          />
+        )}
+
         {/* Steps beside the card, joined by the connector, so the flow reads left to right. */}
-        {showHandIn && !showPhoto && (
+        {showHandIn && !showPhoto && !confirming && (
           <div
             aria-hidden="true"
-            data-feed-steps="true"
+            data-feed-middle="true"
             className="fu-spotlight-in w-full max-w-[17rem] rounded-2xl bg-linear-to-b from-white to-brand-mist p-5 shadow-2xl shadow-black/40 ring-1 ring-neutral-900/8"
           >
             <HandInSteps tone="light" />

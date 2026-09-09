@@ -119,9 +119,12 @@ export function AppLayout() {
           <Link
             to="/"
             aria-label="FoundU home"
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
-            <FoundUMark decorative className="size-8 rounded-lg" />
+            {/* Collapsed, the mark sits among 16px line icons: at its full size a solid tile
+                fills the rail edge to edge and reads as clipped, so it steps down a size and
+                centres itself. The artwork rounds its own tile - no CSS radius needed. */}
+            <FoundUMark decorative className="size-8 group-data-[collapsible=icon]:size-7" />
             <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
               <span className="truncate text-sm font-semibold">FoundU</span>
               <span className="truncate text-xs text-muted-foreground">Campus lost &amp; found</span>

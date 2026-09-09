@@ -245,10 +245,18 @@ export function FeedPage() {
         item={selected}
         showHandIn={showHandIn}
         zoomed={zoomed}
-        hidden={confirming}
+        confirming={confirming}
         onCloseZoom={() => setZoomed(false)}
+        onCancelConfirm={() => setConfirming(false)}
+        onConfirmed={() => {
+          setConfirming(false)
+          setShowHandIn(true)
+        }}
       />
-      <CardConnector cardId={confirming ? null : (selected?.id ?? null)} showHandIn={showHandIn} />
+      <CardConnector
+        cardId={selected?.id ?? null}
+        viaMiddle={showHandIn || confirming}
+      />
     </div>
   )
 }

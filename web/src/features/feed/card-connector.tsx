@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 /**
- * Dashed lines joining the spotlit card to whatever comes next: the side panel normally,
- * and card -> steps -> panel once the hand-in flow is open. It measures the spotlight (a
+ * Dashed lines joining the spotlit card to whatever comes next: the side panel normally, and
+ * card -> middle -> panel when something sits between them (the confirmation, then the steps). It measures the spotlight (a
  * fixed position), never the card in the grid, which could be anywhere - including under
  * the panel.
  *
@@ -45,10 +45,14 @@ function verticalSegment(from: Element, to: Element): Segment {
 
 export function CardConnector({
   cardId,
-  showHandIn,
+  viaMiddle,
 }: {
   cardId: string | null
-  showHandIn: boolean
+  /**
+   * Whether something sits between the card and the panel - the hand-in steps, or the
+   * "are you sure" check. Both take the same slot, so the chain is the same shape.
+   */
+  viaMiddle: boolean
 }) {
   const [segments, setSegments] = useState<Segment[]>([])
 
@@ -66,22 +70,22 @@ export function CardConnector({
 
     const measure = () => {
       const card = document.querySelector(`[data-feed-spotlight="${cardId}"]`)
-      const steps = document.querySelector('[data-feed-steps]')
+      const middle = document.querySelector('[data-feed-middle]')
       const panel = document.querySelector('[data-slot="sheet-content"]')
 
       if (card && panel) {
         if (isMobile) {
           // Same chain as desktop, just stacked.
           setSegments(
-            showHandIn && steps
-              ? [verticalSegment(card, steps), verticalSegment(steps, panel)]
+            viaMiddle && middle
+              ? [verticalSegment(card, middle), verticalSegment(middle, panel)]
               : [verticalSegment(card, panel)],
           )
         } else {
-          // Chain through the steps when they are showing, so the eye follows the flow.
+          // Chain through the middle block when one is showing, so the eye follows the flow.
           setSegments(
-            showHandIn && steps
-              ? [horizontalSegment(card, steps), horizontalSegment(steps, panel)]
+            viaMiddle && middle
+              ? [horizontalSegment(card, middle), horizontalSegment(middle, panel)]
               : [horizontalSegment(card, panel)],
           )
         }
@@ -92,7 +96,7 @@ export function CardConnector({
 
     measure()
     return () => window.cancelAnimationFrame(frame)
-  }, [cardId, showHandIn])
+  }, [cardId, viaMiddle])
 
   if (segments.length === 0) return null
 

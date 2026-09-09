@@ -1,6 +1,4 @@
 import { Link } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { ActivityIcon, ArrowLeftIcon, ClockIcon, HandHeartIcon, MapPinIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,11 +6,9 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { useAuth } from '@/features/auth/use-auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-import { formatWindow, registerFoundClaim, timeAgo, type LostReportFeedItem } from './feed-api'
-import { FoundConfirmDialog } from './found-confirm-dialog'
+import { formatWindow, timeAgo, type LostReportFeedItem } from './feed-api'
 import { ItemMedia } from './item-media'
 import { ZoomButton } from './photo-lightbox'
-import { ApiError } from '@/lib/api/client'
 import { MessageAuthor } from './message-author'
 
 /**
@@ -46,18 +42,6 @@ export function FeedDetailPanel({
 }) {
   const { user } = useAuth()
   const isMobile = useIsMobile()
-  // Recorded before the steps appear: the author's card should update the moment a finder
-  // commits, not only if they go on to write a message.
-  const claim = useMutation({
-    mutationFn: (reportId: string) => registerFoundClaim(reportId),
-    onSuccess: () => {
-      onConfirmingChange(false)
-      onShowHandIn(true)
-    },
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.')
-    },
-  })
 
   return (
     <Sheet open={item !== null} onOpenChange={(open) => !open && onClose()}>
@@ -73,7 +57,13 @@ export function FeedDetailPanel({
           // which left the sheet content-sized and overlapping the steps.
           isMobile && 'rounded-t-3xl transition-[height] duration-500 ease-out',
           isMobile &&
-            (showHandIn ? 'data-[side=bottom]:h-[46svh]' : 'data-[side=bottom]:h-[76svh]'),
+            // The question needs more room above than the steps do: it carries the details
+            // the finder is checking against, and it must clear the card as well.
+            (confirming
+              ? 'data-[side=bottom]:h-[34svh]'
+              : showHandIn
+                ? 'data-[side=bottom]:h-[46svh]'
+                : 'data-[side=bottom]:h-[76svh]'),
           !isMobile && 'sm:max-w-md',
         )}
       >
@@ -222,16 +212,6 @@ export function FeedDetailPanel({
           </>
         )}
       </SheetContent>
-
-      {item && user && (
-        <FoundConfirmDialog
-          item={item}
-          open={confirming}
-          onOpenChange={(open) => !open && onConfirmingChange(false)}
-          onConfirm={() => claim.mutate(item.id)}
-          isPending={claim.isPending}
-        />
-      )}
     </Sheet>
   )
 }
