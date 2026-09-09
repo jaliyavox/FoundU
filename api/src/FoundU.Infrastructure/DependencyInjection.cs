@@ -8,6 +8,7 @@ using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Administration;
 using FoundU.Infrastructure.Claims;
 using FoundU.Infrastructure.Matching;
+using FoundU.Infrastructure.Notifications;
 using FoundU.Infrastructure.Identity;
 using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Storage;
@@ -103,6 +104,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IClaimService, ClaimService>();
         services.AddScoped<IMatchSuggestionService, MatchSuggestionService>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
 
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);

@@ -20,10 +20,12 @@ namespace FoundU.Infrastructure.Matching;
 public class MatchSuggestionService : IMatchSuggestionService
 {
     private readonly FoundUDbContext _db;
+    private readonly INotificationService _notifications;
 
-    public MatchSuggestionService(FoundUDbContext db)
+    public MatchSuggestionService(FoundUDbContext db, INotificationService notifications)
     {
         _db = db;
+        _notifications = notifications;
     }
 
     public async Task<MatchSuggestionDto> CreateAsync(
@@ -82,6 +84,22 @@ public class MatchSuggestionService : IMatchSuggestionService
             ChangedByUserId = staffId,
             Reason = "Linked by staff.",
         });
+
+        // The whole point of a suggestion is that the student hears about it. Queued onto the
+        // same unit of work, so there is no state where the link exists and nobody was told.
+        var itemName = await _db.ItemTypes
+            .AsNoTracking()
+            .Where(t => t.Id == foundReport.ItemTypeId)
+            .Select(t => t.Name)
+            .FirstAsync(cancellationToken);
+
+        _notifications.Queue(
+            lostReport.StudentId,
+            NotificationType.PossibleMatchFound,
+            $"A {itemName.ToLowerInvariant()} has been handed in",
+            "Staff think it might be the one you reported. Have a look and tell them whether it is yours.",
+            nameof(MatchSuggestion),
+            suggestion.Id);
 
         await _db.SaveChangesAsync(cancellationToken);
 

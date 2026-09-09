@@ -14,11 +14,16 @@ public class LostReportService : ILostReportService
 {
     private readonly FoundUDbContext _db;
     private readonly IPhotoStorage _photoStorage;
+    private readonly INotificationService _notifications;
 
-    public LostReportService(FoundUDbContext db, IPhotoStorage photoStorage)
+    public LostReportService(
+        FoundUDbContext db,
+        IPhotoStorage photoStorage,
+        INotificationService notifications)
     {
         _db = db;
         _photoStorage = photoStorage;
+        _notifications = notifications;
     }
 
     public async Task<LostReportDetailDto> CreateAsync(
@@ -288,6 +293,17 @@ public class LostReportService : ILostReportService
         {
             existing = new LostReportFoundClaim { LostReportId = reportId, FinderId = finderId };
             _db.LostReportFoundClaims.Add(existing);
+
+            // Only on the first press. Pressing again is the same claim, and telling the
+            // author twice would make one finder look like two.
+            _notifications.Queue(
+                report.StudentId,
+                NotificationType.ItemReportedFound,
+                "Someone says they found your item",
+                "They have been asked to hand it in at a desk. You will hear where it went if they say.",
+                nameof(LostReport),
+                reportId);
+
             await _db.SaveChangesAsync(cancellationToken);
         }
 
@@ -328,6 +344,17 @@ public class LostReportService : ILostReportService
         };
 
         _db.LostReportMessages.Add(message);
+
+        _notifications.Queue(
+            report.StudentId,
+            NotificationType.MessageReceived,
+            "A message about your lost item",
+            // The body is quoted rather than summarised: "you have a new message" makes
+            // someone open the app to find out something they could have been told.
+            message.Body.Length <= 140 ? message.Body : message.Body[..140] + "...",
+            nameof(LostReport),
+            reportId);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         var senderName = await _db.Users

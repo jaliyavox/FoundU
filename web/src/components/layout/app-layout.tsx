@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { FoundUMark } from '@/components/brand/foundu-logo'
 import { FeedLink } from './feed-link'
+import { NotificationBell } from '@/features/notifications/notification-bell'
 import { PanelDivider, PanelSheen } from './dashboard-panel'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -222,6 +223,8 @@ export function AppLayout() {
           {/* The feed is public rather than part of the role-gated workspace, so it sits in
               the header instead of among the sidebar sections. */}
           <FeedLink />
+
+          <NotificationBell />
 
           <Button
             variant="ghost"

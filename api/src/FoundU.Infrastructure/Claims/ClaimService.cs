@@ -22,10 +22,12 @@ namespace FoundU.Infrastructure.Claims;
 public class ClaimService : IClaimService
 {
     private readonly FoundUDbContext _db;
+    private readonly INotificationService _notifications;
 
-    public ClaimService(FoundUDbContext db)
+    public ClaimService(FoundUDbContext db, INotificationService notifications)
     {
         _db = db;
+        _notifications = notifications;
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
@@ -180,6 +182,14 @@ public class ClaimService : IClaimService
 
         MoveClaim(claim, ClaimStatus.WaitingForAnswer, staffId, "Verification questions were added.");
 
+        _notifications.Queue(
+            claim.StudentId,
+            NotificationType.VerificationQuestionAvailable,
+            request.Questions.Count == 1 ? "A question about your claim" : "Questions about your claim",
+            "Answer from memory to show the item is yours. Staff are comparing your answers against something that was never published.",
+            nameof(Claim),
+            claim.Id);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
@@ -299,11 +309,25 @@ public class ClaimService : IClaimService
 
             case ApprovalDecisionType.Rejected:
                 MoveClaim(claim, ClaimStatus.Rejected, staffId, reason);
+                _notifications.Queue(
+                    claim.StudentId,
+                    NotificationType.ClaimRejected,
+                    "Your claim was not approved",
+                    reason ?? "The desk could not match this item to you.",
+                    nameof(Claim),
+                    claim.Id);
                 await ReopenLostReportIfNothingElsePendingAsync(claim, staffId, cancellationToken);
                 break;
 
             case ApprovalDecisionType.RevisionRequested:
                 MoveClaim(claim, ClaimStatus.RevisionRequested, staffId, reason);
+                _notifications.Queue(
+                    claim.StudentId,
+                    NotificationType.RevisionRequested,
+                    "The desk needs more detail",
+                    reason ?? "Your answers were not specific enough to settle it. Try again.",
+                    nameof(Claim),
+                    claim.Id);
                 break;
         }
 
@@ -367,6 +391,37 @@ public class ClaimService : IClaimService
             MoveLostReport(lostReport, LostReportStatus.Resolved, staffId, "The claim was approved and the item returned.");
         }
 
+        _notifications.Queue(
+            claim.StudentId,
+            NotificationType.ClaimApproved,
+            "Your claim was approved",
+            reason ?? "The desk agrees the item is yours.",
+            nameof(Claim),
+            claim.Id);
+
+        // Two notifications, because they answer two different questions: is it mine, and
+        // where do I go. The second is the one someone re-reads on their way across campus.
+        var storage = foundReport is null
+            ? null
+            : await _db.StorageLocations
+                .AsNoTracking()
+                .Where(l => l.Id == foundReport.StorageLocationId)
+                .Select(l => new { l.Name, l.Building })
+                .FirstOrDefaultAsync(cancellationToken);
+
+        if (storage is not null)
+        {
+            _notifications.Queue(
+                claim.StudentId,
+                NotificationType.CollectionInstructions,
+                "Where to collect it",
+                storage.Building is null
+                    ? $"Bring your student ID to {storage.Name}."
+                    : $"Bring your student ID to {storage.Name}, {storage.Building}.",
+                nameof(Claim),
+                claim.Id);
+        }
+
         // Somebody else's open claim on the same item cannot succeed now. Closing it here is
         // kinder than leaving it pending forever, and it says why.
         var rivals = await _db.Claims
@@ -378,6 +433,15 @@ public class ClaimService : IClaimService
         foreach (var rival in rivals)
         {
             MoveClaim(rival, ClaimStatus.Rejected, staffId, "Another claim for this item was approved.");
+
+            _notifications.Queue(
+                rival.StudentId,
+                NotificationType.ClaimRejected,
+                "Your claim was closed",
+                "Someone else proved the item was theirs. Your report is active again, so keep an eye out.",
+                nameof(Claim),
+                rival.Id);
+
             await ReopenLostReportIfNothingElsePendingAsync(rival, staffId, cancellationToken);
         }
     }

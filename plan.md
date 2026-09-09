@@ -90,7 +90,7 @@ We can build the web dashboard's structure now and wire it to the API as the API
 - [x] Found-item log form + items table (staff sees private fields) — DONE 2026-09-09
 - [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
 - [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
-- [ ] Staff notification log — needs Step 8 API
+- [x] Notification bell + list (both roles) — DONE 2026-09-09
 - [ ] Admin: users table, analytics (Recharts), dispute review — needs Step 9 API
 - [ ] Agent-run panel on claim detail — needs Step 13 API
 
@@ -128,7 +128,7 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
       *(still owed: `/docs/api-conventions.md` — referenced from code but not yet written)*
 - [x] **Step 6** — Reporting slice API (reference lookups, found reports, lost reports)
 - [x] **Step 7** — Claims + staff review API
-- [ ] **Step 8** — Notifications + resolution API
+- [x] **Step 8** — Notifications + resolution API
 - [ ] **Step 9** — Admin + analytics + dispute API
 - [ ] **Step 5 / 10–13** — AI service + agent nodes + .NET<->AI integration
 
@@ -156,6 +156,33 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-09 - Step 8 notifications
+
+Until now a student only learned that their bag had turned up by opening the dashboard and
+looking. Every event in the flow now reaches the person it concerns.
+
+- **`INotificationService.Queue`** adds the row **without saving**: the caller's own
+  `SaveChanges` commits it, so a notification and the event it describes land in one
+  transaction. A claim that was approved but whose owner was never told is a bug that only
+  shows up as a person waiting.
+- **Endpoints** - `GET /api/notifications`, `GET /unread-count`, `POST /{id}/read`,
+  `POST /read-all`. Every route is scoped to the caller; there is no route that reads someone
+  else's, for any role. Reading a notification that is not yours returns **404, not 403** -
+  the difference would confirm the id exists.
+- **Two new `NotificationType` values** (`ItemReportedFound`, `MessageReceived`) for the feed
+  flow the Step 2 model predated. The column is a string conversion, so no migration.
+- Approval sends **two**: the outcome, and where to collect it. They answer different
+  questions, and the second is the one someone re-reads on the way across campus.
+- A message notification **quotes the message** rather than saying "you have a new message",
+  which makes someone open the app to learn something they could have been told.
+- Pressing "I found this" twice notifies once - one finder should not look like two.
+- **The bell** sits in the dashboard header: polled every 60s (no socket, and a minute of
+  staleness is honest here), badge, list, mark-one/mark-all, and opening a row marks it read
+  and navigates to what it is about.
+
+Verified end to end: seven notifications from one walk-through, in order, each addressed to
+the right person, with the finder's own count staying at zero.
 
 ### 2026-09-09 - staff found-item screens
 
