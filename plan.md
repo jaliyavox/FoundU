@@ -89,7 +89,7 @@ We can build the web dashboard's structure now and wire it to the API as the API
 ### A3 · Feature screens (built as API endpoints come online)
 - [ ] Found-item log form + items table (staff sees private fields) - needs Step 6 API **<- in progress**
 - [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
-- [ ] Claims review queue + claim detail (approve/reject) — Step 7 API is live **<- next**
+- [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
 - [ ] Staff notification log — needs Step 8 API
 - [ ] Admin: users table, analytics (Recharts), dispute review — needs Step 9 API
 - [ ] Agent-run panel on claim detail — needs Step 13 API
@@ -156,6 +156,31 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-09 - claims screens and the staff match bridge
+
+Step 7 shipped an API with no way in: found reports are staff-only on purpose, and the thing
+meant to introduce a student to an item - `MatchSuggestion`, written by the Matching Agent -
+belongs to Step 11, which is blocked on Python 3.11. So the manual half of that bridge now
+exists. **Staff link an item to a lost report by hand; the student sees it on their reports and
+claims from there.** `GeneratedByAgentRunId` stays null, and when the agent lands it writes the
+same rows without the screens changing.
+
+- **New endpoints** - `POST /api/match-suggestions` (Staff), `GET /mine` (Student),
+  `GET /for-item/{id}` (Staff), `POST /{id}/dismiss` (Student).
+- **Migration** `20260909120456_AddMatchSuggestionStaffNote` - a line the student reads, which
+  does not belong in the agent's `MatchingFactorsJson` column.
+- `MatchScore` is **hidden** for hand-made links rather than faked. A person comparing two
+  records has no confidence score, and a number that means nothing is worse than none.
+- Opening a claim confirms the suggestion that led to it, with status history.
+- **Screens:** suggestions panel on My reports and My claims; `/my-claims` list; `/claims`
+  staff queue (oldest first, defaults to what needs attention); one `/claims/:id` detail for
+  both sides - students answer, staff ask and decide. Two screens for one record drift apart,
+  and the API already decides who may see it.
+- Whether an answer was judged correct is never rendered, matching the API.
+
+**Still no notifications.** A student only discovers a suggestion by opening the dashboard.
+That is Step 8, and it is the next thing worth building.
 
 ### 2026-08-19 - Step 7 claims + staff review API
 
