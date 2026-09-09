@@ -89,7 +89,7 @@ We can build the web dashboard's structure now and wire it to the API as the API
 ### A3 · Feature screens (built as API endpoints come online)
 - [ ] Found-item log form + items table (staff sees private fields) - needs Step 6 API **<- in progress**
 - [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
-- [ ] Claims review queue + claim detail (approve/reject) — needs Step 7 API
+- [ ] Claims review queue + claim detail (approve/reject) — Step 7 API is live **<- next**
 - [ ] Staff notification log — needs Step 8 API
 - [ ] Admin: users table, analytics (Recharts), dispute review — needs Step 9 API
 - [ ] Agent-run panel on claim detail — needs Step 13 API
@@ -127,7 +127,7 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 - [x] **Step 3** — JWT auth + Identity, roles, ProblemDetails envelope, FluentValidation, Swagger
       *(still owed: `/docs/api-conventions.md` — referenced from code but not yet written)*
 - [x] **Step 6** — Reporting slice API (reference lookups, found reports, lost reports)
-- [ ] **Step 7** — Claims + staff review API
+- [x] **Step 7** — Claims + staff review API
 - [ ] **Step 8** — Notifications + resolution API
 - [ ] **Step 9** — Admin + analytics + dispute API
 - [ ] **Step 5 / 10–13** — AI service + agent nodes + .NET<->AI integration
@@ -156,6 +156,51 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-08-19 - Step 7 claims + staff review API
+
+`Administration` was merged into `main` first, so the report flow, dashboard panels and found
+claims are on one line of history again.
+
+**Endpoints** (`/api/claims`) - no migration needed, Step 2 already modelled every entity:
+
+| Verb | Route | Who | What |
+| --- | --- | --- | --- |
+| POST | `/api/claims` | Student | Claim a found item against your own lost report |
+| GET | `/api/claims/mine` | Student | Your claims, newest first |
+| GET | `/api/claims` | Staff/Admin | The review queue, **oldest first** - longest wait is worked next |
+| GET | `/api/claims/{id}` | both | Students read only their own |
+| POST | `/api/claims/{id}/questions` | Staff/Admin | Write the verification questions |
+| POST | `/api/claims/{id}/answers` | Student | Answer every outstanding question at once |
+| POST | `/api/claims/{id}/decision` | Staff/Admin | Approved / Rejected / RevisionRequested |
+| POST | `/api/claims/{id}/cancel` | Student | Give up on your own claim |
+
+**Status wiring.** A claim is what finally moves a lost report off `Active`: creating one sets
+it to `Matched`, approval sets it to `Resolved` and the found item to `Returned`. Rejection or
+cancellation puts the report back to `Active` unless another claim of theirs is still open, so
+nothing gets stranded on `Matched`. Approving one claim rejects every other open claim on the
+same item with "Another claim for this item was approved."
+
+This is what makes the progress track on the report card real - before Step 7 nothing in the
+API ever set `Matched` or `Resolved`, so a report could never advance past "someone found it".
+
+**The privacy line.** `FoundReport.PrivateVerificationDetails` never enters a student-reachable
+projection; claim detail projects the item through `FoundReportSummaryDto`, which is the
+student-safe shape. `ClaimAnswer.IsCorrect` is also withheld from students - telling a claimant
+which answers passed hands a fraudulent one a feedback loop for guessing the rest. Verified by
+dumping every student-reachable payload and grepping it.
+
+**Verified against the database** (spare API on 5299, so it never touched the dev instance):
+duplicate claim 409; rival reading another student's claim 403; partial answers 400 with the
+count outstanding; approve -> claim Approved, item Returned, report Resolved; deciding twice
+409; reject -> report back to Active, item back to Unclaimed; RevisionRequested -> student
+rewrites the same answer -> UnderReview; cancel -> report back to Active; student hitting the
+staff queue 403.
+
+**Not built, deliberately.** `VerificationQuestion.GeneratedByAgentRunId` stays null and
+`ClaimAnswer.IsCorrect` stays null - both belong to the Verification Agent in Step 12. Staff
+write the questions and judge the answers by hand until then, which is a working desk process,
+not a stub.
 
 ### 2026-08-19 - public landing, brand, and the lost feed
 
