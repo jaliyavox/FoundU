@@ -87,7 +87,7 @@ We can build the web dashboard's structure now and wire it to the API as the API
 - [x] Wired to the real `/api` auth (no stubs needed — Step 3 landed first)
 
 ### A3 · Feature screens (built as API endpoints come online)
-- [ ] Found-item log form + items table (staff sees private fields) - needs Step 6 API **<- in progress**
+- [x] Found-item log form + items table (staff sees private fields) — DONE 2026-09-09
 - [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
 - [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
 - [ ] Staff notification log — needs Step 8 API
@@ -156,6 +156,27 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-09 - staff found-item screens
+
+The last A3 screen that Step 6 had already unblocked, and the staff half of the match bridge -
+until now staff could only link an item to a report through curl.
+
+- **`/items`** - the items table. Defaults to what is still in storage, because that is the
+  working set: a desk needs to know what it is holding, not everything it ever held. Search,
+  status filter, paging.
+- **`/items/new`** - the log form. One screen, not a wizard: a student fills in a report on a
+  phone after losing something, but this is typed at a counter with the item in hand.
+- **`/items/:id`** - detail, plus **Suggest to a report**, which creates the match suggestion
+  the student then sees.
+- The hidden verification detail gets **its own panel** on both screens rather than sitting
+  among the other fields. It is the one thing on the page that must not be read aloud to
+  whoever is standing at the counter, and the form says so plainly - including "leave it blank
+  if there is genuinely nothing distinctive, do not invent one".
+- The table shows only **whether** a hidden detail was recorded, never the detail.
+
+Contracts checked against the live API: the table query, search, the detail (403 for a
+student), the active-report picker, and the suggestions already on an item.
 
 ### 2026-09-09 - claims screens and the staff match bridge
 

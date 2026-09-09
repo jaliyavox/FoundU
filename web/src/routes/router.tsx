@@ -8,7 +8,9 @@ import { AdminUsersPage } from '@/features/admin/admin-users-page'
 import { ClaimDetailPage } from '@/features/claims/claim-detail-page'
 import { ClaimQueuePage } from '@/features/claims/claim-queue-page'
 import { MyClaimsPage } from '@/features/claims/my-claims-page'
-import { ItemsPage } from '@/pages/items-page'
+import { ItemsPage } from '@/features/items/items-page'
+import { ItemDetailPage } from '@/features/items/item-detail-page'
+import { LogItemPage } from '@/features/items/log-item-page'
 import { LandingPage } from '@/pages/landing-page'
 import { MyReportsPage } from '@/features/reports/my-reports-page'
 import { ReportLostPage } from '@/features/reports/report-lost-page'
@@ -32,6 +34,8 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allow={['Staff', 'Admin']} />,
             children: [
               { path: 'items', element: <ItemsPage /> },
+              { path: 'items/new', element: <LogItemPage /> },
+              { path: 'items/:id', element: <ItemDetailPage /> },
               { path: 'claims', element: <ClaimQueuePage /> },
             ],
           },
