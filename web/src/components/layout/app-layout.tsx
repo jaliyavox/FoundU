@@ -2,10 +2,12 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   ChevronsUpDownIcon,
   FileTextIcon,
+  GavelIcon,
   LogOutIcon,
   MoonIcon,
   PackageSearchIcon,
   ShieldIcon,
+  ShieldQuestionIcon,
   SunIcon,
 } from 'lucide-react'
 import { FoundUMark } from '@/components/brand/foundu-logo'
@@ -52,7 +54,9 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/items', label: 'Found items', icon: PackageSearchIcon, allow: ['Staff', 'Admin'] },
+  { to: '/claims', label: 'Claims', icon: GavelIcon, allow: ['Staff', 'Admin'] },
   { to: '/my-reports', label: 'My reports', icon: FileTextIcon, allow: ['Student'] },
+  { to: '/my-claims', label: 'My claims', icon: ShieldQuestionIcon, allow: ['Student'] },
   { to: '/admin', label: 'Administration', icon: ShieldIcon, allow: ['Admin'] },
 ]
 

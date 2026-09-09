@@ -5,6 +5,9 @@ import { FeedPage } from '@/features/feed/feed-page'
 import { RegisterPage } from '@/features/auth/register-page'
 import { ProtectedRoute } from './protected-route'
 import { AdminUsersPage } from '@/features/admin/admin-users-page'
+import { ClaimDetailPage } from '@/features/claims/claim-detail-page'
+import { ClaimQueuePage } from '@/features/claims/claim-queue-page'
+import { MyClaimsPage } from '@/features/claims/my-claims-page'
 import { ItemsPage } from '@/pages/items-page'
 import { LandingPage } from '@/pages/landing-page'
 import { MyReportsPage } from '@/features/reports/my-reports-page'
@@ -27,15 +30,23 @@ export const router = createBrowserRouter([
         children: [
           {
             element: <ProtectedRoute allow={['Staff', 'Admin']} />,
-            children: [{ path: 'items', element: <ItemsPage /> }],
+            children: [
+              { path: 'items', element: <ItemsPage /> },
+              { path: 'claims', element: <ClaimQueuePage /> },
+            ],
           },
           {
             element: <ProtectedRoute allow={['Student']} />,
             children: [
               { path: 'my-reports', element: <MyReportsPage /> },
               { path: 'my-reports/new', element: <ReportLostPage /> },
+              { path: 'my-claims', element: <MyClaimsPage /> },
             ],
           },
+
+          // Both sides read the same claim from opposite ends, and the API decides who may
+          // see which - so this route is open to any signed-in user rather than duplicated.
+          { path: 'claims/:id', element: <ClaimDetailPage /> },
           {
             element: <ProtectedRoute allow={['Admin']} />,
             children: [{ path: 'admin', element: <AdminUsersPage /> }],

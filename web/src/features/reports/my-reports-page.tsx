@@ -23,6 +23,7 @@ import {
 import { timeAgo } from '@/features/feed/feed-api'
 import { ItemIllustration } from '@/features/feed/item-illustration'
 import { ItemMedia } from '@/features/feed/item-media'
+import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
 import { WithdrawDialog } from './withdraw-dialog'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
@@ -78,6 +79,10 @@ export function MyReportsPage() {
           Report a lost item
         </Button>
       </DashboardPanel>
+
+      {/* Sits above the reports: an item the desk may already be holding is more urgent than
+          the list of things still missing. */}
+      <SuggestionsPanel />
 
       {isPending ? (
         <div className="flex flex-col gap-3">

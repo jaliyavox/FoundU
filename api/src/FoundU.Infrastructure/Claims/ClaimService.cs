@@ -95,6 +95,28 @@ public class ClaimService : IClaimService
             MoveLostReport(lostReport, LostReportStatus.Matched, studentId, "A claim was submitted.");
         }
 
+        // If staff pointed the student at this item, the suggestion has done its job.
+        var suggestion = await _db.MatchSuggestions.FirstOrDefaultAsync(
+            m => m.LostReportId == request.LostReportId
+                && m.FoundReportId == request.FoundReportId
+                && m.Status == MatchSuggestionStatus.Suggested,
+            cancellationToken);
+
+        if (suggestion is not null)
+        {
+            _db.MatchStatusHistories.Add(new MatchStatusHistory
+            {
+                MatchSuggestionId = suggestion.Id,
+                FromStatus = suggestion.Status,
+                ToStatus = MatchSuggestionStatus.Confirmed,
+                ChangedByUserId = studentId,
+                Reason = "The student opened a claim.",
+            });
+
+            suggestion.Status = MatchSuggestionStatus.Confirmed;
+            suggestion.UpdatedAt = DateTime.UtcNow;
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(claim.Id, cancellationToken);

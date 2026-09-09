@@ -15,6 +15,8 @@ public class MatchSuggestionConfiguration : IEntityTypeConfiguration<MatchSugges
 
         builder.HasKey(m => m.Id);
 
+        builder.Property(m => m.StaffNote).HasMaxLength(500);
+
         builder.Property(m => m.MatchScore).HasColumnType("numeric(4,3)").IsRequired(); // 0.000 - 1.000
         builder.Property(m => m.MatchingFactorsJson).HasColumnType("jsonb");
         builder.Property(m => m.ConflictingFactorsJson).HasColumnType("jsonb");
