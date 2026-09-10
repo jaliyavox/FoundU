@@ -16,7 +16,7 @@ public class LostReportFoundClaimConfiguration : IEntityTypeConfiguration<LostRe
         builder.Property(c => c.UpdatedAt).HasColumnType("timestamptz").IsRequired();
 
         builder.HasOne(c => c.LostReport)
-            .WithMany()
+            .WithMany(r => r.FoundClaims)
             .HasForeignKey(c => c.LostReportId)
             .OnDelete(DeleteBehavior.Cascade);
 

@@ -16,6 +16,20 @@ public record CreateLostReportRequest(
     DateTime EstimatedLostFromAt,
     DateTime EstimatedLostToAt);
 
+public record UpdateLostReportRequest(
+    Guid CategoryId,
+    Guid ItemTypeId,
+    Guid LastSeenLocationId,
+    string Description,
+    string? PrimaryColor,
+    string? SecondaryColor,
+    DateTime EstimatedLostFromAt,
+    DateTime EstimatedLostToAt);
+
+public record FlagLostReportRequest(
+    string Reason,
+    string? FlagType);
+
 public record LostReportPhotoDto(Guid Id, string Url);
 
 public record LostReportListItemDto(
@@ -62,6 +76,10 @@ public record LostReportDetailDto(
     DateTime? WithdrawnAt,
     Guid StudentId,
     string StudentName,
+    string? ParsedAttributesJson,
+    IReadOnlyList<LostReportPhotoDto> Photos,
+    bool IsFlagged,
+    string? FlagReason,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 

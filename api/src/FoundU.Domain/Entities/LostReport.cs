@@ -41,6 +41,10 @@ public class LostReport : BaseEntity, ISoftDeletable
     public string? WithdrawReason { get; set; }
     public DateTime? WithdrawnAt { get; set; }
 
+    public bool IsFlagged { get; set; }
+    public string? FlagReason { get; set; }
+    public DateTime? FlaggedAt { get; set; }
+
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
 
@@ -49,4 +53,6 @@ public class LostReport : BaseEntity, ISoftDeletable
     public ICollection<LostReportStatusHistory> StatusHistory { get; set; } = new List<LostReportStatusHistory>();
     public ICollection<MatchSuggestion> MatchSuggestions { get; set; } = new List<MatchSuggestion>();
     public ICollection<Claim> Claims { get; set; } = new List<Claim>();
+    public ICollection<LostReportMessage> Messages { get; set; } = new List<LostReportMessage>();
+    public ICollection<LostReportFoundClaim> FoundClaims { get; set; } = new List<LostReportFoundClaim>();
 }

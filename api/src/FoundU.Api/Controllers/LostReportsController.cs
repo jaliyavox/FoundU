@@ -4,6 +4,7 @@ using FoundU.Application.Auth;
 using FoundU.Application.Common;
 using FoundU.Application.Common.Pagination;
 using FoundU.Application.LostReports.Dtos;
+using FoundU.Application.Matching.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,6 +36,14 @@ public class LostReportsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<LostReportDetailDto>> Update(
+        Guid id,
+        [FromBody] UpdateLostReportRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.UpdateAsync(id, request, User.GetUserId(), cancellationToken));
+
     /// <summary>
     /// Public community feed - no authentication. Returns active reports only, with a reduced
     /// projection that carries the poster's display name but no email or student number.
@@ -56,6 +65,7 @@ public class LostReportsController : ControllerBase
 
     /// <summary>The signed-in student's own reports.</summary>
     [HttpGet("mine")]
+    [HttpGet("my-reports")]
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<PagedResult<LostReportListItemDto>>> Mine(
         [FromQuery] LostReportQuery query,
@@ -121,4 +131,20 @@ public class LostReportsController : ControllerBase
         [FromBody] WithdrawLostReportRequest request,
         CancellationToken cancellationToken)
         => Ok(await _lostReports.WithdrawAsync(id, User.GetUserId(), request.Reason, cancellationToken));
+
+    [HttpGet("{id:guid}/possible-matches")]
+    public async Task<ActionResult<IReadOnlyList<MatchSuggestionDto>>> GetPossibleMatches(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetPossibleMatchesAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
+
+    [HttpPost("{id:guid}/flag")]
+    public async Task<IActionResult> FlagReport(
+        Guid id,
+        [FromBody] FlagLostReportRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _lostReports.FlagAsync(id, request, User.GetUserId(), cancellationToken);
+        return NoContent();
+    }
 }

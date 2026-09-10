@@ -208,8 +208,8 @@ public class MatchSuggestionService : IMatchSuggestionService
             m.StaffNote,
             m.GeneratedByAgentRunId != null,
             m.GeneratedByAgentRunId == null ? null : (decimal?)m.MatchScore,
-            _db.Claims
-                .Where(c => c.LostReportId == m.LostReportId && c.FoundReportId == m.FoundReportId)
+            m.LostReport.Claims
+                .Where(c => c.FoundReportId == m.FoundReportId)
                 .OrderByDescending(c => c.CreatedAt)
                 .Select(c => (Guid?)c.Id)
                 .FirstOrDefault(),
