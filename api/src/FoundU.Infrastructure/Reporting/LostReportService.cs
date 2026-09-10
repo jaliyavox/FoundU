@@ -2,7 +2,9 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.Common;
 using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Common.Pagination;
+using FoundU.Application.FoundReports.Dtos;
 using FoundU.Application.LostReports.Dtos;
+using FoundU.Application.Matching.Dtos;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Persistence;
@@ -70,6 +72,112 @@ public class LostReportService : ILostReportService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(report.Id, cancellationToken);
+    }
+
+    public async Task<LostReportDetailDto> UpdateAsync(
+        Guid id,
+        UpdateLostReportRequest request,
+        Guid studentId,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports.FirstOrDefaultAsync(r => r.Id == id, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{id}' was not found.");
+
+        if (report.StudentId != studentId)
+        {
+            throw new ForbiddenAppException("You can only edit your own lost reports.");
+        }
+
+        if (report.Status != LostReportStatus.Active)
+        {
+            throw new ConflictAppException("Only active reports can be edited.");
+        }
+
+        await EnsureItemTypeBelongsToCategoryAsync(request.CategoryId, request.ItemTypeId, cancellationToken);
+
+        var locationExists = await _db.CampusLocations
+            .AsNoTracking()
+            .AnyAsync(l => l.Id == request.LastSeenLocationId, cancellationToken);
+
+        if (!locationExists)
+        {
+            throw new NotFoundAppException($"Campus location '{request.LastSeenLocationId}' was not found.");
+        }
+
+        report.CategoryId = request.CategoryId;
+        report.ItemTypeId = request.ItemTypeId;
+        report.LastSeenLocationId = request.LastSeenLocationId;
+        report.Description = request.Description.Trim();
+        report.PrimaryColor = Normalize(request.PrimaryColor);
+        report.SecondaryColor = Normalize(request.SecondaryColor);
+        report.EstimatedLostFromAt = DateTime.SpecifyKind(request.EstimatedLostFromAt, DateTimeKind.Utc);
+        report.EstimatedLostToAt = DateTime.SpecifyKind(request.EstimatedLostToAt, DateTimeKind.Utc);
+        report.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await LoadDetailAsync(report.Id, cancellationToken);
+    }
+
+    public async Task FlagAsync(
+        Guid id,
+        FlagLostReportRequest request,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports.FirstOrDefaultAsync(r => r.Id == id, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{id}' was not found.");
+
+        report.IsFlagged = true;
+        report.FlagReason = request.Reason.Trim();
+        report.FlaggedAt = DateTime.UtcNow;
+        report.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<MatchSuggestionDto>> GetPossibleMatchesAsync(
+        Guid reportId,
+        Guid requesterId,
+        bool requesterIsStaff,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports.AsNoTracking().FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
+
+        if (!requesterIsStaff && report.StudentId != requesterId)
+        {
+            throw new ForbiddenAppException("You can only view matches for your own lost reports.");
+        }
+
+        return await _db.MatchSuggestions
+            .AsNoTracking()
+            .Where(m => m.LostReportId == reportId && m.Status != MatchSuggestionStatus.Dismissed)
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => new MatchSuggestionDto(
+                m.Id,
+                m.LostReportId,
+                m.LostReport.Description,
+                new FoundReportSummaryDto(
+                    m.FoundReport.Id,
+                    m.FoundReport.Category.Name,
+                    m.FoundReport.ItemType.Name,
+                    m.FoundReport.FoundLocation.Name,
+                    m.FoundReport.GeneralDescription,
+                    m.FoundReport.PrimaryColor,
+                    m.FoundReport.FoundAt,
+                    m.FoundReport.Status.ToString()),
+                m.Status.ToString(),
+                m.StaffNote,
+                m.GeneratedByAgentRunId != null,
+                m.GeneratedByAgentRunId == null ? null : (decimal?)m.MatchScore,
+                m.LostReport.Claims
+                    .Where(c => c.FoundReportId == m.FoundReportId)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Select(c => (Guid?)c.Id)
+                    .FirstOrDefault(),
+                m.CreatedAt))
+            .ToListAsync(cancellationToken);
     }
 
     public Task<PagedResult<LostReportListItemDto>> SearchAsync(
@@ -440,10 +548,9 @@ public class LostReportService : ILostReportService
                 r.EstimatedLostToAt,
                 r.Status.ToString(),
                 r.Photos.Select(p => p.Url).ToList(),
-                _db.LostReportMessages.Count(m => m.LostReportId == r.Id),
-                _db.LostReportFoundClaims.Count(c => c.LostReportId == r.Id),
-                _db.LostReportFoundClaims
-                    .Where(c => c.LostReportId == r.Id)
+                r.Messages.Count(),
+                r.FoundClaims.Count(),
+                r.FoundClaims
                     .Max(c => (DateTime?)c.CreatedAt),
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
@@ -474,6 +581,10 @@ public class LostReportService : ILostReportService
                 r.WithdrawnAt,
                 r.StudentId,
                 r.Student.FullName,
+                r.ParsedAttributesJson,
+                r.Photos.Select(p => new LostReportPhotoDto(p.Id, p.Url)).ToList(),
+                r.IsFlagged,
+                r.FlagReason,
                 r.CreatedAt,
                 r.UpdatedAt))
             .FirstOrDefaultAsync(cancellationToken);

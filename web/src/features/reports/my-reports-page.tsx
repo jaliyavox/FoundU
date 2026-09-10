@@ -7,38 +7,78 @@ import {
   ChevronRightIcon,
   FileTextIcon,
   Loader2Icon,
+  PencilIcon,
   PlusIcon,
   RotateCwIcon,
+  SearchIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DashboardPanel, PanelSheen } from '@/components/layout/dashboard-panel'
 import { panelSurface } from '@/components/layout/panel-surface'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import {
+  getCategories,
+  getLocations,
   getMyLostReports,
   withdrawLostReport,
   type LostReportListItem,
+  type LostReportQuery,
 } from './reports-api'
 import { timeAgo } from '@/features/feed/feed-api'
 import { ItemIllustration } from '@/features/feed/item-illustration'
 import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
 import { WithdrawDialog } from './withdraw-dialog'
+import { EditLostReportDialog } from './edit-lost-report-dialog'
+import { LostReportDetailDialog } from './lost-report-detail-dialog'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
 
-
 export function MyReportsPage() {
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<string>('')
+  const [categoryId, setCategoryId] = useState<string>('')
+  const [lastSeenLocationId, setLastSeenLocationId] = useState<string>('')
+  const [sortBy, setSortBy] = useState<string>('created')
+  const [sortDirection, setSortDirection] = useState<string>('desc')
+
   const [withdrawTarget, setWithdrawTarget] = useState<LostReportListItem | null>(null)
+  const [editTarget, setEditTarget] = useState<LostReportListItem | null>(null)
+  const [detailTargetId, setDetailTargetId] = useState<string | null>(null)
+
   const queryClient = useQueryClient()
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+  })
+
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: getLocations,
+  })
+
+  const query: LostReportQuery = {
+    page,
+    pageSize: PAGE_SIZE,
+    search: search || undefined,
+    status: status || undefined,
+    categoryId: categoryId || undefined,
+    lastSeenLocationId: lastSeenLocationId || undefined,
+    sortBy: sortBy || undefined,
+    sortDirection,
+  }
+
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['my-lost-reports', { page }],
-    queryFn: () => getMyLostReports(page, PAGE_SIZE),
+    queryKey: ['my-lost-reports', query],
+    queryFn: () => getMyLostReports(query),
   })
 
   const withdraw = useMutation({
@@ -58,6 +98,16 @@ export function MyReportsPage() {
     },
   })
 
+  const resetFilters = () => {
+    setSearch('')
+    setStatus('')
+    setCategoryId('')
+    setLastSeenLocationId('')
+    setSortBy('created')
+    setSortDirection('desc')
+    setPage(1)
+  }
+
   return (
     <section className="flex flex-col gap-6">
       <DashboardPanel className="flex flex-wrap items-start justify-between gap-4">
@@ -68,8 +118,6 @@ export function MyReportsPage() {
           </p>
         </div>
 
-        {/* Inverted against the page: black on the light theme, white on the dark one, so
-            the primary action is the highest-contrast thing on screen either way. */}
         <Button
           className="bg-neutral-900 text-white hover:bg-neutral-900/90 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90"
           nativeButton={false}
@@ -80,10 +128,126 @@ export function MyReportsPage() {
         </Button>
       </DashboardPanel>
 
-      {/* Sits above the reports: an item the desk may already be holding is more urgent than
-          the list of things still missing. */}
+      {/* Matching suggestions panel */}
       <SuggestionsPanel />
 
+      {/* Filters, Search, Sort Controls */}
+      <div className={cn(panelSurface, 'flex flex-col gap-4 p-4')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+              placeholder="Search description..."
+              className="pl-9"
+            />
+          </div>
+
+          <Select
+            value={categoryId || 'all'}
+            onValueChange={(val: string | null) => {
+              setCategoryId(!val || val === 'all' ? '' : val)
+              setPage(1)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={lastSeenLocationId || 'all'}
+            onValueChange={(val: string | null) => {
+              setLastSeenLocationId(!val || val === 'all' ? '' : val)
+              setPage(1)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All locations" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All locations</SelectItem>
+              {locations.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={status || 'all'}
+            onValueChange={(val: string | null) => {
+              setStatus(!val || val === 'all' ? '' : val)
+              setPage(1)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Matched">Matched</SelectItem>
+              <SelectItem value="Resolved">Resolved</SelectItem>
+              <SelectItem value="Withdrawn">Withdrawn</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Sort by:</span>
+            <Select
+              value={sortBy}
+              onValueChange={(val: string | null) => {
+                if (val) setSortBy(val)
+                setPage(1)
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created">Created Date</SelectItem>
+                <SelectItem value="lostfrom">Lost Date</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="category">Category</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))}
+            >
+              {sortDirection === 'asc' ? '↑ Ascending' : '↓ Descending'}
+            </Button>
+          </div>
+
+          {(search || status || categoryId || lastSeenLocationId || sortBy !== 'created') && (
+            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 text-xs">
+              <RotateCwIcon className="mr-1 size-3" />
+              Reset filters
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Reports list */}
       {isPending ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 3 }).map((_, index) => (
@@ -116,18 +280,12 @@ export function MyReportsPage() {
           <span className="flex size-12 items-center justify-center rounded-2xl bg-muted">
             <FileTextIcon className="size-5 text-muted-foreground" aria-hidden="true" />
           </span>
-          <p className="text-base font-medium">You have not reported anything lost</p>
+          <p className="text-base font-medium">No matching reports found</p>
           <p className="max-w-sm text-sm text-muted-foreground">
-            If you lose something on campus, report it here and we will compare it against
-            everything handed in.
+            Try adjusting your search terms or filters to see your reports.
           </p>
-          <Button
-            className="mt-1 bg-neutral-900 text-white hover:bg-neutral-900/90 dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90"
-            nativeButton={false}
-            render={<Link to="/my-reports/new" />}
-          >
-            <PlusIcon aria-hidden="true" />
-            Report a lost item
+          <Button variant="outline" onClick={resetFilters}>
+            Clear filters
           </Button>
         </DashboardPanel>
       ) : (
@@ -137,6 +295,8 @@ export function MyReportsPage() {
               <li key={report.id}>
                 <ReportCard
                   report={report}
+                  onViewDetails={() => setDetailTargetId(report.id)}
+                  onEdit={() => setEditTarget(report)}
                   onWithdraw={() => setWithdrawTarget(report)}
                   isWithdrawing={withdraw.isPending && withdraw.variables === report.id}
                 />
@@ -174,43 +334,46 @@ export function MyReportsPage() {
         </>
       )}
 
+      {/* Dialog Modals */}
       <WithdrawDialog
         report={withdrawTarget}
         onConfirm={() => withdrawTarget && withdraw.mutate(withdrawTarget.id)}
         onClose={() => setWithdrawTarget(null)}
         isWithdrawing={withdraw.isPending}
       />
+
+      <EditLostReportDialog
+        report={editTarget}
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+      />
+
+      <LostReportDetailDialog
+        reportId={detailTargetId}
+        open={!!detailTargetId}
+        onClose={() => setDetailTargetId(null)}
+        onEdit={() => {
+          const rep = data?.items.find((i) => i.id === detailTargetId)
+          if (rep) {
+            setEditTarget(rep)
+            setDetailTargetId(null)
+          }
+        }}
+      />
     </section>
   )
 }
 
-/**
- * Where a report sits in its life. Withdrawn is off this path, not a stage of it.
- *
- * Every stage is read off real data - none of them is decorative:
- *  - Reported          the report exists and is Active
- *  - Someone found it  a finder has written to you, which is all a message here can mean
- *  - At the guard desk staff matched a logged found item to your report, so it is in storage
- *  - Returned          the report is Resolved
- */
 const LIFECYCLE = ['Reported', 'Someone found it', 'At the guard desk', 'Returned'] as const
-
-/** Knob position per stage. The ends stop short of the edges so they stay dots on a track
- *  rather than caps on it. */
 const STAGE_OFFSET = ['3%', '35%', '67%', '97%']
-
-/** Which end the pill hangs from, so it never runs off a narrow card. */
 const PILL_ALIGN = ['left-0', '-translate-x-1/2', '-translate-x-1/2', 'right-0'] as const
 
 function stageOf(report: LostReportListItem) {
   if (report.status === 'Resolved') return 3
   if (report.status === 'Matched') return 2
-  // Either signal counts: pressing "I found this" is recorded on its own, and a message is
-  // only ever sent by someone saying the same thing.
   return report.foundClaimCount > 0 || report.messageCount > 0 ? 1 : 0
 }
 
-/** Largest whole unit since the report went up, as a number and its word. */
 function elapsedSince(iso: string) {
   const minutes = Math.max(0, (Date.now() - new Date(iso).getTime()) / 60000)
 
@@ -231,17 +394,16 @@ function elapsedSince(iso: string) {
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en', { day: 'numeric', month: 'short' })
 
-/**
- * One report, as a status card rather than a paragraph: the item's own illustration, the
- * time it has been open, and where it sits on the path from reported to returned. Anything
- * that can be read off the track is not also written out in words.
- */
 function ReportCard({
   report,
+  onViewDetails,
+  onEdit,
   onWithdraw,
   isWithdrawing,
 }: {
   report: LostReportListItem
+  onViewDetails: () => void
+  onEdit: () => void
   onWithdraw: () => void
   isWithdrawing: boolean
 }) {
@@ -259,8 +421,6 @@ function ReportCard({
     >
       <PanelSheen />
 
-      {/* Oversized, barely-there version of the same artwork as the tile. It fills the empty
-          right-hand side that the reference card leaves to whitespace. */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute -top-6 -right-6 block size-52 text-foreground/5 dark:text-white/5"
@@ -269,7 +429,7 @@ function ReportCard({
       </span>
 
       <div className="relative flex flex-col gap-6">
-        {/* ------------------------------------------------------------ heading */}
+        {/* Heading */}
         <div className="flex items-start gap-3">
           <span
             className={cn(
@@ -285,28 +445,55 @@ function ReportCard({
             />
           </span>
 
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate font-medium">{report.itemTypeName}</h2>
+          <div className="min-w-0 flex-1 cursor-pointer" onClick={onViewDetails}>
+            <div className="flex items-center gap-2">
+              <h2 className="truncate font-medium hover:underline">{report.itemTypeName}</h2>
+              <Badge variant="outline" className="text-[10px] uppercase">
+                {report.status}
+              </Badge>
+            </div>
             <p className="truncate text-sm text-muted-foreground">
               {report.lastSeenLocationName} · {report.description}
             </p>
           </div>
 
-          {report.status === 'Active' && (
+          <div className="flex items-center gap-1.5">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              onClick={onWithdraw}
-              disabled={isWithdrawing}
-              className="-mt-1 shrink-0 border-foreground/15 bg-background/60 hover:bg-background"
+              onClick={onViewDetails}
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
-              {isWithdrawing && <Loader2Icon className="animate-spin" aria-hidden="true" />}
-              Withdraw
+              Details
             </Button>
-          )}
+
+            {report.status === 'Active' && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onEdit}
+                  className="shrink-0 border-foreground/15 bg-background/60 hover:bg-background"
+                >
+                  <PencilIcon className="size-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onWithdraw}
+                  disabled={isWithdrawing}
+                  className="shrink-0 border-foreground/15 bg-background/60 hover:bg-background text-destructive hover:text-destructive"
+                >
+                  {isWithdrawing && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+                  Withdraw
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* -------------------------------------------------------- found notice */}
+        {/* Found notice */}
         {!isWithdrawn && report.foundClaimCount > 0 && (
           <p className="fu-reveal flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
             <BellRingIcon
@@ -332,7 +519,7 @@ function ReportCard({
           </p>
         )}
 
-        {/* -------------------------------------------------------------- metric */}
+        {/* Metric */}
         {isWithdrawn ? (
           <p className="text-3xl font-semibold tracking-tight">
             Withdrawn
@@ -349,7 +536,7 @@ function ReportCard({
           </p>
         )}
 
-        {/* --------------------------------------------------------------- track */}
+        {/* Track */}
         <div className="flex flex-col gap-3">
           <div className={cn('relative h-2', !isWithdrawn && 'mt-8')}>
             <div className="absolute inset-0 rounded-full bg-foreground/10" />
@@ -361,8 +548,6 @@ function ReportCard({
                   style={{ width: STAGE_OFFSET[stage] }}
                 />
 
-                {/* Every checkpoint, so the track shows how far along the marker actually is
-                    rather than only where it stopped. */}
                 {STAGE_OFFSET.map((offset, index) => (
                   <span
                     key={offset}
@@ -376,9 +561,6 @@ function ReportCard({
                   />
                 ))}
 
-                {/* The pill sits in its own full-width layer rather than inside the marker:
-                    centred on the knob it hangs off the card at the first and last stages,
-                    which clips on a narrow screen. At the ends it hangs from that edge. */}
                 <span
                   className={cn(
                     'absolute bottom-4 flex max-w-full items-center gap-1.5 rounded-full bg-foreground px-2.5 py-1 text-xs whitespace-nowrap text-background transition-[left] duration-700 ease-out',

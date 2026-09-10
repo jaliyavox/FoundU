@@ -66,6 +66,66 @@ export interface LostReportListItem {
   createdAt: string
 }
 
+export interface LostReportQuery {
+  page: number
+  pageSize: number
+  search?: string
+  status?: string
+  categoryId?: string
+  itemTypeId?: string
+  lastSeenLocationId?: string
+  sortBy?: string
+  sortDirection?: string
+}
+
+export interface LostReportDetail {
+  id: string
+  categoryId: string
+  categoryName: string
+  itemTypeId: string
+  itemTypeName: string
+  lastSeenLocationId: string
+  lastSeenLocationName: string
+  description: string
+  primaryColor: string | null
+  secondaryColor: string | null
+  estimatedLostFromAt: string
+  estimatedLostToAt: string
+  status: string
+  withdrawReason: string | null
+  withdrawnAt: string | null
+  studentId: string
+  studentName: string
+  parsedAttributesJson: string | null
+  photos: { id: string; url: string }[]
+  isFlagged: boolean
+  flagReason: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PossibleMatch {
+  id: string
+  lostReportId: string
+  lostReportDescription: string
+  foundItem: {
+    id: string
+    categoryName: string
+    itemTypeName: string
+    foundLocationName: string
+    generalDescription: string
+    primaryColor: string | null
+    foundAt: string
+    status: string
+  }
+  status: string
+  staffNote: string | null
+  isAgentGenerated: boolean
+  matchScore: number | null
+  claimId: string | null
+  createdAt: string
+}
+
 /** Mirrors FoundU.Application.Common.PhotoRules - kept in step by hand, and by the API. */
 export const PHOTO_RULES = {
   maxPhotos: 2,
@@ -93,8 +153,39 @@ export async function uploadLostReportPhotos(reportId: string, files: File[]) {
 export const createLostReport = (input: CreateLostReportInput) =>
   api.post<{ id: string }>('/api/lost-reports', input)
 
-export const getMyLostReports = (page: number, pageSize: number) =>
-  api.get<PagedResult<LostReportListItem>>(`/api/lost-reports/mine?page=${page}&pageSize=${pageSize}`)
+export const updateLostReport = (id: string, input: CreateLostReportInput) =>
+  api.put<LostReportDetail>(`/api/lost-reports/${id}`, input)
+
+export const getMyLostReports = (query: LostReportQuery) => {
+  const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
+  if (query.search?.trim()) params.set('search', query.search.trim())
+  if (query.status) params.set('status', query.status)
+  if (query.categoryId) params.set('categoryId', query.categoryId)
+  if (query.lastSeenLocationId) params.set('lastSeenLocationId', query.lastSeenLocationId)
+  if (query.sortBy) params.set('sortBy', query.sortBy)
+  if (query.sortDirection) params.set('sortDirection', query.sortDirection)
+  return api.get<PagedResult<LostReportListItem>>(`/api/lost-reports/mine?${params}`)
+}
+
+export const getLostReports = (query: LostReportQuery) => {
+  const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
+  if (query.search?.trim()) params.set('search', query.search.trim())
+  if (query.status) params.set('status', query.status)
+  if (query.categoryId) params.set('categoryId', query.categoryId)
+  if (query.lastSeenLocationId) params.set('lastSeenLocationId', query.lastSeenLocationId)
+  if (query.sortBy) params.set('sortBy', query.sortBy)
+  if (query.sortDirection) params.set('sortDirection', query.sortDirection)
+  return api.get<PagedResult<LostReportListItem>>(`/api/lost-reports?${params}`)
+}
+
+export const getLostReport = (id: string) =>
+  api.get<LostReportDetail>(`/api/lost-reports/${id}`)
+
+export const getPossibleMatches = (id: string) =>
+  api.get<PossibleMatch[]>(`/api/lost-reports/${id}/possible-matches`)
+
+export const flagLostReport = (id: string, reason: string, flagType?: string) =>
+  api.post<unknown>(`/api/lost-reports/${id}/flag`, { reason, flagType })
 
 export const withdrawLostReport = (id: string, reason?: string) =>
   api.post<unknown>(`/api/lost-reports/${id}/withdraw`, { reason })

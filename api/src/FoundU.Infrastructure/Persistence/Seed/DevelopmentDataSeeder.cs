@@ -30,6 +30,8 @@ public static class DevelopmentDataSeeder
 {
     public static async Task SeedAsync(UserManager<AppUser> userManager, FoundUDbContext db, IConfiguration configuration)
     {
+        await db.Database.MigrateAsync();
+
         var alreadySeeded = await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Role == UserRole.Admin);
         if (alreadySeeded)
         {
@@ -60,6 +62,39 @@ public static class DevelopmentDataSeeder
         {
             var errors = string.Join("; ", result.Errors.Select(e => e.Description));
             throw new InvalidOperationException($"Failed to seed development Admin account: {errors}");
+        }
+
+        if (!await db.Categories.AnyAsync())
+        {
+            var electronics = new Category { Id = Guid.NewGuid(), Name = "Electronics", Description = "Laptops, phones, chargers, audio devices" };
+            var bags = new Category { Id = Guid.NewGuid(), Name = "Bags & Wallets", Description = "Backpacks, wallets, purses, pouches" };
+            var keys = new Category { Id = Guid.NewGuid(), Name = "Keys & Cards", Description = "Keys, keychains, student IDs, bank cards" };
+            var clothing = new Category { Id = Guid.NewGuid(), Name = "Clothing & Accessories", Description = "Jackets, hats, glasses, umbrellas" };
+
+            db.Categories.AddRange(electronics, bags, keys, clothing);
+
+            db.ItemTypes.AddRange(
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Laptop" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Smartphone" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Headphones / Earbuds" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Charger / Adapter" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = bags.Id, Name = "Backpack" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = bags.Id, Name = "Wallet" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = keys.Id, Name = "Keys" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = keys.Id, Name = "Student ID Card" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = clothing.Id, Name = "Jacket" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = clothing.Id, Name = "Water Bottle" }
+            );
+
+            db.CampusLocations.AddRange(
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Main Library", Building = "Library Hall" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Student Center", Building = "Building A" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Engineering Complex", Building = "Tech Block B" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Cafeteria", Building = "Student Union" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Sports Center Gym", Building = "Athletic Annex" }
+            );
+
+            await db.SaveChangesAsync();
         }
     }
 }

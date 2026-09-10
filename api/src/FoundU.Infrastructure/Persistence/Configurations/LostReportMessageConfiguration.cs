@@ -17,7 +17,7 @@ public class LostReportMessageConfiguration : IEntityTypeConfiguration<LostRepor
         builder.Property(m => m.UpdatedAt).HasColumnType("timestamptz").IsRequired();
 
         builder.HasOne(m => m.LostReport)
-            .WithMany()
+            .WithMany(r => r.Messages)
             .HasForeignKey(m => m.LostReportId)
             .OnDelete(DeleteBehavior.Cascade);
 

@@ -1,5 +1,6 @@
 using FoundU.Application.Common.Pagination;
 using FoundU.Application.LostReports.Dtos;
+using FoundU.Application.Matching.Dtos;
 
 namespace FoundU.Application.Abstractions;
 
@@ -11,6 +12,8 @@ namespace FoundU.Application.Abstractions;
 public interface ILostReportService
 {
     Task<LostReportDetailDto> CreateAsync(CreateLostReportRequest request, Guid studentId, CancellationToken cancellationToken = default);
+
+    Task<LostReportDetailDto> UpdateAsync(Guid id, UpdateLostReportRequest request, Guid studentId, CancellationToken cancellationToken = default);
 
     /// <summary>Staff/Admin view across every student's reports.</summary>
     Task<PagedResult<LostReportListItemDto>> SearchAsync(LostReportQuery query, CancellationToken cancellationToken = default);
@@ -27,6 +30,10 @@ public interface ILostReportService
     Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(LostReportQuery query, Guid? requesterId = null, CancellationToken cancellationToken = default);
 
     Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
+
+    Task FlagAsync(Guid id, FlagLostReportRequest request, Guid userId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MatchSuggestionDto>> GetPossibleMatchesAsync(Guid reportId, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Attaches photos to a report the caller owns. Enforces the count, size and real file
