@@ -103,11 +103,11 @@ We can build the web dashboard's structure now and wire it to the API as the API
 ## Track B — FLUTTER APP (after web is functional)
 
 ### B1 · Mobile shell (subset of Step 4b)
-- [ ] `flutter create` in `/mobile`, feature-first structure
-- [ ] go_router, Riverpod
-- [ ] Dio client with auth interceptor
-- [ ] flutter_secure_storage for tokens
-- [ ] Light theme + login screen against `POST /api/auth/login`, route by role
+- [x] `flutter create` in `/mobile`, feature-first structure — Braveena, PR #10
+- [x] go_router, Riverpod — PR #10
+- [x] Dio client with auth interceptor — PR #10
+- [x] flutter_secure_storage for tokens — PR #10
+- [x] Login screen against `POST /api/auth/login`, splash -> login -> home — PR #10
 
 ### B2 · Feature screens
 - [ ] Report-lost form with camera/gallery picker + browse-found list (Step 6)
@@ -130,7 +130,8 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 - [x] **Step 7** — Claims + staff review API
 - [x] **Step 8** — Notifications + resolution API
 - [ ] **Step 9** — Admin + analytics + dispute API
-- [ ] **Step 5 / 10–13** — AI service + agent nodes + .NET<->AI integration
+- [x] **Step 5** — AI service + LangGraph graph + `POST /agents/run` — Braveena, PR #11 (every node is a stub)
+- [ ] **Steps 10–13** — the agent nodes themselves, and the .NET<->AI integration
 
 ---
 
@@ -156,6 +157,22 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-14 - teammates' PRs #9-#12 merged
+
+- **#9 Braveena** - web auth client hardened: session versioning, refresh failure split into
+  "rejected" vs "server down", `FormData` bodies (photo upload no longer hand-rolls fetch).
+- **#10 Braveena** - Flutter shell, **B1 done**: real `flutter create`, go_router, Riverpod, Dio
+  auth interceptor, secure token storage, splash -> login -> home.
+- **#11 Braveena** - **Step 5 done**: compiled LangGraph `StateGraph` routing to four nodes and
+  `POST /agents/run`. Every node returns a stub - Steps 10-13 are the nodes themselves.
+- **#12 Parami** - My reports gains search/filter/sort, an edit dialog and a detail dialog;
+  `PUT /api/lost-reports/{id}`, `/possible-matches`, `/flag`; seeder now runs `MigrateAsync()`
+  on startup (no more `dotnet ef database update` locally).
+
+**Open from #12:** `POST /flag` has no ownership or role check - any signed-in user can flag
+any report - and nothing on the staff side reads `IsFlagged` yet, so the flag goes nowhere.
+`FlagType` is ignored. The seeder's category block is dead code (`HasData` already seeds them).
 
 ### 2026-09-09 - Step 8 notifications
 
