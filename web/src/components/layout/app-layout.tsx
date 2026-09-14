@@ -1,13 +1,15 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  BarChart3Icon,
   ChevronsUpDownIcon,
   FileTextIcon,
+  FlagIcon,
   GavelIcon,
   LogOutIcon,
   MoonIcon,
   PackageSearchIcon,
-  ShieldIcon,
   ShieldQuestionIcon,
+  UsersIcon,
   SunIcon,
 } from 'lucide-react'
 import { FoundUMark } from '@/components/brand/foundu-logo'
@@ -51,14 +53,21 @@ interface NavItem {
   label: string
   icon: typeof PackageSearchIcon
   allow: UserRole[]
+  /** Match this path only, not its children - for a parent route with siblings under it. */
+  exact?: boolean
 }
+
+const isActivePath = (item: NavItem, pathname: string) =>
+  item.exact ? pathname === item.to : pathname.startsWith(item.to)
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/items', label: 'Found items', icon: PackageSearchIcon, allow: ['Staff', 'Admin'] },
   { to: '/claims', label: 'Claims', icon: GavelIcon, allow: ['Staff', 'Admin'] },
   { to: '/my-reports', label: 'My reports', icon: FileTextIcon, allow: ['Student'] },
   { to: '/my-claims', label: 'My claims', icon: ShieldQuestionIcon, allow: ['Student'] },
-  { to: '/admin', label: 'Administration', icon: ShieldIcon, allow: ['Admin'] },
+  { to: '/admin/analytics', label: 'Analytics', icon: BarChart3Icon, allow: ['Admin'] },
+  { to: '/admin/moderation', label: 'Moderation', icon: FlagIcon, allow: ['Admin'] },
+  { to: '/admin', label: 'Users', icon: UsersIcon, allow: ['Admin'], exact: true },
 ]
 
 /** First letters of the first and last name, e.g. "FoundU Dev Administrator" -> "FA". */
@@ -84,7 +93,7 @@ export function AppLayout() {
   if (!user) return null
 
   const visibleItems = NAV_ITEMS.filter((item) => item.allow.includes(user.role))
-  const currentItem = visibleItems.find((item) => location.pathname.startsWith(item.to))
+  const currentItem = visibleItems.find((item) => isActivePath(item, location.pathname))
 
   return (
     <SidebarProvider>
@@ -140,18 +149,21 @@ export function AppLayout() {
             <SidebarGroupLabel className="text-xs tracking-wider uppercase">Workspace</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {visibleItems.map(({ to, label, icon: Icon }) => (
-                  <SidebarMenuItem key={to}>
-                    <SidebarMenuButton
-                      isActive={location.pathname.startsWith(to)}
-                      tooltip={label}
-                      render={<NavLink to={to} />}
-                    >
-                      <Icon aria-hidden="true" />
-                      <span>{label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {visibleItems.map((item) => {
+                  const { to, label, icon: Icon } = item
+                  return (
+                    <SidebarMenuItem key={to}>
+                      <SidebarMenuButton
+                        isActive={isActivePath(item, location.pathname)}
+                        tooltip={label}
+                        render={<NavLink to={to} />}
+                      >
+                        <Icon aria-hidden="true" />
+                        <span>{label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

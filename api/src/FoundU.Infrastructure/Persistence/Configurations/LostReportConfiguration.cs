@@ -15,6 +15,15 @@ public class LostReportConfiguration : IEntityTypeConfiguration<LostReport>
 
         builder.HasKey(r => r.Id);
 
+        // A flag should survive the flagger's account being removed.
+        builder.HasOne(r => r.FlaggedByUser)
+            .WithMany()
+            .HasForeignKey(r => r.FlaggedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // The moderation queue is "everything flagged, oldest first".
+        builder.HasIndex(r => new { r.IsFlagged, r.FlaggedAt });
+
         builder.Property(r => r.Description).HasMaxLength(1000).IsRequired();
         builder.Property(r => r.PrimaryColor).HasMaxLength(50);
         builder.Property(r => r.SecondaryColor).HasMaxLength(50);

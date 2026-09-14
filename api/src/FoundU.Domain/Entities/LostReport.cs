@@ -45,6 +45,13 @@ public class LostReport : BaseEntity, ISoftDeletable
     public string? FlagReason { get; set; }
     public DateTime? FlaggedAt { get; set; }
 
+    /// <summary>
+    /// Who raised the flag. Staff working the moderation queue read a flag differently
+    /// depending on whether the owner raised it on their own report or a staff member did.
+    /// </summary>
+    public Guid? FlaggedByUserId { get; set; }
+    public AppUser? FlaggedByUser { get; set; }
+
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
 

@@ -123,14 +123,60 @@ public class LostReportService : ILostReportService
         Guid id,
         FlagLostReportRequest request,
         Guid userId,
+        bool userIsStaff,
         CancellationToken cancellationToken = default)
     {
         var report = await _db.LostReports.FirstOrDefaultAsync(r => r.Id == id, cancellationToken)
             ?? throw new NotFoundAppException($"Lost report '{id}' was not found.");
 
+        // The owner may flag their own report; staff may flag any. A flag asks for a person's
+        // time, so it is not something one student gets to spend on another's report.
+        if (!userIsStaff && report.StudentId != userId)
+        {
+            throw new ForbiddenAppException("You can only flag your own lost reports.");
+        }
+
+        if (report.IsFlagged)
+        {
+            throw new ConflictAppException("This report is already flagged and waiting for staff.");
+        }
+
         report.IsFlagged = true;
         report.FlagReason = request.Reason.Trim();
         report.FlaggedAt = DateTime.UtcNow;
+        report.FlaggedByUserId = userId;
+        report.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ClearFlagAsync(
+        Guid id,
+        Guid staffId,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports.FirstOrDefaultAsync(r => r.Id == id, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{id}' was not found.");
+
+        if (!report.IsFlagged)
+        {
+            throw new ConflictAppException("This report is not flagged.");
+        }
+
+        // The reason is kept: a report flagged twice is worth knowing about, and the audit of
+        // who cleared it is the status history row.
+        _db.LostReportStatusHistories.Add(new LostReportStatusHistory
+        {
+            LostReportId = report.Id,
+            FromStatus = report.Status,
+            ToStatus = report.Status,
+            ChangedByUserId = staffId,
+            Reason = $"Flag cleared. Was: {report.FlagReason}",
+        });
+
+        report.IsFlagged = false;
+        report.FlaggedAt = null;
+        report.FlaggedByUserId = null;
         report.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -518,6 +564,7 @@ public class LostReportService : ILostReportService
         if (query.CategoryId is { } categoryId) reports = reports.Where(r => r.CategoryId == categoryId);
         if (query.ItemTypeId is { } itemTypeId) reports = reports.Where(r => r.ItemTypeId == itemTypeId);
         if (query.LastSeenLocationId is { } locationId) reports = reports.Where(r => r.LastSeenLocationId == locationId);
+        if (query.Flagged is { } flagged) reports = reports.Where(r => r.IsFlagged == flagged);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -552,6 +599,10 @@ public class LostReportService : ILostReportService
                 r.FoundClaims.Count(),
                 r.FoundClaims
                     .Max(c => (DateTime?)c.CreatedAt),
+                r.IsFlagged,
+                r.FlagReason,
+                r.FlaggedAt,
+                r.FlaggedByUser == null ? null : r.FlaggedByUser.FullName,
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 

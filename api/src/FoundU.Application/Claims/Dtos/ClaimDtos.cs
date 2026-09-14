@@ -55,6 +55,8 @@ public record ClaimDetailDto(
     string? DecisionReason,
     string? DecidedByName,
     DateTime? DecidedAt,
+    /// <summary>Set when an administrator overturned a rejection - the name shown is theirs.</summary>
+    bool IsOverride,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
@@ -68,6 +70,13 @@ public record SubmitClaimAnswersRequest(IReadOnlyList<ClaimAnswerInput> Answers)
 
 /// <summary>Staff approving, rejecting, or sending a claim back for another attempt.</summary>
 public record ClaimDecisionRequest(string Decision, string? Reason);
+
+/// <summary>
+/// An administrator overturning a rejection after a dispute. Only rejections can be
+/// overturned: reversing an approval would mean taking back an item that has already been
+/// handed over, which is not something a form can do.
+/// </summary>
+public record OverturnClaimRequest(string Reason);
 
 public class ClaimQuery : PaginationQuery
 {

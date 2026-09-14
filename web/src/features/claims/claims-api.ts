@@ -61,6 +61,8 @@ export interface ClaimDetail {
   decisionReason: string | null
   decidedByName: string | null
   decidedAt: string | null
+  /** True when an administrator overturned a rejection - the name shown is theirs. */
+  isOverride: boolean
   createdAt: string
   updatedAt: string
 }
@@ -113,6 +115,10 @@ export const submitAnswers = (id: string, answers: { questionId: string; answerT
 
 export const decideClaim = (id: string, decision: string, reason?: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/decision`, { decision, reason })
+
+/** Admin only: overturn a rejection after a dispute. Recorded as an override. */
+export const overturnClaim = (id: string, reason: string) =>
+  api.post<ClaimDetail>(`/api/claims/${id}/overturn`, { reason })
 
 export const cancelClaim = (id: string, reason?: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/cancel`, { reason })

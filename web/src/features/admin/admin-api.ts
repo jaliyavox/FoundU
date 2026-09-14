@@ -52,3 +52,61 @@ export const reinstateUser = (id: string) => api.post<AdminUser>(`/api/admin/use
 
 export const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })
+
+/* ---------------------------------------------------------------- analytics */
+
+export interface StatusCount {
+  status: string
+  count: number
+}
+
+export interface DailyActivity {
+  date: string
+  lostReported: number
+  itemsLoggedIn: number
+  itemsReturned: number
+}
+
+export interface CategoryActivity {
+  category: string
+  lost: number
+  found: number
+}
+
+/** Mirrors AnalyticsOverviewDto. Every figure is a count or a mean over real rows. */
+export interface AnalyticsOverview {
+  lostReportsByStatus: StatusCount[]
+  foundItemsByStatus: StatusCount[]
+  claimsByStatus: StatusCount[]
+  last30Days: DailyActivity[]
+  topCategories: CategoryActivity[]
+  averageDaysToReturn: number | null
+  resolvedReports: number
+  openFlags: number
+  generatedAt: string
+}
+
+export const getAnalyticsOverview = () => api.get<AnalyticsOverview>('/api/admin/analytics/overview')
+
+/* --------------------------------------------------------------- moderation */
+
+/** A flagged lost report as the staff list returns it - the fields moderation needs. */
+export interface FlaggedReport {
+  id: string
+  itemTypeName: string
+  categoryName: string
+  description: string
+  status: string
+  isFlagged: boolean
+  flagReason: string | null
+  flaggedAt: string | null
+  flaggedByName: string | null
+  createdAt: string
+}
+
+export const getFlaggedReports = (page = 1, pageSize = 20) =>
+  api.get<PagedResult<FlaggedReport>>(
+    `/api/lost-reports?page=${page}&pageSize=${pageSize}&flagged=true&sortBy=created&sortDirection=asc`,
+  )
+
+export const clearFlag = (reportId: string) => api.post<void>(`/api/lost-reports/${reportId}/unflag`)

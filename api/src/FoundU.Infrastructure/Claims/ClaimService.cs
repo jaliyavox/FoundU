@@ -336,6 +336,55 @@ public class ClaimService : IClaimService
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
 
+    public async Task<ClaimDetailDto> OverturnAsync(
+        Guid claimId,
+        Guid adminId,
+        OverturnClaimRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var claim = await _db.Claims
+            .FirstOrDefaultAsync(c => c.Id == claimId, cancellationToken)
+            ?? throw new NotFoundAppException($"Claim '{claimId}' was not found.");
+
+        if (claim.Status != ClaimStatus.Rejected)
+        {
+            throw new ConflictAppException("Only a rejected claim can be overturned.");
+        }
+
+        // The item may have gone to somebody else in the meantime - their approval stands.
+        var item = await _db.FoundReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == claim.FoundReportId, cancellationToken);
+
+        if (item is null || item.Status != FoundReportStatus.Unclaimed)
+        {
+            throw new ConflictAppException("This item is no longer in storage, so the claim cannot be approved now.");
+        }
+
+        var previous = await _db.ApprovalDecisions
+            .Where(d => d.ClaimId == claim.Id)
+            .OrderByDescending(d => d.DecidedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var reason = request.Reason.Trim();
+
+        // Both rows stay: the rejection and the override. The audit is the pair of them.
+        _db.ApprovalDecisions.Add(new ApprovalDecision
+        {
+            ClaimId = claim.Id,
+            DecidedByUserId = previous?.DecidedByUserId ?? adminId,
+            Decision = ApprovalDecisionType.Approved,
+            Reason = reason,
+            IsOverride = true,
+            OverriddenByUserId = adminId,
+        });
+
+        await ApproveAsync(claim, adminId, reason, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
     public async Task<ClaimDetailDto> CancelAsync(
         Guid claimId,
         Guid studentId,
@@ -584,11 +633,17 @@ public class ClaimService : IClaimService
                     .FirstOrDefault(),
                 c.ApprovalDecisions
                     .OrderByDescending(d => d.DecidedAt)
-                    .Select(d => d.DecidedByUser.FullName)
+                    .Select(d => d.IsOverride && d.OverriddenByUser != null
+                        ? d.OverriddenByUser.FullName
+                        : d.DecidedByUser.FullName)
                     .FirstOrDefault(),
                 c.ApprovalDecisions
                     .OrderByDescending(d => d.DecidedAt)
                     .Select(d => (DateTime?)d.DecidedAt)
+                    .FirstOrDefault(),
+                c.ApprovalDecisions
+                    .OrderByDescending(d => d.DecidedAt)
+                    .Select(d => d.IsOverride)
                     .FirstOrDefault(),
                 c.CreatedAt,
                 c.UpdatedAt))

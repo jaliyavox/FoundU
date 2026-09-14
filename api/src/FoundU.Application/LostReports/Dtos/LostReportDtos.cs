@@ -56,6 +56,11 @@ public record LostReportListItemDto(
     int FoundClaimCount,
     /// <summary>When the most recent one came in, for "someone found this, 2 hours ago".</summary>
     DateTime? LastFoundClaimAt,
+    bool IsFlagged,
+    string? FlagReason,
+    DateTime? FlaggedAt,
+    /// <summary>Display name only, and only on staff-reachable lists. Null when unflagged.</summary>
+    string? FlaggedByName,
     DateTime CreatedAt);
 
 public record LostReportDetailDto(
@@ -117,6 +122,9 @@ public class LostReportQuery : PaginationQuery
     public Guid? CategoryId { get; set; }
     public Guid? ItemTypeId { get; set; }
     public Guid? LastSeenLocationId { get; set; }
+
+    /// <summary>Staff only: the moderation queue is this set to true.</summary>
+    public bool? Flagged { get; set; }
 }
 
 /// <summary>

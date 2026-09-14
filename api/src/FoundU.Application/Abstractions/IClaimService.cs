@@ -39,6 +39,12 @@ public interface IClaimService
     /// </summary>
     Task<ClaimDetailDto> DecideAsync(Guid claimId, Guid staffId, ClaimDecisionRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// An administrator overturning a rejected claim to approved, after a dispute. Recorded
+    /// as an override decision so the audit shows both the original call and the reversal.
+    /// </summary>
+    Task<ClaimDetailDto> OverturnAsync(Guid claimId, Guid adminId, OverturnClaimRequest request, CancellationToken cancellationToken = default);
+
     /// <summary>The student giving up on their own claim. Nothing is deleted - it is recorded.</summary>
     Task<ClaimDetailDto> CancelAsync(Guid claimId, Guid studentId, string? reason, CancellationToken cancellationToken = default);
 }

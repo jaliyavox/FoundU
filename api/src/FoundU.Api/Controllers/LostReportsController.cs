@@ -138,13 +138,26 @@ public class LostReportsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _lostReports.GetPossibleMatchesAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
 
+    /// <summary>
+    /// Raise a flag for staff attention. Owners may flag their own report; Staff/Admin may
+    /// flag any. Enforced in the service, which also refuses a second flag on the same report.
+    /// </summary>
     [HttpPost("{id:guid}/flag")]
     public async Task<IActionResult> FlagReport(
         Guid id,
         [FromBody] FlagLostReportRequest request,
         CancellationToken cancellationToken)
     {
-        await _lostReports.FlagAsync(id, request, User.GetUserId(), cancellationToken);
+        await _lostReports.FlagAsync(id, request, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Staff clearing a flag once it has been looked at.</summary>
+    [HttpPost("{id:guid}/unflag")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<IActionResult> ClearFlag(Guid id, CancellationToken cancellationToken)
+    {
+        await _lostReports.ClearFlagAsync(id, User.GetUserId(), cancellationToken);
         return NoContent();
     }
 }

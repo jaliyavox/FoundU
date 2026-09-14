@@ -31,7 +31,14 @@ public interface ILostReportService
 
     Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
 
-    Task FlagAsync(Guid id, FlagLostReportRequest request, Guid userId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Raises a flag for staff attention. The report's owner may flag their own; Staff/Admin
+    /// may flag any. Nobody else - a flag is a request for a person's time.
+    /// </summary>
+    Task FlagAsync(Guid id, FlagLostReportRequest request, Guid userId, bool userIsStaff, CancellationToken cancellationToken = default);
+
+    /// <summary>Staff clearing a flag once it has been looked at.</summary>
+    Task ClearFlagAsync(Guid id, Guid staffId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<MatchSuggestionDto>> GetPossibleMatchesAsync(Guid reportId, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
 

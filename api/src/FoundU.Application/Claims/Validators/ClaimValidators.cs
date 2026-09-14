@@ -64,3 +64,16 @@ public class ClaimDecisionRequestValidator : AbstractValidator<ClaimDecisionRequ
             .WithMessage("Say why - the claimant is shown this.");
     }
 }
+
+public class OverturnClaimRequestValidator : AbstractValidator<OverturnClaimRequest>
+{
+    public OverturnClaimRequestValidator()
+    {
+        // An override is recorded against the admin by name, and the staff member whose call
+        // it reverses will read it. It has to say why.
+        RuleFor(x => x.Reason)
+            .NotEmpty().WithMessage("Say why the rejection is being overturned.")
+            .MinimumLength(10).WithMessage("Say enough that the staff member who rejected it understands.")
+            .MaximumLength(1000);
+    }
+}

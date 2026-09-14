@@ -32,6 +32,7 @@ import {
   CLAIM_STATUS_COPY,
   decideClaim,
   getClaim,
+  overturnClaim,
   submitAnswers,
   type ClaimDetail,
 } from './claims-api'
@@ -120,11 +121,13 @@ export function ClaimDetailPage() {
             <PanelDivider />
             <div className="flex flex-col gap-1">
               <p className="text-sm font-medium">
-                {claim.decision === 'Approved'
-                  ? 'Approved'
-                  : claim.decision === 'Rejected'
-                    ? 'Not approved'
-                    : 'Sent back for more detail'}
+                {claim.isOverride
+                  ? 'Rejection overturned'
+                  : claim.decision === 'Approved'
+                    ? 'Approved'
+                    : claim.decision === 'Rejected'
+                      ? 'Not approved'
+                      : 'Sent back for more detail'}
                 {claim.decidedByName && (
                   <span className="font-normal text-muted-foreground"> by {claim.decidedByName}</span>
                 )}
@@ -142,7 +145,79 @@ export function ClaimDetailPage() {
       <QuestionsPanel claim={claim} isStaff={isStaff} />
 
       {isStaff ? <StaffControls claim={claim} /> : <StudentControls claim={claim} />}
+
+      {user?.role === 'Admin' && claim.status === 'Rejected' && <OverturnControls claim={claim} />}
     </section>
+  )
+}
+
+/* -------------------------------------------------------------------- admin */
+
+/**
+ * Overturning a rejection after a dispute. Only rejections: reversing an approval would mean
+ * taking back an item that has already been handed over. The reason is required because
+ * the staff member whose call this reverses will read it.
+ */
+function OverturnControls({ claim }: { claim: ClaimDetail }) {
+  const queryClient = useQueryClient()
+  const [reason, setReason] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+
+  const overturn = useMutation({
+    mutationFn: () => overturnClaim(claim.id, reason.trim()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claim', claim.id] })
+      queryClient.invalidateQueries({ queryKey: ['claim-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] })
+      toast.success('Overturned. The item is marked returned and the student has been told.')
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setFieldErrors(error.fieldErrors)
+        if (Object.keys(error.fieldErrors).length === 0) toast.error(error.message)
+      } else {
+        toast.error('Could not reach the server.')
+      }
+    },
+  })
+
+  return (
+    <DashboardPanel className="flex flex-col gap-4 border-amber-500/30 from-amber-500/8 via-amber-500/4 to-transparent dark:from-amber-500/12">
+      <div>
+        <h2 className="font-heading text-base font-medium">Overturn this rejection</h2>
+        <p className="pt-1 text-sm text-muted-foreground">
+          Administrator only. Approves the claim as if the desk had: the item is marked
+          returned, the report resolved, and the student told where to collect it. Both
+          decisions stay on record.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="overturn-reason">Why</Label>
+        <Textarea
+          id="overturn-reason"
+          rows={2}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="The student produced the purchase receipt at the desk."
+          aria-invalid={Boolean(fieldErrors.Reason)}
+        />
+        {fieldErrors.Reason && <p className="text-sm text-destructive">{fieldErrors.Reason.join(' ')}</p>}
+      </div>
+
+      <Button
+        className="self-start bg-brand-forest text-white hover:bg-brand-forest/90"
+        onClick={() => overturn.mutate()}
+        disabled={overturn.isPending || reason.trim().length === 0}
+      >
+        {overturn.isPending ? (
+          <Loader2Icon className="animate-spin" aria-hidden="true" />
+        ) : (
+          <CheckIcon aria-hidden="true" />
+        )}
+        Overturn and approve
+      </Button>
+    </DashboardPanel>
   )
 }
 

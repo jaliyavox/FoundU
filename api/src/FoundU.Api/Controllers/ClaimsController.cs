@@ -86,6 +86,15 @@ public class ClaimsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _claims.DecideAsync(id, User.GetUserId(), request, cancellationToken));
 
+    /// <summary>Administrator overturning a rejection after a dispute. Recorded as an override.</summary>
+    [HttpPost("{id:guid}/overturn")]
+    [Authorize(Policy = PolicyNames.Admin)]
+    public async Task<ActionResult<ClaimDetailDto>> Overturn(
+        Guid id,
+        [FromBody] OverturnClaimRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _claims.OverturnAsync(id, User.GetUserId(), request, cancellationToken));
+
     [HttpPost("{id:guid}/cancel")]
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<ClaimDetailDto>> Cancel(

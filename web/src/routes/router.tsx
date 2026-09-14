@@ -5,6 +5,8 @@ import { FeedPage } from '@/features/feed/feed-page'
 import { RegisterPage } from '@/features/auth/register-page'
 import { ProtectedRoute } from './protected-route'
 import { AdminUsersPage } from '@/features/admin/admin-users-page'
+import { AnalyticsPage } from '@/features/admin/analytics-page'
+import { ModerationPage } from '@/features/admin/moderation-page'
 import { ClaimDetailPage } from '@/features/claims/claim-detail-page'
 import { ClaimQueuePage } from '@/features/claims/claim-queue-page'
 import { MyClaimsPage } from '@/features/claims/my-claims-page'
@@ -53,7 +55,11 @@ export const router = createBrowserRouter([
           { path: 'claims/:id', element: <ClaimDetailPage /> },
           {
             element: <ProtectedRoute allow={['Admin']} />,
-            children: [{ path: 'admin', element: <AdminUsersPage /> }],
+            children: [
+              { path: 'admin', element: <AdminUsersPage /> },
+              { path: 'admin/analytics', element: <AnalyticsPage /> },
+              { path: 'admin/moderation', element: <ModerationPage /> },
+            ],
           },
 
           { path: 'forbidden', element: <ForbiddenPage /> },
