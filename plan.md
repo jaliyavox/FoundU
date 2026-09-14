@@ -91,7 +91,7 @@ We can build the web dashboard's structure now and wire it to the API as the API
 - [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
 - [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
 - [x] Notification bell + list (both roles) — DONE 2026-09-09
-- [ ] Admin: users table, analytics (Recharts), dispute review — needs Step 9 API
+- [x] Admin: users table, analytics (Recharts), dispute review — DONE 2026-09-15
 - [ ] Agent-run panel on claim detail — needs Step 13 API
 
 ### A4 · Web polish
@@ -125,11 +125,11 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 
 - [x] **Step 2** — EF Core domain model + initial migration (25 entities, 27 tables, taxonomy seeded via `HasData`)
 - [x] **Step 3** — JWT auth + Identity, roles, ProblemDetails envelope, FluentValidation, Swagger
-      *(still owed: `/docs/api-conventions.md` — referenced from code but not yet written)*
+      *(`/docs/api/conventions.md` written 2026-09-15)*
 - [x] **Step 6** — Reporting slice API (reference lookups, found reports, lost reports)
 - [x] **Step 7** — Claims + staff review API
 - [x] **Step 8** — Notifications + resolution API
-- [ ] **Step 9** — Admin + analytics + dispute API
+- [x] **Step 9** — Admin + analytics + dispute API — DONE 2026-09-15
 - [x] **Step 5** — AI service + LangGraph graph + `POST /agents/run` — Braveena, PR #11 (every node is a stub)
 - [ ] **Steps 10–13** — the agent nodes themselves, and the .NET<->AI integration
 
@@ -157,6 +157,27 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-15 - Step 9 finished, the flag hole closed, web tests, API conventions
+
+- **Flags.** `POST /flag` now checks who is asking (owner of that report, or Staff/Admin);
+  it also had no validator, so an empty reason reached `.Trim()` and threw a 500. `FlaggedBy`
+  recorded (migration `AddLostReportFlaggedBy`), `POST /unflag` for staff, `?flagged=true` on
+  the staff list. `UpdateLostReportRequest` had no validator either - added.
+- **Analytics** - `GET /api/admin/analytics/overview` and `/admin/analytics` with Recharts.
+  The three-series palette was validated for colour-vision separation on both surfaces; the
+  brand greens alone fail (they are a ramp), so they carry the single-series bars instead.
+- **Disputes** - `POST /api/claims/{id}/overturn` (Admin) turns a rejection into an approval
+  through the normal approval path, recorded as an override next to the original decision.
+  Only rejections, and only while the item is still in storage. `/admin/moderation` lists
+  flagged reports and rejected claims. Admin nav is now Analytics / Moderation / Users.
+- **Web tests exist** - Vitest, `npm test`, in CI. 24 tests over the logic that decides what a
+  screen says. The first run caught a real bug: `timeAgo` labelled every value one unit too
+  small, so eight days read as "yesterday" and three weeks as "3 days ago". Fixed and pinned.
+- **`/docs/api/conventions.md`** written, at the path the code comments point to.
+- Both admin pages screenshotted in light and dark via headless Chrome over CDP
+  (no Playwright on this machine); the line chart moved from a smoothed curve to straight
+  segments because the curve dipped below zero between a busy day and a quiet one.
 
 ### 2026-09-14 - teammates' PRs #9-#12 merged
 

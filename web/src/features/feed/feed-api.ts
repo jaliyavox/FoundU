@@ -41,13 +41,16 @@ export function getFeed({ page, pageSize, search }: FeedQuery) {
 export function timeAgo(iso: string) {
   const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
 
+  // Each row is "divide by this to land in that unit". Pairing the divisor with the unit
+  // below it - [60, 'second'] - labelled every value one unit too small, so eight days read
+  // as "yesterday". The test in feed-api.test.ts pins this.
   const units: [number, Intl.RelativeTimeFormatUnit][] = [
-    [60, 'second'],
     [60, 'minute'],
-    [24, 'hour'],
-    [7, 'day'],
-    [4.35, 'week'],
-    [12, 'month'],
+    [60, 'hour'],
+    [24, 'day'],
+    [7, 'week'],
+    [4.35, 'month'],
+    [12, 'year'],
   ]
 
   let value = seconds

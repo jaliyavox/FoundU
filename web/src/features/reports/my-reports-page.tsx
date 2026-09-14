@@ -32,6 +32,7 @@ import { timeAgo } from '@/features/feed/feed-api'
 import { ItemIllustration } from '@/features/feed/item-illustration'
 import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
+import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
 import { EditLostReportDialog } from './edit-lost-report-dialog'
 import { LostReportDetailDialog } from './lost-report-detail-dialog'
@@ -364,32 +365,12 @@ export function MyReportsPage() {
   )
 }
 
-const LIFECYCLE = ['Reported', 'Someone found it', 'At the guard desk', 'Returned'] as const
+/** Knob position per stage. The ends stop short of the edges so they stay dots on a track
+ *  rather than caps on it. */
 const STAGE_OFFSET = ['3%', '35%', '67%', '97%']
+
+/** Which end the pill hangs from, so it never runs off a narrow card. */
 const PILL_ALIGN = ['left-0', '-translate-x-1/2', '-translate-x-1/2', 'right-0'] as const
-
-function stageOf(report: LostReportListItem) {
-  if (report.status === 'Resolved') return 3
-  if (report.status === 'Matched') return 2
-  return report.foundClaimCount > 0 || report.messageCount > 0 ? 1 : 0
-}
-
-function elapsedSince(iso: string) {
-  const minutes = Math.max(0, (Date.now() - new Date(iso).getTime()) / 60000)
-
-  if (minutes < 60) {
-    const value = Math.max(1, Math.round(minutes))
-    return { value, unit: value === 1 ? 'minute' : 'minutes' }
-  }
-
-  if (minutes < 60 * 24) {
-    const value = Math.round(minutes / 60)
-    return { value, unit: value === 1 ? 'hour' : 'hours' }
-  }
-
-  const value = Math.round(minutes / (60 * 24))
-  return { value, unit: value === 1 ? 'day' : 'days' }
-}
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en', { day: 'numeric', month: 'short' })
