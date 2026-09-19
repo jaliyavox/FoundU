@@ -83,7 +83,7 @@ class HomePage extends ConsumerWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2E7D32).withOpacity(0.1),
+                                  color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -124,25 +124,25 @@ class HomePage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(16),
                     onTap: () => context.push('/reports/new'),
                     child: Padding(
-                      padding: EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(20),
                       child: Row(
                         children: [
                           Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(
                               color: Colors.white24,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.add_a_photo, color: Colors.white, size: 28),
+                            child: const Icon(Icons.add_a_photo, color: Colors.white, size: 28),
                           ),
-                          SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
+                          const SizedBox(width: 16),
+                          const Expanded(
+                            child: const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                              children: const [
                                 Text(
                                   'Report Lost Item',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
@@ -151,12 +151,12 @@ class HomePage extends ConsumerWidget {
                                 SizedBox(height: 4),
                                 Text(
                                   'Category, location, time window & photo upload',
-                                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                                  style: const TextStyle(fontSize: 12, color: Colors.white70),
                                 ),
                               ],
                             ),
                           ),
-                          Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
+                          const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
                         ],
                       ),
                     ),

@@ -300,7 +300,7 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
                   return Column(
                     children: [
                       DropdownButtonFormField<String>(
-                        value: _selectedCategoryId,
+                        initialValue: _selectedCategoryId,
                         decoration: _inputDecoration('Category *', Icons.grid_view),
                         items: categories.map((cat) {
                           return DropdownMenuItem(
@@ -318,7 +318,7 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: _selectedItemTypeId,
+                        initialValue: _selectedItemTypeId,
                         decoration: _inputDecoration('Item Type *', Icons.merge_type),
                         items: itemTypes.map((type) {
                           return DropdownMenuItem(
@@ -345,7 +345,7 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
                 error: (err, _) => Text('Error loading locations: $err', style: const TextStyle(color: Colors.red)),
                 data: (locations) {
                   return DropdownButtonFormField<String>(
-                    value: _selectedLocationId,
+                    initialValue: _selectedLocationId,
                     decoration: _inputDecoration('Campus Location *', Icons.place_outlined),
                     items: locations.map((loc) {
                       final title = loc.building != null && loc.building!.isNotEmpty
@@ -381,7 +381,7 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
               const SizedBox(height: 12),
               Card(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 elevation: 0,
                 child: Padding(
                   padding: const EdgeInsets.all(12),

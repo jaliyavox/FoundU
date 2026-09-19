@@ -27,9 +27,9 @@ class PossibleMatchesPage extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'This item matching your lost report is securely stored at campus security / desk.',
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 12),
               Container(

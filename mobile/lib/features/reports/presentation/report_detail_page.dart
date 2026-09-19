@@ -227,9 +227,9 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.12),
+                            color: statusColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: statusColor.withOpacity(0.5)),
+                            border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                           ),
                           child: Text(
                             report.status.toUpperCase(),
@@ -257,7 +257,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                     // Location Card
                     Card(
                       elevation: 0,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
@@ -290,7 +290,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                     // Time Window Card
                     Card(
                       elevation: 0,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
@@ -419,7 +419,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                     color: Theme.of(context).colorScheme.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 10,
                         offset: const Offset(0, -3),
                       ),
