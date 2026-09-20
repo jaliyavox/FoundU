@@ -6,6 +6,7 @@ from functools import partial
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from app.agents.checkpoint import checkpoint_config, create_checkpointer
 from app.agents.description_parser import description_parser_node, parse_item_description
 from app.agents.graph import agent_graph, build_agent_graph
 from app.agents.matching import matching_node
@@ -26,12 +27,14 @@ async def lifespan(app: FastAPI):
     """Compose one shared LLM client and close it when the FastAPI app stops."""
     llm_client = create_llm_client(LlmSettings.from_environment())
     app.state.llm_client = llm_client
+    app.state.checkpointer = create_checkpointer()
     # Shared executable boundary. Agent/model code must use this registry rather than call a
     # tool adapter directly when tools are introduced into a graph node.
     app.state.tool_registry = create_default_tool_registry()
     app.state.agent_graph = build_agent_graph(
         partial(description_parser_node, llm_client=llm_client),
         partial(matching_node, tool_registry=app.state.tool_registry),
+        app.state.checkpointer,
     )
     try:
         yield
@@ -40,6 +43,7 @@ async def lifespan(app: FastAPI):
         if callable(close):
             close()
         delattr(app.state, "llm_client")
+        delattr(app.state, "checkpointer")
         delattr(app.state, "tool_registry")
         delattr(app.state, "agent_graph")
 
@@ -77,7 +81,9 @@ def run_agent(request: AgentRunRequest) -> AgentRunResponse:
 
     try:
         runtime_graph = getattr(app.state, "agent_graph", agent_graph)
-        result = runtime_graph.invoke(initial_state)
+        result = runtime_graph.invoke(
+            initial_state, checkpoint_config(initial_state["agent_run_id"])
+        )
     except PermissionError as perm_err:
         raise HTTPException(status_code=403, detail=str(perm_err)) from perm_err
     except Exception:
