@@ -11,6 +11,27 @@ The graph routes each request to exactly one of four deterministic agents:
 The agents do not use an LLM, make approval decisions, access external services, or persist data.
 Additional agent logic will be implemented separately.
 
+## Shared LLM foundation (Phase 1)
+
+`app.llm` now defines the provider-neutral `LlmClient` structured-generation interface, typed
+request contract, safe failure types, environment-backed settings, and a deterministic
+`FakeLlmClient`. Agents are not migrated to it yet, and **no real provider is connected**.
+The fake is network-free and is used to make future provider adapters and agent tests
+deterministic.
+
+The Phase 1 configuration is non-secret and defaults to:
+
+```text
+LLM_PROVIDER=fake
+LLM_MODEL=fake-structured-v1
+LLM_TIMEOUT_SECONDS=5
+```
+
+Only `fake` is available in this phase; selecting another provider fails safely at composition.
+`OLLAMA_BASE_URL` and `OLLAMA_MODEL` remain documented for a future team-approved Ollama adapter,
+but are not read or instantiated today. The next phase is one agreed real provider adapter behind
+`LlmClient`, followed by agent-specific schema validation and migration.
+
 ## Verification Agent
 
 The Verification Agent currently performs deterministic ownership-verification support only. It
