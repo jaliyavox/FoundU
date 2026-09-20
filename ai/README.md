@@ -12,6 +12,45 @@ Only the Description Parser can optionally use the shared LLM client; the remain
 deterministic. No agent makes approval decisions, accesses external services directly, or persists
 model reasoning.
 
+## ASP.NET-to-FastAPI service authentication (Phase 8)
+
+FastAPI is an internal AI service, not a client-facing backend. The application path is:
+
+```text
+Mobile / Web
+        ↓
+ASP.NET API (authoritative application backend)
+        ↓  X-FoundU-Service-Key
+FastAPI AI service
+```
+
+`POST /agents/run` and `POST /agents/parse-description` require the
+`X-FoundU-Service-Key` header. FastAPI reads `AI_SERVICE_KEY` only from server configuration,
+requires a nonblank key of at least 32 characters, and compares it with `secrets.compare_digest`.
+Missing, blank, or wrong headers receive the same generic `401 Unauthorized` response; an absent
+or invalid server configuration fails closed with a generic service-unavailable response. Payload
+fields cannot authenticate a request. `GET /health` is intentionally public for service health
+checks.
+
+ASP.NET sends the same secret from `AiService:ServiceKey` (or the
+`AiService__ServiceKey` environment variable) through its DI-managed verification client. The key
+is never added to agent state, tool traces, prompts, API responses, or logs. This authentication
+only establishes the trusted service caller; it does not alter agent identity, plans, tool
+permissions, Matching, checkpointing, or Verification's recommendation-only boundary. ASP.NET
+remains the only authority for staff claim decisions.
+
+For local development, generate a value without committing it:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:AI_SERVICE_KEY = "<same-strong-random-secret>"
+$env:AiService__ServiceKey = "<same-strong-random-secret>"
+```
+
+Set `AI_SERVICE_KEY` before starting FastAPI and `AiService__ServiceKey` before starting the
+ASP.NET API. `.env.example` contains a placeholder only; no mobile or web client should receive
+this value or call FastAPI directly.
+
 ## Shared LLM foundation (Phase 2)
 
 `app.llm` now defines the provider-neutral `LlmClient` structured-generation interface, typed
@@ -201,6 +240,7 @@ Then start FastAPI and submit a description (this does not run in pytest):
 uvicorn app.main:app --reload
 curl -X POST http://localhost:8000/agents/parse-description \
   -H "Content-Type: application/json" \
+  -H "X-FoundU-Service-Key: <your-service-key>" \
   -d '{"description":"Blue backpack with a red keychain"}'
 ```
 
@@ -236,6 +276,7 @@ The service is available at `http://localhost:8000`; health is at `GET /health`.
 ```bash
 curl -X POST http://localhost:8000/agents/run \
   -H "Content-Type: application/json" \
+  -H "X-FoundU-Service-Key: <your-service-key>" \
   -d '{"agent":"verification","payload":{"operation":"generate_questions","claim_id":"claim-123","private_verification_details":{"distinctive_mark":"staff-only value"}},"correlation_id":"example-123"}'
 ```
 

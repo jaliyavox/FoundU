@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 from functools import partial
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from app.agents.checkpoint import checkpoint_config, create_checkpointer
@@ -19,6 +19,7 @@ from app.agents.models import (
 from app.agents.state import create_initial_state
 from app.llm.client import create_llm_client
 from app.llm.config import LlmSettings
+from app.service_auth import require_service_auth
 from app.tools.default_registry import create_default_tool_registry
 
 
@@ -62,7 +63,10 @@ def health() -> HealthResponse:
 
 
 @app.post("/agents/parse-description", response_model=DescriptionParseResult)
-def parse_description_endpoint(request: DescriptionParseRequest) -> DescriptionParseResult:
+def parse_description_endpoint(
+    request: DescriptionParseRequest,
+    _: None = Depends(require_service_auth),
+) -> DescriptionParseResult:
     """Extract structured item attributes from natural language description."""
     try:
         return parse_item_description(
@@ -76,7 +80,10 @@ def parse_description_endpoint(request: DescriptionParseRequest) -> DescriptionP
 
 
 @app.post("/agents/run", response_model=AgentRunResponse)
-def run_agent(request: AgentRunRequest) -> AgentRunResponse:
+def run_agent(
+    request: AgentRunRequest,
+    _: None = Depends(require_service_auth),
+) -> AgentRunResponse:
     initial_state = create_initial_state(request)
 
     try:

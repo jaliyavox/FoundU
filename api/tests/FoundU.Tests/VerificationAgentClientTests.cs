@@ -2,12 +2,54 @@ using System.Net;
 using System.Text;
 using FoundU.Application.Claims.Dtos;
 using FoundU.Infrastructure.Verification;
+using Microsoft.Extensions.Options;
 
 namespace FoundU.Tests;
 
 public sealed class VerificationAgentClientTests
 {
     private static readonly Guid ClaimId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private const string ServiceKey = "verification-client-test-key-0123456789";
+
+    [Fact]
+    public async Task GenerateQuestions_SendsConfiguredServiceKeyOnlyAsHeader()
+    {
+        var handler = new CapturingHandler(JsonResponse(
+            "{\"agent_run_id\":\"run-1\",\"agent\":\"verification\",\"status\":\"completed\","
+            + "\"output\":{\"operation\":\"generate_questions\",\"claim_id\":\"" + ClaimId
+            + "\",\"questions\":[{\"question_id\":\"verification-1\",\"question\":\"Question one\"}],"
+            + "\"recommendation\":\"manual_review\"}}"));
+        var client = new VerificationAgentClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://ai.test/") },
+            ServiceOptions());
+
+        var result = await client.GenerateQuestionsAsync(
+            ClaimId, new Dictionary<string, string> { ["detail"] = "private detail" }, "correlation-1");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ServiceKey, handler.Request!.Headers.GetValues(AiServiceOptions.ServiceKeyHeaderName).Single());
+        Assert.DoesNotContain(ServiceKey, handler.RequestBody);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("short-key")]
+    [InlineData("replace-with-strong-random-secret")]
+    [InlineData("distinctive-control-secret-0123456789\r")]
+    [InlineData("distinctive-control-secret-0123456789\n")]
+    public void InvalidServiceKey_FailsBeforeSendingUnauthenticatedRequest(string serviceKey)
+    {
+        var handler = new NoRequestHandler();
+        var exception = Assert.Throws<InvalidOperationException>(() => new VerificationAgentClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://ai.test/") },
+            ServiceOptions(serviceKey)));
+
+        Assert.Equal("AI service configuration is invalid.", exception.Message);
+        if (serviceKey.Length > 0)
+            Assert.DoesNotContain(serviceKey, exception.Message);
+        Assert.False(handler.WasCalled);
+    }
 
     [Fact]
     public async Task GenerateQuestions_ValidResponse_ReturnsOnlySafeQuestionFields()
@@ -209,7 +251,7 @@ public sealed class VerificationAgentClientTests
             BaseAddress = new Uri("http://ai.test/"),
             Timeout = TimeSpan.FromMilliseconds(20),
         };
-        var client = new VerificationAgentClient(httpClient);
+        var client = new VerificationAgentClient(httpClient, ServiceOptions());
 
         var result = await client.GenerateQuestionsAsync(
             ClaimId, new Dictionary<string, string> { ["detail"] = "secret" }, "correlation-1");
@@ -223,10 +265,9 @@ public sealed class VerificationAgentClientTests
     {
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        var client = new VerificationAgentClient(new HttpClient(new TimeoutHandler())
-        {
-            BaseAddress = new Uri("http://ai.test/"),
-        });
+        var client = new VerificationAgentClient(
+            new HttpClient(new TimeoutHandler()) { BaseAddress = new Uri("http://ai.test/") },
+            ServiceOptions());
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.GenerateQuestionsAsync(
             ClaimId,
@@ -254,7 +295,12 @@ public sealed class VerificationAgentClientTests
     }
 
     private static VerificationAgentClient CreateClient(HttpResponseMessage response)
-        => new(new HttpClient(new StubHandler(response)) { BaseAddress = new Uri("http://ai.test/") });
+        => new(
+            new HttpClient(new StubHandler(response)) { BaseAddress = new Uri("http://ai.test/") },
+            ServiceOptions());
+
+    private static IOptions<AiServiceOptions> ServiceOptions(string serviceKey = ServiceKey)
+        => Options.Create(new AiServiceOptions { ServiceKey = serviceKey });
 
     private static HttpResponseMessage JsonResponse(string body)
         => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
@@ -263,6 +309,34 @@ public sealed class VerificationAgentClientTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(response);
+    }
+
+    private sealed class CapturingHandler(HttpResponseMessage response) : HttpMessageHandler
+    {
+        public HttpRequestMessage? Request { get; private set; }
+        public string RequestBody { get; private set; } = string.Empty;
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Request = request;
+            RequestBody = request.Content is null
+                ? string.Empty
+                : await request.Content.ReadAsStringAsync(cancellationToken);
+            return response;
+        }
+    }
+
+    private sealed class NoRequestHandler : HttpMessageHandler
+    {
+        public bool WasCalled { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            WasCalled = true;
+            throw new InvalidOperationException("An invalid service key must not send a request.");
+        }
     }
 
     private sealed class TimeoutHandler : HttpMessageHandler
