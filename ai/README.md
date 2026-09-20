@@ -11,13 +11,12 @@ The graph routes each request to exactly one of four deterministic agents:
 The agents do not use an LLM, make approval decisions, access external services, or persist data.
 Additional agent logic will be implemented separately.
 
-## Shared LLM foundation (Phase 1)
+## Shared LLM foundation (Phase 2)
 
 `app.llm` now defines the provider-neutral `LlmClient` structured-generation interface, typed
-request contract, safe failure types, environment-backed settings, and a deterministic
-`FakeLlmClient`. Agents are not migrated to it yet, and **no real provider is connected**.
-The fake is network-free and is used to make future provider adapters and agent tests
-deterministic.
+request contract, safe failure types, environment-backed settings, deterministic `FakeLlmClient`,
+and an `OllamaLlmClient` adapter. Agents are not migrated to either client yet, so existing agent
+behaviour remains deterministic. The fake is network-free and keeps CI deterministic.
 
 The Phase 1 configuration is non-secret and defaults to:
 
@@ -27,10 +26,68 @@ LLM_MODEL=fake-structured-v1
 LLM_TIMEOUT_SECONDS=5
 ```
 
-Only `fake` is available in this phase; selecting another provider fails safely at composition.
-`OLLAMA_BASE_URL` and `OLLAMA_MODEL` remain documented for a future team-approved Ollama adapter,
-but are not read or instantiated today. The next phase is one agreed real provider adapter behind
-`LlmClient`, followed by agent-specific schema validation and migration.
+`fake` remains the default. The first real adapter is selected explicitly with:
+
+```text
+LLM_PROVIDER=ollama
+LLM_MODEL=<your-installed-model>
+LLM_TIMEOUT_SECONDS=30
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+`LLM_MODEL` is canonical; the existing `OLLAMA_MODEL` is used only as a backward-compatible
+fallback when `LLM_MODEL` is absent. The adapter sends a non-streaming `POST /api/chat`, supplies
+the caller's Pydantic JSON schema through Ollama's `format` field, and validates only
+`message.content` as strict JSON against that schema. It neither logs nor retains prompts or raw
+responses. No agent uses Ollama yet; Phase 3 is a safe, schema-validated migration of one agreed
+agent.
+
+### Optional local Ollama smoke test
+
+This is not part of pytest or CI. Install/run Ollama separately, then pull the model selected by
+`LLM_MODEL` and run a short local script:
+
+```bash
+ollama serve
+ollama pull <your-installed-model>
+```
+
+Set the environment before opening a Python shell from `ai`:
+
+```bash
+export LLM_PROVIDER=ollama
+export LLM_MODEL=<your-installed-model>
+export LLM_TIMEOUT_SECONDS=30
+export OLLAMA_BASE_URL=http://localhost:11434
+```
+
+```powershell
+$env:LLM_PROVIDER = "ollama"
+$env:LLM_MODEL = "<your-installed-model>"
+$env:LLM_TIMEOUT_SECONDS = "30"
+$env:OLLAMA_BASE_URL = "http://localhost:11434"
+```
+
+Then run:
+
+```python
+from pydantic import BaseModel
+from app.llm import LlmSettings, StructuredGenerationRequest, create_llm_client
+
+class Reply(BaseModel):
+    answer: str
+
+client = create_llm_client(LlmSettings.from_environment())
+print(client.generate_structured(
+    StructuredGenerationRequest(
+        operation="smoke", system_instruction="Return JSON only.", input="Return an answer."
+    ),
+    Reply,
+))
+client.close()
+```
+
+Do not download a model automatically from project scripts.
 
 ## Verification Agent
 

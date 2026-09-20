@@ -8,6 +8,7 @@ from app.llm.config import LlmSettings
 from app.llm.errors import LlmConfigurationError
 from app.llm.fake import FakeLlmClient
 from app.llm.models import StructuredGenerationRequest
+from app.llm.ollama import OllamaLlmClient
 
 StructuredOutput = TypeVar("StructuredOutput", bound=BaseModel)
 
@@ -30,10 +31,12 @@ class LlmClient(Protocol):
 def create_llm_client(settings: LlmSettings) -> LlmClient:
     """Compose the one approved client for this runtime.
 
-    Phase 1 exposes no real adapter. This function is the single future provider composition
-    point, so agents never instantiate provider SDK clients themselves.
+    This is the single provider composition point, so agents never instantiate provider SDK
+    clients themselves.
     """
 
     if settings.provider == "fake":
         return FakeLlmClient()
+    if settings.provider == "ollama":
+        return OllamaLlmClient(settings)
     raise LlmConfigurationError()
