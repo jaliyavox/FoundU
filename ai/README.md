@@ -1,15 +1,25 @@
 # FoundU — AI Service (Python / FastAPI)
 
 The AI service currently provides a FastAPI health check and a shared LangGraph foundation.
-The graph routes each request to exactly one of four deterministic agent stubs:
+The graph routes each request to exactly one of four deterministic agents:
 
 - `description_parser` — future owner of Lost Item Reporting & Tracking
 - `matching` — future owner of Found Item Management & Intelligent Matching
 - `verification` — future owner of Claims & Ownership Verification
 - `coordinator` — future owner of Resolution, Notifications & Administration
 
-The stubs do not use an LLM, make AI decisions, access external services, or persist data. Real
-agent logic will be implemented separately.
+The agents do not use an LLM, make approval decisions, access external services, or persist data.
+Additional agent logic will be implemented separately.
+
+## Verification Agent
+
+The Verification Agent currently performs deterministic ownership-verification support only. It
+generates non-leading questions from private staff evidence and compares submitted answers using
+normalization and token overlap. It returns a `likely_match`, `manual_review`, or
+`unlikely_match` recommendation only; it never approves or rejects claims or changes claim status.
+
+Private verification evidence is never returned to students, included in traces, or exposed in
+errors. The current implementation is deterministic and does not yet use a real LLM.
 
 ## Local setup
 
@@ -26,12 +36,12 @@ uvicorn app.main:app --reload
 
 The service is available at `http://localhost:8000`; health is at `GET /health`.
 
-## Run an agent stub
+## Run an agent
 
 ```bash
 curl -X POST http://localhost:8000/agents/run \
   -H "Content-Type: application/json" \
-  -d '{"agent":"verification","payload":{},"correlation_id":"example-123"}'
+  -d '{"agent":"verification","payload":{"operation":"generate_questions","claim_id":"claim-123","private_verification_details":{"distinctive_mark":"staff-only value"}},"correlation_id":"example-123"}'
 ```
 
 Example response:
@@ -41,14 +51,13 @@ Example response:
   "agent_run_id": "7ef18d04-2f59-4218-8453-87ef57d5c368",
   "agent": "verification",
   "status": "completed",
-  "output": {
-    "stub": true,
-    "message": "Verification Agent foundation is ready."
-  },
+  "output": {"operation":"generate_questions","claim_id":"claim-123","questions":[{"question_id":"verification-1","question":"What distinctive mark or damage does the item have?"}],"recommendation":"manual_review"},
   "trace": [
     "request_received",
     "routed:verification",
-    "executed:verification"
+    "verification:received",
+    "verification:generate_questions",
+    "verification:completed"
   ]
 }
 ```

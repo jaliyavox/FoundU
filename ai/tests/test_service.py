@@ -10,7 +10,6 @@ client = TestClient(main.app)
 
 STUB_AGENTS = {
     "matching": "Matching Agent foundation is ready.",
-    "verification": "Verification Agent foundation is ready.",
     "coordinator": "Coordinator Agent foundation is ready.",
 }
 
@@ -51,6 +50,36 @@ def test_description_parser_agent_run():
         "request_received",
         "routed:description_parser",
         "executed:description_parser",
+    ]
+
+
+def test_verification_agent_route_runs_real_operation():
+    response = client.post(
+        "/agents/run",
+        json={
+            "agent": "verification",
+            "payload": {
+                "operation": "generate_questions",
+                "claim_id": "claim-1",
+                "private_verification_details": {"distinctive_mark": "small crack near port"},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["output"]["questions"] == [
+        {
+            "question_id": "verification-1",
+            "question": "What distinctive mark or damage does the item have?",
+        }
+    ]
+    assert body["trace"] == [
+        "request_received",
+        "routed:verification",
+        "verification:received",
+        "verification:generate_questions",
+        "verification:completed",
     ]
 
 
