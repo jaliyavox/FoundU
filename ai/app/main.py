@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.agents.description_parser import description_parser_node, parse_item_description
 from app.agents.graph import agent_graph, build_agent_graph
+from app.agents.matching import matching_node
 from app.agents.models import (
     AgentRunRequest,
     AgentRunResponse,
@@ -29,7 +30,8 @@ async def lifespan(app: FastAPI):
     # tool adapter directly when tools are introduced into a graph node.
     app.state.tool_registry = create_default_tool_registry()
     app.state.agent_graph = build_agent_graph(
-        partial(description_parser_node, llm_client=llm_client)
+        partial(description_parser_node, llm_client=llm_client),
+        partial(matching_node, tool_registry=app.state.tool_registry),
     )
     try:
         yield

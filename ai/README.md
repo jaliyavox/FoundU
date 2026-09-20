@@ -63,6 +63,40 @@ Verification can use only `getLostReportDetails`, `getFoundReportDetails`,
 custody-transfer, item-resolution, or staff-decision-overturn tool; staff authority remains in
 ASP.NET.
 
+## Read-only Matching execution (Phase 5)
+
+Matching is the first real tool-consuming LangGraph path. For an explicit `match_reports` request,
+the trusted request context flows as follows:
+
+```text
+Trusted request/context
+        ↓
+LangGraph Matching Agent
+        ↓
+ToolRegistry.execute(...)
+        ↓
+allow-list check + typed validation
+        ↓
+context-backed read-only report adapter
+        ↓
+validated public report summary
+        ↓
+deterministic match recommendation
+```
+
+The shared registry is composed once during FastAPI lifespan and injected into the Matching graph
+node. Its immutable `ToolExecutionContext` is built only from graph-owned agent/run state. Matching
+executes `getLostReportDetails` and `getFoundReportDetails`; it compares only the returned public
+item type and primary colour, and emits a recommendation rather than creating a claim or writing a
+match candidate.
+
+The lookup provider currently reads validated report context supplied with the AI request. It is
+local, deterministic, and read-only: it has no PostgreSQL connection and does not reproduce
+ASP.NET business rules. A future application-owned provider can replace it without changing tool
+contracts. Tool failures yield a bounded `manual_review` result; Matching never falls back to raw
+context or adapter calls after a registry failure. Report descriptions remain data and are not
+returned, scored, used for tool selection, or able to affect workflow authority.
+
 ### Optional local Ollama smoke test
 
 This is not part of pytest or CI. Install/run Ollama separately, then pull the model selected by
