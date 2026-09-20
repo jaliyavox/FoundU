@@ -60,15 +60,37 @@ builder.Services.AddFoundUInfrastructure(builder.Configuration);
     builder.Services.AddProblemDetails();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-        ?? new[] { "http://localhost:5173", "http://localhost:3000" };
+        ?? new[]
+        {
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://localhost:2106",
+            "http://localhost:11836",
+            "http://127.0.0.1:11836"
+        };
 
- builder.Services.AddCors(options =>
+builder.Services.AddCors(options =>
     {
-        options.AddPolicy("ReactDev", policy => policy
-            .WithOrigins(allowedOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials());
+        options.AddPolicy("ReactDev", policy =>
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin))
+                    return false;
+
+                if (allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+                    return true;
+
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    return false;
+
+                return uri.Host is "localhost" or "127.0.0.1" or "::1";
+            });
+
+            policy.AllowAnyHeader();
+            policy.AllowAnyMethod();
+            policy.AllowCredentials();
+        });
     });
 
 var app = builder.Build();

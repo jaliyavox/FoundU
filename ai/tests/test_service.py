@@ -8,16 +8,15 @@ from app import main
 
 client = TestClient(main.app)
 
-AGENTS = {
-    "description_parser": "Description Parsing Agent foundation is ready.",
+STUB_AGENTS = {
     "matching": "Matching Agent foundation is ready.",
     "verification": "Verification Agent foundation is ready.",
     "coordinator": "Coordinator Agent foundation is ready.",
 }
 
 
-@pytest.mark.parametrize(("agent", "message"), AGENTS.items())
-def test_request_routes_to_selected_agent(agent: str, message: str):
+@pytest.mark.parametrize(("agent", "message"), STUB_AGENTS.items())
+def test_stub_agents_route_to_selected_agent(agent: str, message: str):
     response = client.post(
         "/agents/run",
         json={"agent": agent, "payload": {"ignored_by_stub": True}},
@@ -29,11 +28,45 @@ def test_request_routes_to_selected_agent(agent: str, message: str):
     assert body["status"] == "completed"
     assert body["output"] == {"stub": True, "message": message}
     assert body["trace"] == ["request_received", f"routed:{agent}", f"executed:{agent}"]
-    assert all(
-        other_agent not in " ".join(body["trace"])
-        for other_agent in AGENTS
-        if other_agent != agent
+
+
+def test_description_parser_agent_run():
+    response = client.post(
+        "/agents/run",
+        json={
+            "agent": "description_parser",
+            "payload": {"description": "Black laptop bag, grey zipper, small keychain."},
+        },
     )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["agent"] == "description_parser"
+    assert body["status"] == "completed"
+    assert body["output"]["itemType"] == "Laptop Bag"
+    assert body["output"]["primaryColor"] == "Black"
+    assert body["output"]["secondaryColor"] == "Grey"
+    assert body["output"]["identifyingFeatures"] == ["Small keychain"]
+    assert body["trace"] == [
+        "request_received",
+        "routed:description_parser",
+        "executed:description_parser",
+    ]
+
+
+def test_parse_description_endpoint():
+    response = client.post(
+        "/agents/parse-description",
+        json={"description": "Black laptop bag, grey zipper, small keychain."},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["itemType"] == "Laptop Bag"
+    assert data["primaryColor"] == "Black"
+    assert data["secondaryColor"] == "Grey"
+    assert data["identifyingFeatures"] == ["Small keychain"]
+    assert data["is_valid"] is True
 
 
 def test_invalid_agent_returns_validation_error():
