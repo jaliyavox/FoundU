@@ -14,6 +14,7 @@ from app.llm.errors import (
 )
 from app.llm.fake import FakeLlmClient
 from app.llm.models import StructuredGenerationRequest
+from app.llm.ollama import OllamaLlmClient
 
 __all__ = [
     "FakeLlmClient",
@@ -23,6 +24,7 @@ __all__ = [
     "LlmSettings",
     "LlmStructuredOutputError",
     "LlmTimeoutError",
+    "OllamaLlmClient",
     "StructuredGenerationRequest",
     "create_llm_client",
 ]

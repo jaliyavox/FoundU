@@ -42,7 +42,7 @@ def test_default_configuration_composes_fake_without_secret() -> None:
 @pytest.mark.parametrize(
     "environment",
     [
-        {"LLM_PROVIDER": "ollama"},
+        {"LLM_PROVIDER": "unsupported"},
         {"LLM_PROVIDER": " ", "LLM_MODEL": "model"},
         {"LLM_TIMEOUT_SECONDS": "0"},
         {"LLM_TIMEOUT_SECONDS": "not-a-number"},
