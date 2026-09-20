@@ -98,6 +98,53 @@ def test_parse_description_endpoint():
     assert data["is_valid"] is True
 
 
+def test_fastapi_endpoint_and_graph_share_composed_fake_llm_client():
+    with TestClient(main.app) as active_client:
+        fake = main.app.state.llm_client
+        fake.queue_response(
+            {
+                "item_type": "Backpack",
+                "primary_color": "Blue",
+                "secondary_color": "Red",
+                "identifying_features": ["Red keychain"],
+                "is_valid": True,
+                "confidence_score": 0.9,
+            }
+        )
+        endpoint_response = active_client.post(
+            "/agents/parse-description",
+            json={"description": "Blue backpack with a red keychain"},
+        )
+        assert endpoint_response.status_code == 200
+        assert endpoint_response.json()["confidence_score"] == 0.9
+
+        fake.queue_response(
+            {
+                "item_type": "Backpack",
+                "primary_color": "Blue",
+                "secondary_color": "Red",
+                "identifying_features": ["Red keychain"],
+                "is_valid": True,
+                "confidence_score": 0.8,
+            }
+        )
+        graph_response = active_client.post(
+            "/agents/run",
+            json={
+                "agent": "description_parser",
+                "payload": {"description": "Blue backpack with a red keychain"},
+            },
+        )
+
+    assert graph_response.status_code == 200
+    assert graph_response.json()["output"]["confidence_score"] == 0.8
+    assert graph_response.json()["trace"][-3:] == [
+        "description_parser:llm_attempt",
+        "description_parser:llm_success",
+        "executed:description_parser",
+    ]
+
+
 def test_invalid_agent_returns_validation_error():
     response = client.post(
         "/agents/run",

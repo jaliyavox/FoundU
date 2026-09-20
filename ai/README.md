@@ -1,22 +1,26 @@
 # FoundU — AI Service (Python / FastAPI)
 
 The AI service currently provides a FastAPI health check and a shared LangGraph foundation.
-The graph routes each request to exactly one of four deterministic agents:
+The graph routes each request to exactly one of four logical agents:
 
 - `description_parser` — future owner of Lost Item Reporting & Tracking
 - `matching` — future owner of Found Item Management & Intelligent Matching
 - `verification` — future owner of Claims & Ownership Verification
 - `coordinator` — future owner of Resolution, Notifications & Administration
 
-The agents do not use an LLM, make approval decisions, access external services, or persist data.
-Additional agent logic will be implemented separately.
+Only the Description Parser can optionally use the shared LLM client; the remaining agents are
+deterministic. No agent makes approval decisions, accesses external services directly, or persists
+model reasoning.
 
 ## Shared LLM foundation (Phase 2)
 
 `app.llm` now defines the provider-neutral `LlmClient` structured-generation interface, typed
 request contract, safe failure types, environment-backed settings, deterministic `FakeLlmClient`,
-and an `OllamaLlmClient` adapter. Agents are not migrated to either client yet, so existing agent
-behaviour remains deterministic. The fake is network-free and keeps CI deterministic.
+and an `OllamaLlmClient` adapter. The Description Parser is the first consumer: it receives the
+client through application composition, validates a strict internal response schema, grounds every
+accepted attribute in the supplied description, and falls back to the original deterministic parser
+on any provider, schema, or post-validation failure. The fake is network-free and keeps CI
+deterministic.
 
 The Phase 1 configuration is non-secret and defaults to:
 
@@ -39,8 +43,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 fallback when `LLM_MODEL` is absent. The adapter sends a non-streaming `POST /api/chat`, supplies
 the caller's Pydantic JSON schema through Ollama's `format` field, and validates only
 `message.content` as strict JSON against that schema. It neither logs nor retains prompts or raw
-responses. No agent uses Ollama yet; Phase 3 is a safe, schema-validated migration of one agreed
-agent.
+responses. Verification remains deterministic and does not use Ollama.
 
 ### Optional local Ollama smoke test
 
@@ -68,23 +71,13 @@ $env:LLM_TIMEOUT_SECONDS = "30"
 $env:OLLAMA_BASE_URL = "http://localhost:11434"
 ```
 
-Then run:
+Then start FastAPI and submit a description (this does not run in pytest):
 
-```python
-from pydantic import BaseModel
-from app.llm import LlmSettings, StructuredGenerationRequest, create_llm_client
-
-class Reply(BaseModel):
-    answer: str
-
-client = create_llm_client(LlmSettings.from_environment())
-print(client.generate_structured(
-    StructuredGenerationRequest(
-        operation="smoke", system_instruction="Return JSON only.", input="Return an answer."
-    ),
-    Reply,
-))
-client.close()
+```bash
+uvicorn app.main:app --reload
+curl -X POST http://localhost:8000/agents/parse-description \
+  -H "Content-Type: application/json" \
+  -d '{"description":"Blue backpack with a red keychain"}'
 ```
 
 Do not download a model automatically from project scripts.
