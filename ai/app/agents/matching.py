@@ -4,9 +4,21 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.agents.models import AgentName, AgentPlan
+from app.agents.plans import (
+    PlanValidationError,
+    build_matching_plan,
+    plan_includes_tool,
+    validate_agent_plan,
+)
 from app.agents.state import AgentState, create_tool_execution_context
 from app.tools.errors import ToolError
-from app.tools.models import ReportLookupOutput, ReportSummary, SuppliedReportContext
+from app.tools.models import (
+    ReportLookupOutput,
+    ReportSummary,
+    SuppliedReportContext,
+    ToolExecutionContext,
+)
 from app.tools.registry import ToolRegistry
 
 
@@ -51,12 +63,26 @@ def _report_summary(report: SuppliedReportContext) -> ReportSummary:
     )
 
 
-def _safe_lookup_failure(trace: list[str], error: ToolError) -> AgentState:
+def _safe_lookup_failure(trace: list[str], error: ToolError, plan: AgentPlan) -> AgentState:
     """Do not read raw payload or adapters after a registry failure."""
     return {
         "output": MatchingResult(recommendation="manual_review", score=0.0).model_dump(),
         "trace": [*trace, *error.trace, "matching:lookup_unavailable"],
+        "plan": plan,
     }
+
+
+def _execute_planned_tool(
+    plan: AgentPlan,
+    tool_registry: ToolRegistry,
+    tool_name: str,
+    context: ToolExecutionContext,
+    raw_input: object,
+):
+    """Prevent Matching from invoking even an allowed tool absent from its validated plan."""
+    if not plan_includes_tool(plan, tool_name):
+        raise PlanValidationError()
+    return tool_registry.execute(tool_name, context, raw_input)
 
 
 def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = None) -> AgentState:
@@ -66,13 +92,30 @@ def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = Non
     cannot bypass a failed registry call by inspecting raw report context or invoking an adapter.
     """
     payload = state.get("payload", {})
-    if payload.get("operation") != "match_reports":
+    match_reports = payload.get("operation") == "match_reports"
+    plan = build_matching_plan(match_reports)
+    trusted_agent = state.get("requested_agent", AgentName.MATCHING)
+    try:
+        validate_agent_plan(
+            plan,
+            trusted_agent,
+            tool_registry if match_reports else None,
+        )
+    except PlanValidationError:
+        return {
+            "output": MatchingResult(recommendation="manual_review", score=0.0).model_dump(),
+            "trace": [*state["trace"], "plan:rejected", "matching:lookup_unavailable"],
+            "plan": plan,
+        }
+
+    if not match_reports:
         return {
             "output": {
                 "stub": True,
                 "message": "Matching Agent foundation is ready.",
             },
             "trace": [*state["trace"], "executed:matching"],
+            "plan": plan,
         }
 
     try:
@@ -81,18 +124,22 @@ def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = Non
         return {
             "output": MatchingResult(recommendation="manual_review", score=0.0).model_dump(),
             "trace": [*state["trace"], "matching:invalid_request"],
+            "plan": plan,
         }
 
     if tool_registry is None:
         return {
             "output": MatchingResult(recommendation="manual_review", score=0.0).model_dump(),
             "trace": [*state["trace"], "matching:lookup_unavailable"],
+            "plan": plan,
         }
 
     context = create_tool_execution_context(state)
     trace = [*state["trace"]]
     try:
-        lost_result = tool_registry.execute(
+        lost_result = _execute_planned_tool(
+            plan,
+            tool_registry,
             "getLostReportDetails",
             context,
             {
@@ -101,7 +148,9 @@ def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = Non
             },
         )
         trace.extend(lost_result.trace)
-        found_result = tool_registry.execute(
+        found_result = _execute_planned_tool(
+            plan,
+            tool_registry,
             "getFoundReportDetails",
             context,
             {
@@ -111,7 +160,13 @@ def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = Non
         )
         trace.extend(found_result.trace)
     except ToolError as error:
-        return _safe_lookup_failure(trace, error)
+        return _safe_lookup_failure(trace, error, plan)
+    except PlanValidationError:
+        return {
+            "output": MatchingResult(recommendation="manual_review", score=0.0).model_dump(),
+            "trace": [*trace, "plan:rejected", "matching:lookup_unavailable"],
+            "plan": plan,
+        }
 
     score = _score_reports(lost_result.output, found_result.output)
     recommendation: Literal["match_candidate", "no_match"]
@@ -120,4 +175,5 @@ def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = Non
     return {
         "output": output.model_dump(),
         "trace": [*trace, "matching:scored", "executed:matching"],
+        "plan": plan,
     }

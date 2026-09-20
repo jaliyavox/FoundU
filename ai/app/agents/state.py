@@ -3,7 +3,7 @@
 from typing import Any, TypedDict
 from uuid import UUID, uuid4
 
-from app.agents.models import AgentName, AgentRunRequest
+from app.agents.models import AgentName, AgentPlan, AgentRunRequest
 from app.tools.models import ToolExecutionContext
 
 
@@ -12,6 +12,7 @@ class AgentState(TypedDict, total=False):
     requested_agent: AgentName
     payload: dict[str, Any]
     correlation_id: str | None
+    plan: AgentPlan
     output: dict[str, Any]
     trace: list[str]
     error: str | None

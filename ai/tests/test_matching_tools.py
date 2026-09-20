@@ -55,11 +55,12 @@ class _SpyRegistry:
         self.delegate = delegate
         self.calls: list[tuple[str, ToolExecutionContext, object]] = []
 
-    def execute(
-        self, tool_name: str, context: ToolExecutionContext, raw_input: object
-    ) -> object:
+    def execute(self, tool_name: str, context: ToolExecutionContext, raw_input: object) -> object:
         self.calls.append((tool_name, context, raw_input))
         return self.delegate.execute(tool_name, context, raw_input)
+
+    def get(self, tool_name: str):
+        return self.delegate.get(tool_name)
 
 
 def test_matching_uses_shared_registry_for_typed_read_only_lookups() -> None:
@@ -163,6 +164,12 @@ def test_matching_lookup_failures_are_safe_and_never_fabricate_a_match(
 
 def test_matching_does_not_bypass_registry_permission_failure() -> None:
     class PermissionDeniedRegistry:
+        def __init__(self) -> None:
+            self.delegate = create_default_tool_registry()
+
+        def get(self, tool_name: str):
+            return self.delegate.get(tool_name)
+
         def execute(self, *_: object) -> object:
             raise ToolPermissionError("getLostReportDetails")
 
@@ -187,6 +194,9 @@ def test_matching_unknown_registry_tool_failure_is_safe() -> None:
             if tool_name == "getFoundReportDetails":
                 raise ToolNotFoundError("unknown")
             return self.delegate.execute(tool_name, context, raw_input)
+
+        def get(self, tool_name: str):
+            return self.delegate.get(tool_name)
 
     result = matching_node(
         _state(_payload()),

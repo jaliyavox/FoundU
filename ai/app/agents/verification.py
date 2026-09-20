@@ -19,6 +19,7 @@ from app.agents.models import (
     VerificationQuestion,
     VerificationRequest,
 )
+from app.agents.plans import PlanValidationError, build_verification_plan, validate_agent_plan
 from app.agents.state import AgentState
 
 MAX_GENERATED_QUESTIONS = 3
@@ -192,6 +193,15 @@ def _safe_challenge_error_output() -> dict[str, str]:
 
 def verification_node(state: AgentState) -> AgentState:
     """Validate and run a verification operation without leaking request contents."""
+    plan = build_verification_plan()
+    try:
+        validate_agent_plan(plan, state.get("requested_agent", AgentName.VERIFICATION))
+    except PlanValidationError:
+        return {
+            "output": _safe_error_output(),
+            "trace": [*state.get("trace", []), "plan:rejected"],
+            "plan": plan,
+        }
     check_agent_permissions()
     trace = [*state.get("trace", []), "verification:received"]
     try:
@@ -206,6 +216,7 @@ def verification_node(state: AgentState) -> AgentState:
         return {
             "output": _safe_error_output(),
             "trace": [*trace, "verification:invalid_request"],
+            "plan": plan,
         }
     except Exception:
         return {
@@ -214,5 +225,10 @@ def verification_node(state: AgentState) -> AgentState:
                 "error": "Verification processing failed safely.",
             },
             "trace": [*trace, "verification:failed"],
+            "plan": plan,
         }
-    return {"output": output, "trace": [*trace, operation_trace, "verification:completed"]}
+    return {
+        "output": output,
+        "trace": [*trace, operation_trace, "verification:completed"],
+        "plan": plan,
+    }

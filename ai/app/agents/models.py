@@ -14,6 +14,114 @@ class AgentName(StrEnum):
     COORDINATOR = "coordinator"
 
 
+class PlanActionType(StrEnum):
+    """Finite, non-authoritative actions that may appear in an execution plan."""
+
+    INSPECT_INPUT = "inspect_input"
+    CALL_MODEL = "call_model"
+    CALL_TOOL = "call_tool"
+    VALIDATE_RESULT = "validate_result"
+    PRODUCE_RECOMMENDATION = "produce_recommendation"
+    REQUEST_HUMAN_REVIEW = "request_human_review"
+    COMPLETE = "complete"
+
+
+class PlanPurpose(StrEnum):
+    """Safe labels replace free-form plan reasoning or prompt content."""
+
+    INSPECT_REQUEST = "inspect_request"
+    GENERATE_STRUCTURED_OUTPUT = "generate_structured_output"
+    RETRIEVE_REPORT = "retrieve_report"
+    VALIDATE_OUTPUT = "validate_output"
+    PREPARE_RECOMMENDATION = "prepare_recommendation"
+    REQUEST_HUMAN_REVIEW = "request_human_review"
+    COMPLETE = "complete"
+
+
+PlanStepIdentifier = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=48,
+        pattern=r"^[a-z][a-z0-9_-]*$",
+    ),
+]
+PlanToolName = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$",
+    ),
+]
+
+
+class AgentPlanStep(BaseModel):
+    """One executable-intent label; it contains no private inputs or reasoning."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    step_id: PlanStepIdentifier
+    action_type: PlanActionType
+    purpose: PlanPurpose
+    requires_human_approval: bool = False
+    sequence: int = Field(ge=1, le=8)
+    tool_name: PlanToolName | None = None
+
+    @model_validator(mode="after")
+    def validate_action_shape(self) -> "AgentPlanStep":
+        expected_purposes = {
+            PlanActionType.INSPECT_INPUT: PlanPurpose.INSPECT_REQUEST,
+            PlanActionType.CALL_MODEL: PlanPurpose.GENERATE_STRUCTURED_OUTPUT,
+            PlanActionType.CALL_TOOL: PlanPurpose.RETRIEVE_REPORT,
+            PlanActionType.VALIDATE_RESULT: PlanPurpose.VALIDATE_OUTPUT,
+            PlanActionType.PRODUCE_RECOMMENDATION: PlanPurpose.PREPARE_RECOMMENDATION,
+            PlanActionType.REQUEST_HUMAN_REVIEW: PlanPurpose.REQUEST_HUMAN_REVIEW,
+            PlanActionType.COMPLETE: PlanPurpose.COMPLETE,
+        }
+        if self.purpose is not expected_purposes[self.action_type]:
+            raise ValueError("Plan purpose must match the action type.")
+        if self.action_type is PlanActionType.CALL_TOOL and self.tool_name is None:
+            raise ValueError("Tool steps require a tool name.")
+        if self.action_type is not PlanActionType.CALL_TOOL and self.tool_name is not None:
+            raise ValueError("Only tool steps may name a tool.")
+        if self.requires_human_approval is not (
+            self.action_type is PlanActionType.REQUEST_HUMAN_REVIEW
+        ):
+            raise ValueError("Human-approval flags must match the action type.")
+        return self
+
+
+class AgentPlan(BaseModel):
+    """A bounded, serializable execution plan—not chain-of-thought or a scratchpad."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    agent: AgentName
+    steps: list[AgentPlanStep] = Field(min_length=2, max_length=8)
+
+    @model_validator(mode="after")
+    def validate_step_order(self) -> "AgentPlan":
+        step_ids = [step.step_id for step in self.steps]
+        if len(step_ids) != len(set(step_ids)):
+            raise ValueError("Plan step IDs must be unique.")
+        sequences = [step.sequence for step in self.steps]
+        if sequences != list(range(1, len(self.steps) + 1)):
+            raise ValueError("Plan sequences must be contiguous and ordered.")
+        if self.steps[-1].action_type is not PlanActionType.COMPLETE:
+            raise ValueError("Plans must end with completion.")
+        if sum(step.action_type is PlanActionType.COMPLETE for step in self.steps) != 1:
+            raise ValueError("Plans must contain exactly one completion step.")
+        if sum(step.requires_human_approval for step in self.steps) > 1:
+            raise ValueError("Plans may request human review only once.")
+        tool_names = [step.tool_name for step in self.steps if step.tool_name is not None]
+        if len(tool_names) != len(set(tool_names)):
+            raise ValueError("Plans may not contain duplicate tool steps.")
+        return self
+
+
 class DescriptionParseRequest(BaseModel):
     description: str = Field(..., min_length=1, description="Raw item description text")
 

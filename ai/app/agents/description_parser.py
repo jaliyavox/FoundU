@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.models import AGENT_PERMISSIONS, AgentName, DescriptionParseResult
+from app.agents.plans import PlanValidationError, build_description_parser_plan, validate_agent_plan
 from app.agents.state import AgentState
 from app.llm.client import LlmClient
 from app.llm.models import StructuredGenerationRequest
@@ -420,6 +421,21 @@ def description_parser_node(
     llm_client: LlmClient | None = None,
 ) -> AgentState:
     """LangGraph node execution function for the Description Parsing Agent."""
+    plan = build_description_parser_plan()
+    try:
+        validate_agent_plan(plan, state.get("requested_agent", AgentName.DESCRIPTION_PARSER))
+    except PlanValidationError:
+        return {
+            "output": DescriptionParseResult(
+                item_type="Unknown",
+                primary_color="Unknown",
+                is_valid=False,
+                confidence_score=0.0,
+                unclear_reason="Description parsing plan was unavailable.",
+            ).model_dump(by_alias=True),
+            "trace": [*state.get("trace", []), "plan:rejected"],
+            "plan": plan,
+        }
     payload = state.get("payload", {})
     description_text = payload.get("description", "")
 
@@ -446,4 +462,5 @@ def description_parser_node(
     return {
         "output": output_dict,
         "trace": [*state.get("trace", []), *llm_trace, "executed:description_parser"],
+        "plan": plan,
     }
