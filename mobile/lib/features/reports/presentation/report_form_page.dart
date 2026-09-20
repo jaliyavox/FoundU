@@ -100,9 +100,15 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
   }
 
   Future<void> _selectDateTime(BuildContext context, bool isFrom) async {
+    if (!mounted) return;
+
+    final dialogContext = context;
+    if (!dialogContext.mounted) return;
+
     final initialDate = isFrom ? _lostFromAt : _lostToAt;
+
     final pickedDate = await showDatePicker(
-      context: context,
+      context: dialogContext,
       initialDate: initialDate,
       firstDate: DateTime.now().subtract(const Duration(days: 90)),
       lastDate: DateTime.now(),
@@ -117,9 +123,10 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
     );
 
     if (pickedDate == null || !mounted) return;
+    if (!dialogContext.mounted) return;
 
     final pickedTime = await showTimePicker(
-      context: context,
+      context: dialogContext,
       initialTime: TimeOfDay.fromDateTime(initialDate),
       builder: (context, child) {
         return Theme(
@@ -141,6 +148,8 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
       pickedTime.minute,
     );
 
+    if (!mounted) return;
+
     setState(() {
       if (isFrom) {
         _lostFromAt = selected;
@@ -154,21 +163,27 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
   }
 
   Future<void> _submitForm() async {
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final navigator = Navigator.of(context);
+    final go = context.go;
+
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategoryId == null || _selectedCategoryId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger?.showSnackBar(
         const SnackBar(content: Text('Please select a Category')),
       );
       return;
     }
     if (_selectedItemTypeId == null || _selectedItemTypeId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger?.showSnackBar(
         const SnackBar(content: Text('Please select an Item Type')),
       );
       return;
     }
     if (_selectedLocationId == null || _selectedLocationId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger?.showSnackBar(
         const SnackBar(content: Text('Please select a Last-Seen Location')),
       );
       return;
@@ -197,12 +212,11 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
               request: request,
               newImages: _pickedImages,
             );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lost report updated successfully!')),
-          );
-          context.pop();
-        }
+        if (!mounted) return;
+        messenger?.showSnackBar(
+          const SnackBar(content: Text('Lost report updated successfully!')),
+        );
+        navigator.pop();
       } else {
         final request = CreateLostReportRequest(
           categoryId: _selectedCategoryId!,
@@ -222,26 +236,24 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
             .read(reportControllerProvider.notifier)
             .createReport(request: request, images: _pickedImages);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lost report created successfully!')),
-          );
-          if (created != null) {
-            context.go('/reports/${created.id}');
-          } else {
-            context.pop();
-          }
+        if (!mounted) return;
+        messenger?.showSnackBar(
+          const SnackBar(content: Text('Lost report created successfully!')),
+        );
+        if (created != null) {
+          go('/reports/${created.id}');
+        } else {
+          navigator.pop();
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed: ${e.toString()}'),
-            backgroundColor: Colors.red[700],
-          ),
-        );
-      }
+      if (!mounted) return;
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text('Failed: ${e.toString()}'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
     }
   }
 

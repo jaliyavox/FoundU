@@ -69,17 +69,15 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                         reportId: widget.reportId,
                         reason: reasonController.text.trim(),
                       );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Report withdrawn successfully.')),
-                    );
-                  }
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Report withdrawn successfully.')),
+                  );
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to withdraw: $e')),
-                    );
-                  }
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to withdraw: $e')),
+                  );
                 }
               },
               child: const Text('Withdraw'),

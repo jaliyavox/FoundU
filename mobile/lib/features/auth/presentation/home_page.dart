@@ -118,10 +118,12 @@ class HomePage extends ConsumerWidget {
                 // Primary Quick Action Card: Report Lost Item
                 Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                  ),
                   color: const Color(0xFF2E7D32),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: const BorderRadius.all(Radius.circular(16)),
                     onTap: () => context.push('/reports/new'),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -137,12 +139,12 @@ class HomePage extends ConsumerWidget {
                           ),
                           const SizedBox(width: 16),
                           const Expanded(
-                            child: const Column(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
+                              children: [
                                 Text(
                                   'Report Lost Item',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
@@ -151,7 +153,7 @@ class HomePage extends ConsumerWidget {
                                 SizedBox(height: 4),
                                 Text(
                                   'Category, location, time window & photo upload',
-                                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                                  style: TextStyle(fontSize: 12, color: Colors.white70),
                                 ),
                               ],
                             ),
@@ -167,9 +169,11 @@ class HomePage extends ConsumerWidget {
                 // Secondary Action Card: My Reports
                 Card(
                   elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                  ),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: const BorderRadius.all(Radius.circular(16)),
                     onTap: () => context.push('/reports'),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
