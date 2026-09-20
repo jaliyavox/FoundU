@@ -1,10 +1,13 @@
 """FoundU AI service with Description-Parsing Agent and LangGraph agent foundation."""
 
+from contextlib import asynccontextmanager
+from functools import partial
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from app.agents.description_parser import parse_item_description
-from app.agents.graph import agent_graph
+from app.agents.description_parser import description_parser_node, parse_item_description
+from app.agents.graph import agent_graph, build_agent_graph
 from app.agents.models import (
     AgentRunRequest,
     AgentRunResponse,
@@ -12,8 +15,29 @@ from app.agents.models import (
     DescriptionParseResult,
 )
 from app.agents.state import create_initial_state
+from app.llm.client import create_llm_client
+from app.llm.config import LlmSettings
 
-app = FastAPI(title="FoundU AI Service", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Compose one shared LLM client and close it when the FastAPI app stops."""
+    llm_client = create_llm_client(LlmSettings.from_environment())
+    app.state.llm_client = llm_client
+    app.state.agent_graph = build_agent_graph(
+        partial(description_parser_node, llm_client=llm_client)
+    )
+    try:
+        yield
+    finally:
+        close = getattr(llm_client, "close", None)
+        if callable(close):
+            close()
+        delattr(app.state, "llm_client")
+        delattr(app.state, "agent_graph")
+
+
+app = FastAPI(title="FoundU AI Service", version="0.1.0", lifespan=lifespan)
 
 
 class HealthResponse(BaseModel):
@@ -30,7 +54,10 @@ def health() -> HealthResponse:
 def parse_description_endpoint(request: DescriptionParseRequest) -> DescriptionParseResult:
     """Extract structured item attributes from natural language description."""
     try:
-        return parse_item_description(request.description)
+        return parse_item_description(
+            request.description,
+            llm_client=getattr(app.state, "llm_client", None),
+        )
     except PermissionError as perm_err:
         raise HTTPException(status_code=403, detail=str(perm_err)) from perm_err
     except Exception as exc:
@@ -42,7 +69,8 @@ def run_agent(request: AgentRunRequest) -> AgentRunResponse:
     initial_state = create_initial_state(request)
 
     try:
-        result = agent_graph.invoke(initial_state)
+        runtime_graph = getattr(app.state, "agent_graph", agent_graph)
+        result = runtime_graph.invoke(initial_state)
     except PermissionError as perm_err:
         raise HTTPException(status_code=403, detail=str(perm_err)) from perm_err
     except Exception:
