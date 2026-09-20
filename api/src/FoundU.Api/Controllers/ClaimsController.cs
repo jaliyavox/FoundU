@@ -68,6 +68,15 @@ public class ClaimsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _claims.AddQuestionsAsync(id, User.GetUserId(), request, cancellationToken));
 
+    /// <summary>
+    /// Generates non-leading verification questions from staff-only evidence. The result only
+    /// moves the claim to answer collection; staff retain all final decision authority.
+    /// </summary>
+    [HttpPost("{id:guid}/questions/generate")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<ClaimDetailDto>> GenerateQuestions(Guid id, CancellationToken cancellationToken)
+        => Ok(await _claims.GenerateQuestionsAsync(id, User.GetUserId(), cancellationToken));
+
     /// <summary>The student answering. Every outstanding question must be answered at once.</summary>
     [HttpPost("{id:guid}/answers")]
     [Authorize(Policy = PolicyNames.Student)]
