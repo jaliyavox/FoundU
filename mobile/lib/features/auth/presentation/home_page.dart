@@ -44,7 +44,8 @@ class HomePage extends ConsumerWidget {
                 Card(
                   elevation: 0,
                   color: const Color(0xFFE8F5E9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Row(
@@ -53,7 +54,9 @@ class HomePage extends ConsumerWidget {
                           radius: 28,
                           backgroundColor: const Color(0xFF2E7D32),
                           child: Text(
-                            user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'U',
+                            user?.name.isNotEmpty == true
+                                ? user!.name[0].toUpperCase()
+                                : 'U',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -77,13 +80,16 @@ class HomePage extends ConsumerWidget {
                               const SizedBox(height: 2),
                               Text(
                                 user?.email ?? '',
-                                style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.black87),
                               ),
                               const SizedBox(height: 2),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+                                  color: const Color(0xFF2E7D32)
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -135,7 +141,8 @@ class HomePage extends ConsumerWidget {
                               color: Colors.white24,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.add_a_photo, color: Colors.white, size: 28),
+                            child: const Icon(Icons.add_a_photo,
+                                color: Colors.white, size: 28),
                           ),
                           const SizedBox(width: 16),
                           const Expanded(
@@ -153,14 +160,53 @@ class HomePage extends ConsumerWidget {
                                 SizedBox(height: 4),
                                 Text(
                                   'Category, location, time window & photo upload',
-                                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.white70),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
+                          const Icon(Icons.arrow_forward_ios,
+                              color: Colors.white, size: 18),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                Card(
+                  elevation: 1,
+                  shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(16))),
+                  child: InkWell(
+                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    onTap: () => context.push('/claims'),
+                    child: const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Row(children: [
+                        CircleAvatar(
+                            backgroundColor: Color(0xFFE8F5E9),
+                            child: Icon(Icons.verified_user_outlined,
+                                color: Color(0xFF2E7D32))),
+                        SizedBox(width: 16),
+                        Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                              Text('My Claims',
+                                  style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold)),
+                              SizedBox(height: 4),
+                              Text(
+                                  'Answer verification questions and track reviews',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey))
+                            ])),
+                        Icon(Icons.arrow_forward_ios,
+                            color: Colors.grey, size: 18),
+                      ]),
                     ),
                   ),
                 ),
@@ -185,7 +231,8 @@ class HomePage extends ConsumerWidget {
                               color: Color(0xFFE8F5E9),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.assignment_outlined, color: Color(0xFF2E7D32), size: 28),
+                            child: const Icon(Icons.assignment_outlined,
+                                color: Color(0xFF2E7D32), size: 28),
                           ),
                           const SizedBox(width: 16),
                           const Expanded(
@@ -202,12 +249,14 @@ class HomePage extends ConsumerWidget {
                                 SizedBox(height: 4),
                                 Text(
                                   'View report status, edit details, or check matches',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
+                          const Icon(Icons.arrow_forward_ios,
+                              color: Colors.grey, size: 18),
                         ],
                       ),
                     ),
@@ -219,10 +268,12 @@ class HomePage extends ConsumerWidget {
                 OutlinedButton.icon(
                   onPressed: auth.isLoading
                       ? null
-                      : () => ref.read(authControllerProvider.notifier).logout(),
+                      : () =>
+                          ref.read(authControllerProvider.notifier).logout(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: auth.isLoading
                       ? const SizedBox.square(
