@@ -97,6 +97,44 @@ contracts. Tool failures yield a bounded `manual_review` result; Matching never 
 context or adapter calls after a registry failure. Report descriptions remain data and are not
 returned, scored, used for tool selection, or able to affect workflow authority.
 
+## Structured execution plans (Phase 6)
+
+Every agent now creates a deterministic, typed execution plan in graph state before its work. Plans
+are internal audit metadata rather than API response fields, chain-of-thought, prompts, or
+scratchpads. They use a finite action set (`inspect_input`, `call_model`, `call_tool`,
+`validate_result`, `produce_recommendation`, `request_human_review`, and `complete`) plus fixed safe labels; they
+cannot contain raw reports, private verification evidence, or arbitrary reasoning.
+
+```text
+Agent request
+        ↓
+trusted agent identity
+        ↓
+deterministic structured plan
+        ↓
+plan validation
+        ↓
+ToolRegistry permission validation
+        ↓
+execution and deterministic result
+        ↓
+human approval where required
+```
+
+Plan validation checks trusted agent identity, bounded and contiguous step ordering, unique IDs,
+valid action shapes, and registered/allow-listed tool references. A plan only states intent; it
+never grants a permission, and `ToolRegistry` remains the final authorization boundary. Matching's
+`match_reports` plan explicitly names its two lookups and checks that each tool is planned before
+calling the registry. Invalid plans result in a safe bounded response and no tool execution.
+
+Description Parser, Verification, and Coordinator also create deterministic plans reflecting their
+current non-authoritative paths. Verification plans have no decision actions or authoritative tool
+steps: staff approval/rejection authority remains exclusively in ASP.NET.
+
+A plan records intended, permitted execution metadata, not a guarantee that every step will run.
+For example, Description Parser's plan contains `call_model`, but deterministic preconditions skip
+the real LLM request for unusable input; its existing fallback and trace behavior remain unchanged.
+
 ### Optional local Ollama smoke test
 
 This is not part of pytest or CI. Install/run Ollama separately, then pull the model selected by
