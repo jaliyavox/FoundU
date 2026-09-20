@@ -83,6 +83,40 @@ def test_verification_agent_route_runs_real_operation():
     ]
 
 
+def test_fastapi_matching_path_uses_lifespan_composed_read_only_registry():
+    with TestClient(main.app) as active_client:
+        registry = main.app.state.tool_registry
+        response = active_client.post(
+            "/agents/run",
+            json={
+                "agent": "matching",
+                "payload": {
+                    "operation": "match_reports",
+                    "lost_report": {
+                        "report_id": "lost-1",
+                        "item_type": "Backpack",
+                        "primary_color": "Blue",
+                    },
+                    "found_report": {
+                        "report_id": "found-1",
+                        "item_type": "Backpack",
+                        "primary_color": "Blue",
+                    },
+                },
+            },
+        )
+
+    assert registry is not None
+    assert response.status_code == 200
+    assert response.json()["output"] == {"recommendation": "match_candidate", "score": 1.0}
+    assert response.json()["trace"][2:6] == [
+        "tool:attempt:getLostReportDetails",
+        "tool:success:getLostReportDetails",
+        "tool:attempt:getFoundReportDetails",
+        "tool:success:getFoundReportDetails",
+    ]
+
+
 def test_parse_description_endpoint():
     response = client.post(
         "/agents/parse-description",

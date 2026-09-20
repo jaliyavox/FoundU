@@ -21,8 +21,30 @@ from app.tools.models import (
 )
 
 
+class ContextReportLookupProvider:
+    """Read only the minimal report context carried by a validated tool request.
+
+    This local deterministic provider has no database connection or mutable state. A future
+    application-owned provider can replace it without changing the registry tool contracts.
+    """
+
+    def lookup(self, input_model: ReportLookupInput) -> ReportLookupOutput:
+        if input_model.report is None:
+            return ReportLookupOutput(report_id=input_model.report_id, found=False)
+        return ReportLookupOutput(
+            report_id=input_model.report_id,
+            found=True,
+            report={
+                "report_id": input_model.report.report_id,
+                "item_type": input_model.report.item_type,
+                "primary_color": input_model.report.primary_color,
+            },
+        )
+
+
 def lookup_report(input_model: ReportLookupInput, _: ToolExecutionContext) -> ReportLookupOutput:
-    return ReportLookupOutput(report_id=input_model.report_id, found=False)
+    """Registry handler for context-backed, read-only report summaries."""
+    return ContextReportLookupProvider().lookup(input_model)
 
 
 def search_active_lost_reports(

@@ -17,6 +17,7 @@ ToolIdentifier = Annotated[
     ),
 ]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
+ReportText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
 
 
 class StrictToolModel(BaseModel):
@@ -37,11 +38,53 @@ class ToolExecutionContext(StrictToolModel):
 
 class ReportLookupInput(StrictToolModel):
     report_id: ToolIdentifier
+    report: "ReportSummary | None" = None
+
+    @model_validator(mode="after")
+    def report_identifier_matches_lookup(self) -> "ReportLookupInput":
+        if self.report is not None and self.report.report_id != self.report_id:
+            raise ValueError("Report context does not match the requested identifier.")
+        return self
+
+
+class SuppliedReportContext(StrictToolModel):
+    """Read-only request context supplied by the trusted application boundary.
+
+    ``description`` is accepted as ordinary data but is intentionally excluded from lookup tools,
+    scoring, tool selection, permissions, and workflow authority.
+    """
+
+    report_id: ToolIdentifier
+    item_type: ReportText
+    primary_color: ReportText
+    description: Annotated[
+        str | None,
+        StringConstraints(strip_whitespace=True, max_length=500),
+    ] = None
+
+
+class ReportSummary(StrictToolModel):
+    """Minimum public fields that a matching agent needs for deterministic comparison."""
+
+    report_id: ToolIdentifier
+    item_type: ReportText
+    primary_color: ReportText
 
 
 class ReportLookupOutput(StrictToolModel):
     report_id: ToolIdentifier
     found: bool
+    report: ReportSummary | None = None
+
+    @model_validator(mode="after")
+    def found_status_matches_report(self) -> "ReportLookupOutput":
+        if self.found and self.report is None:
+            raise ValueError("Found reports require a report summary.")
+        if not self.found and self.report is not None:
+            raise ValueError("Missing reports cannot include a report summary.")
+        if self.report is not None and self.report.report_id != self.report_id:
+            raise ValueError("Report summary identifier does not match the lookup identifier.")
+        return self
 
 
 class SearchActiveLostReportsInput(StrictToolModel):
