@@ -233,6 +233,13 @@ def test_invalid_description_does_not_attempt_or_consume_injected_llm():
     )
 
     assert result["trace"] == ["executed:description_parser"]
+    assert [step.action_type for step in result["plan"].steps] == [
+        "inspect_input",
+        "call_model",
+        "validate_result",
+        "produce_recommendation",
+        "complete",
+    ]
     # The queued response is proof that FakeLlmClient.generate_structured was not called.
     assert len(fake._responses) == 1  # noqa: SLF001
 

@@ -18,10 +18,12 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
     private static readonly HashSet<string> AllowedRecommendations =
         ["likely_match", "manual_review", "unlikely_match"];
     private readonly HttpClient _httpClient;
+    private readonly string _serviceKey;
 
-    public VerificationAgentClient(HttpClient httpClient)
+    public VerificationAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
     {
         _httpClient = httpClient;
+        _serviceKey = AiServiceOptions.RequireServiceKey(options.Value);
     }
 
     public Task<VerificationAgentCallResult<GenerateVerificationQuestionsResult>> GenerateQuestionsAsync(
@@ -68,7 +70,8 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
     {
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync("agents/run", request, JsonOptions, cancellationToken);
+            using var httpRequest = CreateAuthenticatedRequest(request);
+            using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
             if (!response.IsSuccessStatusCode)
                 return VerificationAgentCallResult<T>.Failure("Verification agent is unavailable.");
 
@@ -97,6 +100,16 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         {
             return VerificationAgentCallResult<T>.Failure("Verification agent failed safely.");
         }
+    }
+
+    private HttpRequestMessage CreateAuthenticatedRequest(VerificationAgentRequest request)
+    {
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, "agents/run")
+        {
+            Content = JsonContent.Create(request, options: JsonOptions),
+        };
+        httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, _serviceKey);
+        return httpRequest;
     }
 
     private static VerificationAgentCallResult<GenerateVerificationQuestionsResult> ValidateGenerateOutput(

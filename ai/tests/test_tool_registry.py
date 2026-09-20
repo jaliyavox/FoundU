@@ -182,6 +182,49 @@ def test_invalid_tool_output_becomes_safe_output_error():
     assert raised.value.__context__ is None
 
 
+@pytest.mark.parametrize(
+    "invalid_output",
+    [
+        {"report_id": "lost-1", "found": True, "report": None},
+        {
+            "report_id": "lost-1",
+            "found": False,
+            "report": {
+                "report_id": "lost-1",
+                "item_type": "PRIVATE_MALFORMED_VALUE",
+                "primary_color": "Blue",
+            },
+        },
+        {
+            "report_id": "lost-1",
+            "found": True,
+            "report": {
+                "report_id": "different-id",
+                "item_type": "PRIVATE_MALFORMED_VALUE",
+                "primary_color": "Blue",
+            },
+        },
+    ],
+)
+def test_semantically_inconsistent_lookup_output_becomes_safe_output_error(
+    invalid_output: dict[str, object],
+):
+    registry = _registry_with_lookup_handler(lambda _input, _context: invalid_output)
+
+    with pytest.raises(ToolOutputError) as raised:
+        registry.execute(
+            "getLostReportDetails",
+            _context(AgentName.VERIFICATION),
+            {"report_id": "lost-1"},
+        )
+
+    assert raised.value.trace_event == "tool:failure:getLostReportDetails"
+    assert "PRIVATE_MALFORMED_VALUE" not in str(raised.value)
+    assert "PRIVATE_MALFORMED_VALUE" not in repr(raised.value)
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
+
+
 def test_implementation_exception_becomes_safe_execution_error():
     secret = "SECRET-IMPLEMENTATION-DETAIL-DO-NOT-LEAK"
 

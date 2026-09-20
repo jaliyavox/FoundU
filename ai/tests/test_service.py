@@ -5,8 +5,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app.service_auth import SERVICE_KEY_HEADER
 
 client = TestClient(main.app)
+SERVICE_KEY = "test-service-key-0123456789-abcdef"
+SERVICE_AUTH_HEADERS = {SERVICE_KEY_HEADER: SERVICE_KEY}
+
+
+@pytest.fixture(autouse=True)
+def configured_service_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_SERVICE_KEY", SERVICE_KEY)
 
 STUB_AGENTS = {
     "matching": "Matching Agent foundation is ready.",
@@ -19,6 +27,7 @@ def test_stub_agents_route_to_selected_agent(agent: str, message: str):
     response = client.post(
         "/agents/run",
         json={"agent": agent, "payload": {"ignored_by_stub": True}},
+        headers=SERVICE_AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -36,6 +45,7 @@ def test_description_parser_agent_run():
             "agent": "description_parser",
             "payload": {"description": "Black laptop bag, grey zipper, small keychain."},
         },
+        headers=SERVICE_AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -64,6 +74,7 @@ def test_verification_agent_route_runs_real_operation():
                 "private_verification_details": {"distinctive_mark": "small crack near port"},
             },
         },
+        headers=SERVICE_AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -105,6 +116,7 @@ def test_fastapi_matching_path_uses_lifespan_composed_read_only_registry():
                     },
                 },
             },
+            headers=SERVICE_AUTH_HEADERS,
         )
 
     assert registry is not None
@@ -122,6 +134,7 @@ def test_parse_description_endpoint():
     response = client.post(
         "/agents/parse-description",
         json={"description": "Black laptop bag, grey zipper, small keychain."},
+        headers=SERVICE_AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -149,6 +162,7 @@ def test_fastapi_endpoint_and_graph_share_composed_fake_llm_client():
         endpoint_response = active_client.post(
             "/agents/parse-description",
             json={"description": "Blue backpack with a red keychain"},
+            headers=SERVICE_AUTH_HEADERS,
         )
         assert endpoint_response.status_code == 200
         assert endpoint_response.json()["confidence_score"] == 0.9
@@ -169,6 +183,7 @@ def test_fastapi_endpoint_and_graph_share_composed_fake_llm_client():
                 "agent": "description_parser",
                 "payload": {"description": "Blue backpack with a red keychain"},
             },
+            headers=SERVICE_AUTH_HEADERS,
         )
 
     assert graph_response.status_code == 200
@@ -184,14 +199,19 @@ def test_invalid_agent_returns_validation_error():
     response = client.post(
         "/agents/run",
         json={"agent": "reader", "payload": {}},
+        headers=SERVICE_AUTH_HEADERS,
     )
 
     assert response.status_code == 422
 
 
 def test_each_request_generates_a_new_agent_run_id():
-    first = client.post("/agents/run", json={"agent": "matching", "payload": {}})
-    second = client.post("/agents/run", json={"agent": "matching", "payload": {}})
+    first = client.post(
+        "/agents/run", json={"agent": "matching", "payload": {}}, headers=SERVICE_AUTH_HEADERS
+    )
+    second = client.post(
+        "/agents/run", json={"agent": "matching", "payload": {}}, headers=SERVICE_AUTH_HEADERS
+    )
 
     first_id = UUID(first.json()["agent_run_id"])
     second_id = UUID(second.json()["agent_run_id"])
@@ -203,7 +223,11 @@ def test_unexpected_graph_failure_returns_safe_error(monkeypatch: pytest.MonkeyP
         raise RuntimeError("sensitive internal detail")
 
     monkeypatch.setattr(main, "agent_graph", SimpleNamespace(invoke=fail_safely))
-    response = client.post("/agents/run", json={"agent": "coordinator", "payload": {}})
+    response = client.post(
+        "/agents/run",
+        json={"agent": "coordinator", "payload": {}},
+        headers=SERVICE_AUTH_HEADERS,
+    )
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Agent workflow failed safely."}
