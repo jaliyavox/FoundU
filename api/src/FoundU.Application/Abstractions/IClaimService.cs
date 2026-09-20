@@ -30,6 +30,9 @@ public interface IClaimService
     /// </summary>
     Task<ClaimDetailDto> AddQuestionsAsync(Guid claimId, Guid staffId, AddVerificationQuestionsRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>Generates safe questions from trusted staff evidence using the Verification Agent.</summary>
+    Task<ClaimDetailDto> GenerateQuestionsAsync(Guid claimId, Guid staffId, CancellationToken cancellationToken = default);
+
     /// <summary>The student answering every outstanding question, which sends the claim to review.</summary>
     Task<ClaimDetailDto> SubmitAnswersAsync(Guid claimId, Guid studentId, SubmitClaimAnswersRequest request, CancellationToken cancellationToken = default);
 

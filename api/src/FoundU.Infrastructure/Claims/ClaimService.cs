@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FoundU.Application.Abstractions;
 using FoundU.Application.Claims.Dtos;
 using FoundU.Application.Common.Exceptions;
@@ -23,11 +24,16 @@ public class ClaimService : IClaimService
 {
     private readonly FoundUDbContext _db;
     private readonly INotificationService _notifications;
+    private readonly IVerificationAgentClient _verificationAgent;
 
-    public ClaimService(FoundUDbContext db, INotificationService notifications)
+    public ClaimService(
+        FoundUDbContext db,
+        INotificationService notifications,
+        IVerificationAgentClient verificationAgent)
     {
         _db = db;
         _notifications = notifications;
+        _verificationAgent = verificationAgent;
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
@@ -195,6 +201,81 @@ public class ClaimService : IClaimService
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
 
+    public async Task<ClaimDetailDto> GenerateQuestionsAsync(
+        Guid claimId,
+        Guid staffId,
+        CancellationToken cancellationToken = default)
+    {
+        var claim = await _db.Claims
+            .Include(c => c.FoundReport)
+            .Include(c => c.VerificationQuestions)
+            .FirstOrDefaultAsync(c => c.Id == claimId, cancellationToken)
+            ?? throw new NotFoundAppException($"Claim '{claimId}' was not found.");
+
+        if (claim.Status is not (ClaimStatus.Pending or ClaimStatus.RevisionRequested))
+        {
+            throw new ConflictAppException("This claim is not ready for verification questions.");
+        }
+
+        if (claim.VerificationQuestions.Count > 0)
+        {
+            throw new ConflictAppException("This claim already has verification questions.");
+        }
+
+        var correlationId = Guid.NewGuid().ToString("N");
+        var privateDetails = BuildPrivateVerificationDetails(claim.FoundReport);
+        if (privateDetails.Count == 0)
+        {
+            return await MoveToManualReviewAfterGenerationFailureAsync(
+                claim, staffId, correlationId, "Verification evidence is unavailable.", cancellationToken);
+        }
+
+        var agentResult = await _verificationAgent.GenerateQuestionsAsync(
+            claim.Id, privateDetails, correlationId, cancellationToken);
+        if (!agentResult.IsSuccess || agentResult.Value is null)
+        {
+            return await MoveToManualReviewAfterGenerationFailureAsync(
+                claim,
+                staffId,
+                correlationId,
+                agentResult.FailureReason ?? "Verification question generation failed safely.",
+                cancellationToken);
+        }
+
+        var result = agentResult.Value;
+        var audit = CreateVerificationAgentRun(
+            claim.Id,
+            "generate_questions",
+            correlationId,
+            result.AgentRunId,
+            result.Recommendation,
+            success: true,
+            result.Questions);
+        _db.AgentRuns.Add(audit);
+
+        foreach (var question in result.Questions)
+        {
+            _db.VerificationQuestions.Add(new VerificationQuestion
+            {
+                ClaimId = claim.Id,
+                QuestionText = question.Question,
+                GeneratedByAgentRunId = audit.Id,
+            });
+        }
+
+        MoveClaim(claim, ClaimStatus.WaitingForAnswer, staffId, "Verification questions were generated.");
+        _notifications.Queue(
+            claim.StudentId,
+            NotificationType.VerificationQuestionAvailable,
+            result.Questions.Count == 1 ? "A question about your claim" : "Questions about your claim",
+            "Answer from memory to show the item is yours. Staff will review the result.",
+            nameof(Claim),
+            claim.Id);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
     public async Task<ClaimDetailDto> SubmitAnswersAsync(
         Guid claimId,
         Guid studentId,
@@ -204,6 +285,9 @@ public class ClaimService : IClaimService
         var claim = await _db.Claims
             .Include(c => c.VerificationQuestions)
             .ThenInclude(q => q.Answer)
+            .Include(c => c.FoundReport)
+            .Include(c => c.VerificationQuestions)
+            .ThenInclude(q => q.GeneratedByAgentRun)
             .FirstOrDefaultAsync(c => c.Id == claimId, cancellationToken)
             ?? throw new NotFoundAppException($"Claim '{claimId}' was not found.");
 
@@ -218,6 +302,13 @@ public class ClaimService : IClaimService
         }
 
         var questionsById = claim.VerificationQuestions.ToDictionary(q => q.Id);
+
+        if (request.Answers.Select(a => a.QuestionId).Distinct().Count() != request.Answers.Count)
+        {
+            throw new ValidationAppException(
+                nameof(SubmitClaimAnswersRequest.Answers),
+                "Only one answer may be submitted for each question.");
+        }
 
         // An id that is not on this claim is either a mistake or someone probing another
         // claim's questions - either way it is not answerable here.
@@ -264,7 +355,61 @@ public class ClaimService : IClaimService
             }
         }
 
-        MoveClaim(claim, ClaimStatus.UnderReview, studentId, "The claimant answered the verification questions.");
+        var correlationId = Guid.NewGuid().ToString("N");
+        if (!TryBuildCanonicalAgentQuestions(claim.VerificationQuestions, out var canonicalQuestions))
+        {
+            RecordVerificationAgentFailure(claim.Id, "evaluate_answers", correlationId, "Verification challenge is unavailable.");
+            MoveClaim(claim, ClaimStatus.ManualReviewRequired, studentId, "Verification requires staff review.");
+            await _db.SaveChangesAsync(cancellationToken);
+            return await LoadDetailAsync(claim.Id, cancellationToken);
+        }
+
+        var privateDetails = BuildPrivateVerificationDetails(claim.FoundReport);
+        // Include the complete validated answer set. On a revision, some answers may be carried
+        // forward unchanged; omitting them would make the agent mistake a complete claim for a
+        // partially answered one.
+        var agentAnswers = canonicalQuestions
+            .Select(question => new VerificationAgentAnswer(
+                question.AgentQuestion.QuestionId,
+                questionsById[question.DatabaseQuestionId].Answer!.AnswerText))
+            .ToList();
+        var agentResult = await _verificationAgent.EvaluateAnswersAsync(
+            claim.Id,
+            canonicalQuestions.Select(question => question.AgentQuestion).ToList(),
+            privateDetails,
+            agentAnswers,
+            correlationId,
+            cancellationToken);
+
+        if (!agentResult.IsSuccess || agentResult.Value is null)
+        {
+            RecordVerificationAgentFailure(
+                claim.Id,
+                "evaluate_answers",
+                correlationId,
+                agentResult.FailureReason ?? "Verification evaluation failed safely.");
+            MoveClaim(claim, ClaimStatus.ManualReviewRequired, studentId, "Verification requires staff review.");
+        }
+        else
+        {
+            var result = agentResult.Value;
+            var audit = CreateVerificationAgentRun(
+                claim.Id,
+                "evaluate_answers",
+                correlationId,
+                result.AgentRunId,
+                result.Recommendation,
+                success: true,
+                questions: null);
+            _db.AgentRuns.Add(audit);
+
+            // Recommendations only choose the staff-review queue. They never call DecideAsync,
+            // create an ApprovalDecision, or change a found item's custody state.
+            var reviewStatus = result.Recommendation == "likely_match"
+                ? ClaimStatus.UnderReview
+                : ClaimStatus.ManualReviewRequired;
+            MoveClaim(claim, reviewStatus, studentId, "Verification recommendation recorded for staff review.");
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -412,6 +557,155 @@ public class ClaimService : IClaimService
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
+
+    private async Task<ClaimDetailDto> MoveToManualReviewAfterGenerationFailureAsync(
+        Claim claim,
+        Guid staffId,
+        string correlationId,
+        string failureReason,
+        CancellationToken cancellationToken)
+    {
+        RecordVerificationAgentFailure(claim.Id, "generate_questions", correlationId, failureReason);
+        MoveClaim(claim, ClaimStatus.ManualReviewRequired, staffId, "Verification requires staff review.");
+        await _db.SaveChangesAsync(cancellationToken);
+        return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
+    private static IReadOnlyDictionary<string, string> BuildPrivateVerificationDetails(FoundReport foundReport)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(foundReport.PrivateVerificationAttributesJson))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(foundReport.PrivateVerificationAttributesJson);
+                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var property in document.RootElement.EnumerateObject())
+                    {
+                        if (property.Value.ValueKind == JsonValueKind.String
+                            && !string.IsNullOrWhiteSpace(property.Value.GetString()))
+                        {
+                            details[property.Name] = property.Value.GetString()!.Trim();
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // The free-text staff value below remains a safe fallback. Never surface JSON.
+            }
+        }
+
+        if (details.Count == 0 && !string.IsNullOrWhiteSpace(foundReport.PrivateVerificationDetails))
+        {
+            details["staff_verification_detail"] = foundReport.PrivateVerificationDetails.Trim();
+        }
+
+        return details;
+    }
+
+    private static bool TryBuildCanonicalAgentQuestions(
+        ICollection<VerificationQuestion> databaseQuestions,
+        out IReadOnlyList<CanonicalAgentQuestion> canonicalQuestions)
+    {
+        canonicalQuestions = [];
+        var runIds = databaseQuestions
+            .Select(question => question.GeneratedByAgentRunId)
+            .Distinct()
+            .ToList();
+        if (databaseQuestions.Count == 0 || runIds.Count != 1 || runIds[0] is not { } runId)
+            return false;
+
+        var run = databaseQuestions.First().GeneratedByAgentRun;
+        if (run?.Id != runId || string.IsNullOrWhiteSpace(run.FinalOutcomeJson))
+            return false;
+
+        VerificationAuditOutcome? audit;
+        try { audit = JsonSerializer.Deserialize<VerificationAuditOutcome>(run.FinalOutcomeJson); }
+        catch (JsonException) { return false; }
+
+        if (audit is null
+            || !audit.Success
+            || audit.Operation != "generate_questions"
+            || audit.Questions is null
+            || audit.Questions.Count != databaseQuestions.Count
+            || audit.Questions.Select(question => question.QuestionId).Distinct(StringComparer.Ordinal).Count() != audit.Questions.Count
+            || audit.Questions.Select(question => question.Question).Distinct(StringComparer.Ordinal).Count() != audit.Questions.Count)
+        {
+            return false;
+        }
+
+        if (databaseQuestions.Any(question => string.IsNullOrWhiteSpace(question.QuestionText))
+            || databaseQuestions.Select(question => question.QuestionText).Distinct(StringComparer.Ordinal).Count() != databaseQuestions.Count)
+        {
+            return false;
+        }
+
+        var databaseByText = databaseQuestions.ToDictionary(question => question.QuestionText, StringComparer.Ordinal);
+        if (audit.Questions.Any(question => !databaseByText.ContainsKey(question.Question)))
+            return false;
+
+        canonicalQuestions = audit.Questions
+            .Select(question => new CanonicalAgentQuestion(databaseByText[question.Question].Id, question))
+            .ToList();
+        return true;
+    }
+
+    private void RecordVerificationAgentFailure(
+        Guid claimId,
+        string operation,
+        string correlationId,
+        string failureReason)
+    {
+        _db.AgentRuns.Add(CreateVerificationAgentRun(
+            claimId,
+            operation,
+            correlationId,
+            remoteAgentRunId: null,
+            recommendation: "manual_review",
+            success: false,
+            questions: null,
+            failureReason));
+    }
+
+    private static AgentRun CreateVerificationAgentRun(
+        Guid claimId,
+        string operation,
+        string correlationId,
+        string? remoteAgentRunId,
+        string recommendation,
+        bool success,
+        IReadOnlyList<VerificationAgentQuestion>? questions,
+        string? failureReason = null)
+        => new()
+        {
+            ClaimId = claimId,
+            TriggerEntityType = nameof(Claim),
+            TriggerEntityId = claimId,
+            Objective = $"Verification Agent {operation}",
+            Status = success ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            ErrorMessage = success ? null : "Verification agent interaction requires staff review.",
+            FinalOutcomeJson = JsonSerializer.Serialize(new VerificationAuditOutcome(
+                operation,
+                correlationId,
+                remoteAgentRunId,
+                recommendation,
+                success,
+                questions)),
+            CompletedAt = DateTime.UtcNow,
+        };
+
+    private sealed record CanonicalAgentQuestion(Guid DatabaseQuestionId, VerificationAgentQuestion AgentQuestion);
+
+    // Safe audit only: this intentionally excludes hidden evidence, submitted answers, and AI trace.
+    private sealed record VerificationAuditOutcome(
+        string Operation,
+        string CorrelationId,
+        string? RemoteAgentRunId,
+        string Recommendation,
+        bool Success,
+        IReadOnlyList<VerificationAgentQuestion>? Questions);
 
     /* ------------------------------------------------------------------ internals */
 
