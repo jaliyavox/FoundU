@@ -45,6 +45,24 @@ the caller's Pydantic JSON schema through Ollama's `format` field, and validates
 `message.content` as strict JSON against that schema. It neither logs nor retains prompts or raw
 responses. Verification remains deterministic and does not use Ollama.
 
+## Executable tool registry (Phase 4)
+
+`app.tools.ToolRegistry` is the sole executable boundary for agent tools. It validates a typed
+input model, checks the requesting agent from trusted graph/application context against the
+existing `AGENT_PERMISSIONS` allow-list, invokes a registered callable, and validates a typed
+output model. Models and agents never receive a callable directly, so future model-selected tools
+must go through `ToolRegistry.execute(...)`.
+
+The current tools are deterministic in-memory adapters only; they do not access PostgreSQL or
+change FoundU business state. Safe trace metadata is limited to
+`tool:attempt:<name>`, `tool:success:<name>`, `tool:denied:<name>`, and `tool:failure:<name>`.
+It never includes arguments, outputs, descriptions, private verification evidence, or prompts.
+
+Verification can use only `getLostReportDetails`, `getFoundReportDetails`,
+`createVerificationChallenge`, and `recordVerificationResult`. It has no approval, rejection,
+custody-transfer, item-resolution, or staff-decision-overturn tool; staff authority remains in
+ASP.NET.
+
 ### Optional local Ollama smoke test
 
 This is not part of pytest or CI. Install/run Ollama separately, then pull the model selected by

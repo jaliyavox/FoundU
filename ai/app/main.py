@@ -17,6 +17,7 @@ from app.agents.models import (
 from app.agents.state import create_initial_state
 from app.llm.client import create_llm_client
 from app.llm.config import LlmSettings
+from app.tools.default_registry import create_default_tool_registry
 
 
 @asynccontextmanager
@@ -24,6 +25,9 @@ async def lifespan(app: FastAPI):
     """Compose one shared LLM client and close it when the FastAPI app stops."""
     llm_client = create_llm_client(LlmSettings.from_environment())
     app.state.llm_client = llm_client
+    # Shared executable boundary. Agent/model code must use this registry rather than call a
+    # tool adapter directly when tools are introduced into a graph node.
+    app.state.tool_registry = create_default_tool_registry()
     app.state.agent_graph = build_agent_graph(
         partial(description_parser_node, llm_client=llm_client)
     )
@@ -34,6 +38,7 @@ async def lifespan(app: FastAPI):
         if callable(close):
             close()
         delattr(app.state, "llm_client")
+        delattr(app.state, "tool_registry")
         delattr(app.state, "agent_graph")
 
 
