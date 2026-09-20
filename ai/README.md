@@ -135,6 +135,40 @@ A plan records intended, permitted execution metadata, not a guarantee that ever
 For example, Description Parser's plan contains `call_model`, but deterministic preconditions skip
 the real LLM request for unusable input; its existing fallback and trace behavior remain unchanged.
 
+## Safe LangGraph checkpoints (Phase 7)
+
+FastAPI composition creates one LangGraph `InMemorySaver`-based checkpointer and compiles the
+agent graph with it. Each `/agents/run` execution uses its server-generated `agent_run_id` as the
+trusted LangGraph thread ID:
+
+```text
+request
+        ↓
+server-generated agent_run_id / thread_id
+        ↓
+LangGraph execution
+        ↓
+SafeInMemorySaver
+        ↓
+sanitized checkpoint
+        ↓
+trusted internal checkpoint retrieval
+```
+
+The in-memory saver is wrapped with a checkpoint sanitization boundary. Checkpoints retain only
+safe execution metadata such as the agent/run identity, structured plan, safe trace labels, and
+already-safe result metadata. Request payloads, correlation IDs, prompts, descriptions, private
+verification evidence, reasoning, scratchpads, and model-response-like fields are removed before
+serialization. An internal snapshot-load path can safely retrieve completed state without
+replaying model or tool calls, and it rejects unknown or cross-agent thread requests.
+
+This demonstrates checkpointed agent state and thread-isolated continuity within one FastAPI
+process only; it does not survive process restart. It is not interrupted-workflow execution resume,
+human-approval pause/resume, or durable restart persistence: the current graph has no pause point
+and each run is already complete when its state is retrieved. A durable production backend can
+replace the in-memory saver later without moving the ASP.NET human approval boundary or granting AI
+claim-decision authority.
+
 ### Optional local Ollama smoke test
 
 This is not part of pytest or CI. Install/run Ollama separately, then pull the model selected by

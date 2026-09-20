@@ -86,6 +86,7 @@ def test_verification_agent_route_runs_real_operation():
 def test_fastapi_matching_path_uses_lifespan_composed_read_only_registry():
     with TestClient(main.app) as active_client:
         registry = main.app.state.tool_registry
+        assert main.app.state.agent_graph.checkpointer is main.app.state.checkpointer
         response = active_client.post(
             "/agents/run",
             json={
