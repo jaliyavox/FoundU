@@ -119,6 +119,15 @@ public static class DependencyInjection
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
         });
+        services.AddHttpClient<IMatchingAgentClient, MatchingAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress))
+                throw new InvalidOperationException("AiService:BaseUrl must be an absolute URL.");
+
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
         services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
 
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);

@@ -15,6 +15,12 @@ public interface IMatchSuggestionService
     /// <summary>Staff linking an item to a report by hand.</summary>
     Task<MatchSuggestionDto> CreateAsync(CreateMatchSuggestionRequest request, Guid staffId, CancellationToken cancellationToken = default);
 
+    /// <summary>Staff-requested, non-authoritative AI comparison that may create a candidate suggestion.</summary>
+    Task<GenerateMatchSuggestionResultDto> GenerateWithAgentAsync(
+        CreateMatchSuggestionRequest request,
+        Guid staffId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Open suggestions across the student's own reports.</summary>
     Task<PagedResult<MatchSuggestionDto>> GetForStudentAsync(Guid studentId, PaginationQuery query, CancellationToken cancellationToken = default);
 

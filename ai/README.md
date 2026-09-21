@@ -33,11 +33,11 @@ fields cannot authenticate a request. `GET /health` is intentionally public for 
 checks.
 
 ASP.NET sends the same secret from `AiService:ServiceKey` (or the
-`AiService__ServiceKey` environment variable) through its DI-managed verification client. The key
-is never added to agent state, tool traces, prompts, API responses, or logs. This authentication
-only establishes the trusted service caller; it does not alter agent identity, plans, tool
-permissions, Matching, checkpointing, or Verification's recommendation-only boundary. ASP.NET
-remains the only authority for staff claim decisions.
+`AiService__ServiceKey` environment variable) through its DI-managed verification and matching
+clients. The key is never added to agent state, tool traces, prompts, API responses, or logs. This
+authentication only establishes the trusted service caller; it does not alter agent identity,
+plans, tool permissions, Matching, checkpointing, or Verification's recommendation-only boundary.
+ASP.NET remains the only authority for staff claim decisions.
 
 For local development, generate a value without committing it:
 
