@@ -252,6 +252,94 @@ class VerificationAnswerEvaluation(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
 
 
+class CoordinatorRequest(BaseModel):
+    """Safe, bounded workflow metadata for non-authoritative coordination only."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    workflow_id: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=1,
+            max_length=64,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$",
+        ),
+    ]
+    workflow_type: Literal["claim_verification"]
+    claim_status: Literal[
+        "Pending",
+        "WaitingForAnswer",
+        "UnderReview",
+        "RevisionRequested",
+        "Approved",
+        "Rejected",
+        "Cancelled",
+        "ManualReviewRequired",
+    ]
+    verification_recommendation: Literal[
+        "not_available", "likely_match", "unlikely_match", "manual_review"
+    ]
+    decision_status: Literal["no_decision", "approved", "rejected", "revision_requested"]
+    notification_state: Literal["not_required", "pending", "sent"]
+
+    @model_validator(mode="after")
+    def validate_workflow_consistency(self) -> "CoordinatorRequest":
+        final_decisions = {
+            "Approved": "approved",
+            "Rejected": "rejected",
+            "RevisionRequested": "revision_requested",
+        }
+        expected_decision = final_decisions.get(self.claim_status)
+        if expected_decision is not None and self.decision_status != expected_decision:
+            raise ValueError("Workflow state is inconsistent.")
+        undecided_statuses = {
+            "Pending",
+            "WaitingForAnswer",
+            "UnderReview",
+            "ManualReviewRequired",
+            "Cancelled",
+        }
+        if self.claim_status in undecided_statuses and self.decision_status != "no_decision":
+            raise ValueError("Workflow state is inconsistent.")
+        if self.claim_status == "Pending" and self.verification_recommendation != "not_available":
+            raise ValueError("Workflow state is inconsistent.")
+        if (
+            self.claim_status == "UnderReview"
+            and self.verification_recommendation != "likely_match"
+        ):
+            raise ValueError("Workflow state is inconsistent.")
+        if (
+            self.claim_status == "ManualReviewRequired"
+            and self.verification_recommendation not in {"manual_review", "unlikely_match"}
+        ):
+            raise ValueError("Workflow state is inconsistent.")
+        return self
+
+
+class CoordinatorResult(BaseModel):
+    """Bounded recommendation; this model cannot express a business decision or mutation."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    recommended_action: Literal[
+        "await_staff_review",
+        "await_claimant_answers",
+        "notify_claimant",
+        "no_action",
+        "workflow_complete",
+    ]
+    requires_human_action: bool
+    safe_reason_code: Literal[
+        "claim_pending",
+        "awaiting_claimant_answers",
+        "verification_requires_staff_review",
+        "final_decision_notification_pending",
+        "workflow_complete",
+        "inconsistent_workflow_state",
+    ]
+
+
 # Permission Registry: Enforce strict least-privilege permissions
 AGENT_PERMISSIONS: dict[AgentName, AgentPermissions] = {
     AgentName.DESCRIPTION_PARSER: AgentPermissions(

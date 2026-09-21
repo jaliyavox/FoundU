@@ -18,7 +18,6 @@ def configured_service_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 STUB_AGENTS = {
     "matching": "Matching Agent foundation is ready.",
-    "coordinator": "Coordinator Agent foundation is ready.",
 }
 
 
@@ -92,6 +91,31 @@ def test_verification_agent_route_runs_real_operation():
         "verification:generate_questions",
         "verification:completed",
     ]
+
+
+def test_coordinator_agent_route_runs_real_safe_workflow_recommendation():
+    response = client.post(
+        "/agents/run",
+        json={
+            "agent": "coordinator",
+            "payload": {
+                "workflow_id": "claim-1",
+                "workflow_type": "claim_verification",
+                "claim_status": "ManualReviewRequired",
+                "verification_recommendation": "manual_review",
+                "decision_status": "no_decision",
+                "notification_state": "not_required",
+            },
+        },
+        headers=SERVICE_AUTH_HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["output"] == {
+        "recommended_action": "await_staff_review",
+        "requires_human_action": True,
+        "safe_reason_code": "verification_requires_staff_review",
+    }
 
 
 def test_fastapi_matching_path_uses_lifespan_composed_read_only_registry():
