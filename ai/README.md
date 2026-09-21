@@ -33,11 +33,12 @@ fields cannot authenticate a request. `GET /health` is intentionally public for 
 checks.
 
 ASP.NET sends the same secret from `AiService:ServiceKey` (or the
-`AiService__ServiceKey` environment variable) through its DI-managed verification and matching
-clients. The key is never added to agent state, tool traces, prompts, API responses, or logs. This
-authentication only establishes the trusted service caller; it does not alter agent identity,
-plans, tool permissions, Matching, checkpointing, or Verification's recommendation-only boundary.
-ASP.NET remains the only authority for staff claim decisions.
+`AiService__ServiceKey` environment variable) through its DI-managed description-parser,
+verification, and matching clients. The key is never added to agent state, tool traces, prompts,
+API responses, or logs. This authentication only establishes the trusted service caller; it does
+not alter agent identity, plans, tool permissions, Matching, checkpointing, or Verification's
+recommendation-only boundary. ASP.NET remains the only authority for reports and staff claim
+decisions.
 
 For local development, generate a value without committing it:
 
@@ -77,6 +78,21 @@ LLM_MODEL=<your-installed-model>
 LLM_TIMEOUT_SECONDS=30
 OLLAMA_BASE_URL=http://localhost:11434
 ```
+
+### Lost-report enrichment
+
+Lost-report submission remains an ASP.NET-owned workflow:
+
+```text
+Student submission → ASP.NET validation → authenticated Description Parser call
+                   → bounded parsed-attribute enrichment → ASP.NET persists the report
+```
+
+ASP.NET sends only the student-entered description through the service boundary. It preserves the
+original description and all explicit category, item-type, and colour selections; successful parser
+output is stored only as existing structured `ParsedAttributesJson` enrichment. If FastAPI, Ollama,
+or parser validation is unavailable, ASP.NET records the report normally without enrichment. The
+parser cannot create, flag, withdraw, resolve, or otherwise mutate a report.
 
 `LLM_MODEL` is canonical; the existing `OLLAMA_MODEL` is used only as a backward-compatible
 fallback when `LLM_MODEL` is absent. The adapter sends a non-streaming `POST /api/chat`, supplies
