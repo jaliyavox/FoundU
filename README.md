@@ -10,7 +10,7 @@ quickly, fairly, and with a little help from AI.
 | `/api`    | Web API (layered)                         | ASP.NET Core 8, EF Core, PostgreSQL |
 | `/web`    | Staff & admin dashboard                   | React + Vite + TypeScript           |
 | `/mobile` | Student app                               | Flutter                             |
-| `/ai`     | Agent service (coordinator/reader/verifier/messenger) | Python 3.11, FastAPI, LangGraph, Ollama |
+| `/ai`     | Agent service (Description Parser, Matching, Verification, Coordinator) | Python 3.11, FastAPI, LangGraph, Ollama |
 | `/docs`   | Shared contracts & diagrams               | Markdown / Mermaid                  |
 
 `.github/workflows/ci.yml` builds and tests all four projects on every pull request.
@@ -23,60 +23,84 @@ quickly, fairly, and with a little help from AI.
 - Python 3.11 — for `/ai`
 - Docker — for Postgres 16 + Ollama via `docker-compose.yml`
 
-## Quick start
+## Full-stack PowerShell demo startup
 
-```bash
-# infra: PostgreSQL 16 + Ollama
-docker compose up -d
+The development ports are PostgreSQL **5434**, Ollama **11434**, FastAPI **8000**, ASP.NET
+**5292**, and React **5173**.
 
-# api
-cd api && dotnet build && dotnet test
-
-# web
-cd web && npm install && npm run dev      # http://localhost:5173
-
-# ai
-cd ai && python3.11 -m venv .venv && source .venv/bin/activate \
-  && pip install -r requirements-dev.txt && uvicorn app.main:app --reload
-
-# mobile (after installing Flutter)
-cd mobile && flutter pub get && flutter run
-```
-
-See `plan.md` for the step-by-step build order and `docs/` for shared contracts.
-
-## Claims verification local demo
-
-The automated Claims tests use a controlled verification-agent stub, so they do not need a
-running Python service. For a live local demo, start the real services in three terminals after
-starting PostgreSQL with `docker compose up -d`.
+1. Start PostgreSQL and the repository's Ollama container:
 
 ```powershell
-# Terminal 1 — FastAPI verification agent
+docker compose up -d
+docker exec -it foundu-ollama ollama list
+docker exec -it foundu-ollama ollama pull <model-name-you-choose>
+```
+
+Alternatively use a locally installed Ollama service on `http://localhost:11434`; use `ollama
+list` to confirm a model, then `ollama pull <model>` if needed. No model is downloaded by CI.
+
+2. In separate PowerShell terminals, set one shared, locally generated 32+ character key and
+start the services:
+
+```powershell
+# Terminal 1 — FastAPI AI service
 cd ai
 .\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload
+$env:AI_SERVICE_KEY = "<strong-shared-key>"
+$env:LLM_PROVIDER = "ollama"
+$env:LLM_MODEL = "<installed-model-name>"
+$env:OLLAMA_BASE_URL = "http://localhost:11434"
+$env:LLM_TIMEOUT_SECONDS = "30"
+uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 — ASP.NET Core API (Development seeds only reference data and a development admin)
+# Terminal 2 — ASP.NET Core API
 cd api
+$env:AiService__ServiceKey = "<same-strong-shared-key>"
 $env:DEV_ADMIN_PASSWORD = "choose-a-local-development-password"
 $env:Jwt__SigningKey = "a-local-development-signing-key-with-at-least-32-bytes"
 dotnet run --project src/FoundU.Api --launch-profile http
 
-# Terminal 3 — Flutter Android emulator
+# Terminal 3 — React staff/admin dashboard
+cd web
+Copy-Item .env.example .env.local
+npm ci
+npm run dev
+
+# Terminal 4 — Flutter Android emulator
 cd mobile
 flutter pub get
 flutter run --dart-define=FOUND_U_API_BASE_URL=http://10.0.2.2:5292
 ```
 
-For a repeatable ownership-verification walkthrough, use a student lost report for **Blue
-backpack**, then have staff create the matching found report with general description **Blue
-backpack** and private verification details **blue keychain; small tear inside front pocket**.
-Those details belong only in the staff form. Have the student create the claim from its match,
-have staff generate questions, and submit the remembered details in the app. The agent's result
-only moves the claim to **Under review** or **Staff review required**; finish the walkthrough by
-having staff explicitly approve or reject it in the staff queue. Never enter real credentials or
-private ownership evidence in screenshots, API logs, or demo notes.
+`AI_SERVICE_KEY` and `AiService__ServiceKey` must be the same strong value. It is server-to-server
+only: React and Flutter never receive it. Protected FastAPI endpoints require
+`X-FoundU-Service-Key`; browser/mobile clients call ASP.NET only.
+
+## Live AI demo flow
+
+1. A student creates a lost report. ASP.NET preserves the user's data and optionally stores
+   Description Parser enrichment; parser/Ollama failure falls back safely.
+2. Staff records a found item, keeping private verification evidence out of screenshots.
+3. In the React staff dashboard, open the item, select **Suggest to a report**, choose the lost
+   report, and use **Generate AI Match Suggestion**. ASP.NET invokes Matching; only a validated
+   `match_candidate` creates a suggestion. Staff can always use the manual suggestion action.
+4. The student opens a claim from the suggestion. Staff generates verification questions; the
+   Verification Agent may draft only safe wording, never reveal expected values.
+5. The student answers. Evaluation and its recommendation are deterministic.
+6. Staff alone approves or rejects the claim; AI never decides ownership, transfers custody, or
+   resolves an item.
+
+The Coordinator is a real deterministic workflow-recommendation agent callable through FastAPI.
+It is not yet wired into the ASP.NET workflow and has no authority to mutate business state.
+
+## Safe fallback demonstrations
+
+- Stop Ollama: Description Parser and Verification question wording use their deterministic
+  fallbacks.
+- Stop FastAPI before generating a match: the staff member can still create a manual suggestion.
+- Call `POST /agents/run` without `X-FoundU-Service-Key`: FastAPI returns `401 Unauthorized`.
+- The Verification tests demonstrate that unsafe drafted wording is rejected for deterministic
+  safe templates.
 
 ## Working agreements
 

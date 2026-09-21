@@ -98,7 +98,8 @@ parser cannot create, flag, withdraw, resolve, or otherwise mutate a report.
 fallback when `LLM_MODEL` is absent. The adapter sends a non-streaming `POST /api/chat`, supplies
 the caller's Pydantic JSON schema through Ollama's `format` field, and validates only
 `message.content` as strict JSON against that schema. It neither logs nor retains prompts or raw
-responses. Verification remains deterministic and does not use Ollama.
+responses. Verification answer evaluation remains deterministic; only its safe question-wording
+drafting can use Ollama through the shared client.
 
 ## Executable tool registry (Phase 4)
 
@@ -150,7 +151,11 @@ local, deterministic, and read-only: it has no PostgreSQL connection and does no
 ASP.NET business rules. A future application-owned provider can replace it without changing tool
 contracts. Tool failures yield a bounded `manual_review` result; Matching never falls back to raw
 context or adapter calls after a registry failure. Report descriptions remain data and are not
-returned, scored, used for tool selection, or able to affect workflow authority.
+returned, scored, used for tool selection, or able to affect workflow authority. ASP.NET invokes
+this agent through its authenticated service client when staff use **Generate AI Match Suggestion**
+from a found item's matching dialog. Only a validated `match_candidate` creates a suggestion;
+`no_match`, `manual_review`, and service failure leave staff free to use the existing manual link.
+Matching cannot create claims or decide ownership.
 
 ## Structured execution plans (Phase 6)
 
@@ -268,15 +273,15 @@ Do not download a model automatically from project scripts.
 ## Verification Agent
 
 The Verification Agent currently performs deterministic ownership-verification support only. It
-generates non-leading questions from private staff evidence and compares submitted answers using
-normalization and token overlap. It returns a `likely_match`, `manual_review`, or
+uses the shared LLM client only to draft non-leading wording from canonical question IDs and safe
+evidence-category labels. Hidden expected values are never sent to the LLM. It compares submitted
+answers using deterministic normalization and token overlap, returning a `likely_match`, `manual_review`, or
 `unlikely_match` recommendation only; it never approves or rejects claims or changes claim status.
 
 Private verification evidence is never returned to students, included in traces, or exposed in
-errors. Question wording can use the application-owned shared LLM client, but it receives only
-canonical question IDs and fixed evidence-category labels. The deterministic server-side binding
-from ID to expected value, answer scoring, recommendation mapping, and staff decision boundary
-remain unchanged. Provider, schema, or safety-validation failures use the deterministic templates.
+errors. The deterministic server-side binding from ID to expected value, answer scoring,
+recommendation mapping, and staff decision boundary remain unchanged. Provider, schema, or
+safety-validation failures use the deterministic templates.
 
 For an optional local Ollama wording smoke test (never pytest or CI), set the service and LLM
 configuration before starting FastAPI:
