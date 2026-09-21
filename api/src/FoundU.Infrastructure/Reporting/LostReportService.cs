@@ -9,6 +9,7 @@ using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace FoundU.Infrastructure.Reporting;
 
@@ -17,15 +18,18 @@ public class LostReportService : ILostReportService
     private readonly FoundUDbContext _db;
     private readonly IPhotoStorage _photoStorage;
     private readonly INotificationService _notifications;
+    private readonly IDescriptionParserAgentClient _descriptionParser;
 
     public LostReportService(
         FoundUDbContext db,
         IPhotoStorage photoStorage,
-        INotificationService notifications)
+        INotificationService notifications,
+        IDescriptionParserAgentClient descriptionParser)
     {
         _db = db;
         _photoStorage = photoStorage;
         _notifications = notifications;
+        _descriptionParser = descriptionParser;
     }
 
     public async Task<LostReportDetailDto> CreateAsync(
@@ -44,6 +48,13 @@ public class LostReportService : ILostReportService
             throw new NotFoundAppException($"Campus location '{request.LastSeenLocationId}' was not found.");
         }
 
+        // The parser is optional enrichment only. Its client converts provider/configuration
+        // failures to a safe result, leaving the student's normal report creation intact.
+        var parse = await _descriptionParser.ParseAsync(
+            request.Description.Trim(),
+            $"description-parser-{Guid.NewGuid():N}",
+            cancellationToken);
+
         var report = new LostReport
         {
             StudentId = studentId,
@@ -53,12 +64,16 @@ public class LostReportService : ILostReportService
             Description = request.Description.Trim(),
             PrimaryColor = Normalize(request.PrimaryColor),
             SecondaryColor = Normalize(request.SecondaryColor),
+            ParsedAttributesJson = parse.IsSuccess && parse.Value is not null
+                ? SerializeParsedAttributes(parse.Value)
+                : null,
             EstimatedLostFromAt = DateTime.SpecifyKind(request.EstimatedLostFromAt, DateTimeKind.Utc),
             EstimatedLostToAt = DateTime.SpecifyKind(request.EstimatedLostToAt, DateTimeKind.Utc),
             Status = LostReportStatus.Active,
         };
 
         _db.LostReports.Add(report);
+        _db.AgentRuns.Add(CreateDescriptionParserRun(report.Id, parse));
 
         _db.LostReportStatusHistories.Add(new LostReportStatusHistory
         {
@@ -670,6 +685,40 @@ public class LostReportService : ILostReportService
                 "The selected item type does not belong to the selected category.");
         }
     }
+
+    private static string SerializeParsedAttributes(DescriptionParserAgentResult parse)
+        => JsonSerializer.Serialize(new
+        {
+            itemType = parse.ItemType,
+            primaryColor = parse.PrimaryColor,
+            secondaryColor = parse.SecondaryColor,
+            identifyingFeatures = parse.IdentifyingFeatures,
+            confidenceScore = parse.ConfidenceScore,
+        });
+
+    private static AgentRun CreateDescriptionParserRun(
+        Guid reportId,
+        DescriptionParserAgentCallResult<DescriptionParserAgentResult> parse)
+        => new()
+        {
+            TriggerEntityType = nameof(LostReport),
+            TriggerEntityId = reportId,
+            Objective = "Enrich a lost report with parsed attributes.",
+            PlanJson = JsonSerializer.Serialize(new { steps = new[] { "parse_description", "validate_attributes" } }),
+            Status = parse.IsSuccess ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            ErrorMessage = parse.IsSuccess ? null : "Description parser was unavailable.",
+            // Never duplicate student description text or raw provider content in the audit.
+            FinalOutcomeJson = parse.IsSuccess && parse.Value is not null
+                ? JsonSerializer.Serialize(new
+                {
+                    agent = "description_parser",
+                    remoteAgentRunId = parse.Value.AgentRunId,
+                    outcome = "enriched",
+                    confidence = parse.Value.ConfidenceScore,
+                })
+                : JsonSerializer.Serialize(new { agent = "description_parser", outcome = "fallback" }),
+            CompletedAt = DateTime.UtcNow,
+        };
 
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
