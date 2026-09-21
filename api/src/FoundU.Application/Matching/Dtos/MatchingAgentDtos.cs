@@ -1,7 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace FoundU.Application.Matching.Dtos;
 
 /// <summary>Minimum safe report fields accepted by FastAPI's deterministic matcher.</summary>
-public record MatchingAgentReportSummary(string ReportId, string ItemType, string PrimaryColor);
+public record MatchingAgentReportSummary(
+    [property: JsonPropertyName("report_id")] string ReportId,
+    [property: JsonPropertyName("item_type")] string ItemType,
+    [property: JsonPropertyName("primary_color")] string PrimaryColor);
 
 /// <summary>Validated, non-authoritative comparison result returned by the Matching Agent.</summary>
 public record MatchingAgentRecommendation(string Recommendation, decimal Score, string AgentRunId);

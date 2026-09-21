@@ -21,13 +21,22 @@ public sealed class MatchingAgentClientTests
 
         var result = await client.MatchReportsAsync(
             new("lost-1", "Backpack", "Blue"),
-            new("found-1", "Backpack", "Blue"),
+            new("found-1", "Laptop Bag", "Red"),
             "correlation-1");
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ServiceKey, handler.Request!.Headers.GetValues(AiServiceOptions.ServiceKeyHeaderName).Single());
         Assert.Contains("\"agent\":\"matching\"", handler.RequestBody);
         Assert.Contains("\"operation\":\"match_reports\"", handler.RequestBody);
+        Assert.Contains("\"report_id\":\"lost-1\"", handler.RequestBody);
+        Assert.Contains("\"item_type\":\"Backpack\"", handler.RequestBody);
+        Assert.Contains("\"primary_color\":\"Blue\"", handler.RequestBody);
+        Assert.Contains("\"report_id\":\"found-1\"", handler.RequestBody);
+        Assert.Contains("\"item_type\":\"Laptop Bag\"", handler.RequestBody);
+        Assert.Contains("\"primary_color\":\"Red\"", handler.RequestBody);
+        Assert.DoesNotContain("\"reportId\"", handler.RequestBody);
+        Assert.DoesNotContain("\"itemType\"", handler.RequestBody);
+        Assert.DoesNotContain("\"primaryColor\"", handler.RequestBody);
         Assert.DoesNotContain("PrivateVerificationDetails", handler.RequestBody, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SECRET-OWNERSHIP-DETAIL-DO-NOT-LEAK", handler.RequestBody);
     }
