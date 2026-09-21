@@ -121,6 +121,10 @@ export const getClaim = (id: string) => api.get<ClaimDetail>(`/api/claims/${id}`
 export const addQuestions = (id: string, questions: string[]) =>
   api.post<ClaimDetail>(`/api/claims/${id}/questions`, { questions })
 
+/** Calls ASP.NET only; private verification evidence remains server-side. */
+export const generateVerificationQuestions = (id: string) =>
+  api.post<ClaimDetail>(`/api/claims/${id}/questions/generate`)
+
 export const submitAnswers = (id: string, answers: { questionId: string; answerText: string }[]) =>
   api.post<ClaimDetail>(`/api/claims/${id}/answers`, { answers })
 
