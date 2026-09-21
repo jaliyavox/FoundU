@@ -107,13 +107,17 @@ def test_call_model_step_only_allows_its_fixed_non_tool_shape(overrides: dict[st
         AgentPlanStep(**values)
 
 
-def test_coordinator_plan_reflects_only_the_current_stub_execution():
-    plan = build_coordinator_plan()
+def test_coordinator_plan_reflects_real_non_authoritative_execution():
+    plan = build_coordinator_plan(requires_human_action=True)
 
     assert [step.action_type for step in plan.steps] == [
         PlanActionType.INSPECT_INPUT,
+        PlanActionType.VALIDATE_RESULT,
+        PlanActionType.PRODUCE_RECOMMENDATION,
+        PlanActionType.REQUEST_HUMAN_REVIEW,
         PlanActionType.COMPLETE,
     ]
+    assert all(step.tool_name is None for step in plan.steps)
 
 
 @pytest.mark.parametrize(

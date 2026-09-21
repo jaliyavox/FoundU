@@ -137,14 +137,30 @@ def build_verification_plan(use_llm: bool = False) -> AgentPlan:
     )
 
 
-def build_coordinator_plan() -> AgentPlan:
-    return AgentPlan(
-        agent=AgentName.COORDINATOR,
-        steps=[
-            _step("inspect-input", PlanActionType.INSPECT_INPUT, PlanPurpose.INSPECT_REQUEST, 1),
-            _step("complete", PlanActionType.COMPLETE, PlanPurpose.COMPLETE, 2),
-        ],
-    )
+def build_coordinator_plan(requires_human_action: bool = True) -> AgentPlan:
+    """Describe deterministic workflow-state validation and a non-authoritative recommendation."""
+    steps = [
+        _step("inspect-input", PlanActionType.INSPECT_INPUT, PlanPurpose.INSPECT_REQUEST, 1),
+        _step("validate-state", PlanActionType.VALIDATE_RESULT, PlanPurpose.VALIDATE_OUTPUT, 2),
+        _step(
+            "produce-recommendation",
+            PlanActionType.PRODUCE_RECOMMENDATION,
+            PlanPurpose.PREPARE_RECOMMENDATION,
+            3,
+        ),
+    ]
+    if requires_human_action:
+        steps.append(
+            _step(
+                "request-human-review",
+                PlanActionType.REQUEST_HUMAN_REVIEW,
+                PlanPurpose.REQUEST_HUMAN_REVIEW,
+                len(steps) + 1,
+                requires_human_approval=True,
+            )
+        )
+    steps.append(_step("complete", PlanActionType.COMPLETE, PlanPurpose.COMPLETE, len(steps) + 1))
+    return AgentPlan(agent=AgentName.COORDINATOR, steps=steps)
 
 
 def validate_agent_plan(

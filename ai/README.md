@@ -1,16 +1,16 @@
 # FoundU — AI Service (Python / FastAPI)
 
-The AI service currently provides a FastAPI health check and a shared LangGraph foundation.
-The graph routes each request to exactly one of four logical agents:
+The AI service provides a FastAPI health check and a shared LangGraph workflow.
+The graph routes each request to exactly one of four bounded logical agents:
 
-- `description_parser` — future owner of Lost Item Reporting & Tracking
-- `matching` — future owner of Found Item Management & Intelligent Matching
-- `verification` — future owner of Claims & Ownership Verification
-- `coordinator` — future owner of Resolution, Notifications & Administration
+- `description_parser` — structured lost-item attribute extraction
+- `matching` — read-only match recommendation
+- `verification` — safe question drafting and deterministic answer recommendation
+- `coordinator` — deterministic safe workflow next-action recommendation
 
-Only the Description Parser can optionally use the shared LLM client; the remaining agents are
-deterministic. No agent makes approval decisions, accesses external services directly, or persists
-model reasoning.
+The Description Parser and Verification question drafting can use the shared LLM client; Matching
+and Coordinator are deterministic. No agent makes approval decisions, accesses external services
+directly, or persists model reasoning.
 
 ## ASP.NET-to-FastAPI service authentication (Phase 8)
 
@@ -167,8 +167,11 @@ never grants a permission, and `ToolRegistry` remains the final authorization bo
 calling the registry. Invalid plans result in a safe bounded response and no tool execution.
 
 Description Parser, Verification, and Coordinator also create deterministic plans reflecting their
-current non-authoritative paths. Verification plans have no decision actions or authoritative tool
-steps: staff approval/rejection authority remains exclusively in ASP.NET.
+current non-authoritative paths. The Coordinator validates only typed workflow metadata and returns
+a bounded recommendation such as awaiting staff review, notifying a claimant, or workflow
+completion. It does not mutate claims, send notifications, or make staff decisions. Verification
+plans have no decision actions or authoritative tool steps: staff approval/rejection authority
+remains exclusively in ASP.NET.
 
 A plan records intended, permitted execution metadata, not a guarantee that every step will run.
 For example, Description Parser's plan contains `call_model`, but deterministic preconditions skip

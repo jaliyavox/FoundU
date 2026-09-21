@@ -146,6 +146,31 @@ def test_loaded_verification_checkpoint_keeps_non_authoritative_plan_and_permiss
     assert "PRIVATE-EVIDENCE" not in str(loaded_state)
 
 
+def test_coordinator_checkpoint_excludes_untrusted_sensitive_workflow_payload():
+    graph, _ = _graph_with_checkpointer()
+    secret = "PRIVATE-VERIFICATION-ANSWER-DO-NOT-CHECKPOINT"
+    state = _invoke(
+        graph,
+        AgentName.COORDINATOR,
+        {
+            "workflow_id": "claim-1",
+            "workflow_type": "claim_verification",
+            "claim_status": "ManualReviewRequired",
+            "verification_recommendation": "manual_review",
+            "decision_status": "no_decision",
+            "notification_state": "not_required",
+            "private_verification_details": secret,
+            "answers": [secret],
+            "prompt": secret,
+        },
+    )
+    loaded_state = load_checkpointed_state(graph, state["agent_run_id"], AgentName.COORDINATOR)
+
+    assert loaded_state["output"]["safe_reason_code"] == "inconsistent_workflow_state"
+    assert "payload" not in loaded_state
+    assert secret not in str(loaded_state)
+
+
 def test_loading_checkpointed_state_does_not_replay_a_completed_graph_node():
     calls = 0
 
