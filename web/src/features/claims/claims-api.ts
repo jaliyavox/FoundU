@@ -30,6 +30,13 @@ export interface MatchSuggestion {
   createdAt: string
 }
 
+/** Safe result of a staff-requested, non-authoritative Matching Agent comparison. */
+export interface GenerateMatchSuggestionResult {
+  recommendation: 'match_candidate' | 'no_match' | 'manual_review'
+  score: number
+  suggestion: MatchSuggestion | null
+}
+
 export interface ClaimQuestion {
   id: string
   questionText: string
@@ -87,6 +94,10 @@ export const getSuggestionsForItem = (foundReportId: string) =>
 
 export const createSuggestion = (lostReportId: string, foundReportId: string, note?: string) =>
   api.post<MatchSuggestion>('/api/match-suggestions', { lostReportId, foundReportId, note })
+
+/** Calls ASP.NET only; the browser never has access to the internal FastAPI service. */
+export const generateAiSuggestion = (lostReportId: string, foundReportId: string, note?: string) =>
+  api.post<GenerateMatchSuggestionResult>('/api/match-suggestions/generate-ai', { lostReportId, foundReportId, note })
 
 export const dismissSuggestion = (id: string, reason?: string) =>
   api.post<MatchSuggestion>(`/api/match-suggestions/${id}/dismiss`, { reason })
