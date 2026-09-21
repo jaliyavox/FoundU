@@ -29,13 +29,14 @@ def build_agent_graph(
     description_parser_handler: Callable[[AgentState], AgentState] = description_parser_node,
     matching_handler: Callable[[AgentState], AgentState] = matching_node,
     checkpointer: SafeInMemorySaver | None = None,
+    verification_handler: Callable[[AgentState], AgentState] = verification_node,
 ):
     """Build the routing graph with composed node dependencies."""
     graph = StateGraph(AgentState)
     graph.add_node("route_request", route_request_node)
     graph.add_node(AgentName.DESCRIPTION_PARSER.value, description_parser_handler)
     graph.add_node(AgentName.MATCHING.value, matching_handler)
-    graph.add_node(AgentName.VERIFICATION.value, verification_node)
+    graph.add_node(AgentName.VERIFICATION.value, verification_handler)
     graph.add_node(AgentName.COORDINATOR.value, coordinator_node)
 
     graph.add_edge(START, "route_request")

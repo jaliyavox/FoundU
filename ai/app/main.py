@@ -17,6 +17,7 @@ from app.agents.models import (
     DescriptionParseResult,
 )
 from app.agents.state import create_initial_state
+from app.agents.verification import verification_node
 from app.llm.client import create_llm_client
 from app.llm.config import LlmSettings
 from app.service_auth import require_service_auth
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
         partial(description_parser_node, llm_client=llm_client),
         partial(matching_node, tool_registry=app.state.tool_registry),
         app.state.checkpointer,
+        verification_handler=partial(verification_node, llm_client=llm_client),
     )
     try:
         yield

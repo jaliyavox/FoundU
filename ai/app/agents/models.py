@@ -181,6 +181,34 @@ class VerificationQuestion(BaseModel):
     question: NonEmptyText
 
 
+class VerificationQuestionDraft(BaseModel):
+    """Internal-only LLM wording draft; it never carries ownership evidence."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    question_id: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)
+    ]
+    question_text: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=240)
+    ]
+
+
+class VerificationQuestionDraftResult(BaseModel):
+    """Strict, bounded internal LLM response for verification question wording."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    questions: list[VerificationQuestionDraft] = Field(min_length=1, max_length=3)
+
+    @model_validator(mode="after")
+    def unique_question_ids(self) -> "VerificationQuestionDraftResult":
+        ids = [question.question_id for question in self.questions]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Question draft identifiers must be unique.")
+        return self
+
+
 class VerificationAnswer(BaseModel):
     question_id: NonEmptyText
     answer: str = ""

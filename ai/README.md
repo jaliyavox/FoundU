@@ -254,7 +254,28 @@ normalization and token overlap. It returns a `likely_match`, `manual_review`, o
 `unlikely_match` recommendation only; it never approves or rejects claims or changes claim status.
 
 Private verification evidence is never returned to students, included in traces, or exposed in
-errors. The current implementation is deterministic and does not yet use a real LLM.
+errors. Question wording can use the application-owned shared LLM client, but it receives only
+canonical question IDs and fixed evidence-category labels. The deterministic server-side binding
+from ID to expected value, answer scoring, recommendation mapping, and staff decision boundary
+remain unchanged. Provider, schema, or safety-validation failures use the deterministic templates.
+
+For an optional local Ollama wording smoke test (never pytest or CI), set the service and LLM
+configuration before starting FastAPI:
+
+```powershell
+$env:LLM_PROVIDER = "ollama"
+$env:LLM_MODEL = "<installed-model>"
+$env:OLLAMA_BASE_URL = "http://localhost:11434"
+$env:AI_SERVICE_KEY = "<strong-key>"
+uvicorn app.main:app --reload
+```
+
+Call `POST /agents/run` with the authenticated `X-FoundU-Service-Key` header and a normal
+`verification` / `generate_questions` payload supplied server-to-server. Do not paste real
+ownership evidence into shell history, issue trackers, or documentation; use an isolated local
+test claim instead. A successful wording draft may add `verification:llm_attempt` and
+`verification:llm_success` to the safe trace. A rejected or unavailable provider instead adds
+`verification:fallback`; no prompt, raw response, or evidence values are traced.
 
 ## Local setup
 
@@ -277,7 +298,7 @@ The service is available at `http://localhost:8000`; health is at `GET /health`.
 curl -X POST http://localhost:8000/agents/run \
   -H "Content-Type: application/json" \
   -H "X-FoundU-Service-Key: <your-service-key>" \
-  -d '{"agent":"verification","payload":{"operation":"generate_questions","claim_id":"claim-123","private_verification_details":{"distinctive_mark":"staff-only value"}},"correlation_id":"example-123"}'
+  -d '{"agent":"verification","payload":{"operation":"generate_questions","claim_id":"claim-123","private_verification_details":{"distinctive_mark":"<server-held evidence>"}},"correlation_id":"example-123"}'
 ```
 
 Example response:
