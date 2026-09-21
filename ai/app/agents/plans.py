@@ -100,23 +100,40 @@ def build_matching_plan(match_reports: bool) -> AgentPlan:
     )
 
 
-def build_verification_plan() -> AgentPlan:
-    return AgentPlan(
-        agent=AgentName.VERIFICATION,
-        steps=[
-            _step("inspect-input", PlanActionType.INSPECT_INPUT, PlanPurpose.INSPECT_REQUEST, 1),
+def build_verification_plan(use_llm: bool = False) -> AgentPlan:
+    steps = [
+        _step("inspect-input", PlanActionType.INSPECT_INPUT, PlanPurpose.INSPECT_REQUEST, 1),
+    ]
+    if use_llm:
+        steps.append(
             _step(
-                "validate-result", PlanActionType.VALIDATE_RESULT, PlanPurpose.VALIDATE_OUTPUT, 2
+                "call-model",
+                PlanActionType.CALL_MODEL,
+                PlanPurpose.GENERATE_STRUCTURED_OUTPUT,
+                len(steps) + 1,
+            )
+        )
+    steps.extend(
+        [
+            _step(
+                "validate-result",
+                PlanActionType.VALIDATE_RESULT,
+                PlanPurpose.VALIDATE_OUTPUT,
+                len(steps) + 1,
             ),
             _step(
                 "request-human-review",
                 PlanActionType.REQUEST_HUMAN_REVIEW,
                 PlanPurpose.REQUEST_HUMAN_REVIEW,
-                3,
+                len(steps) + 2,
                 requires_human_approval=True,
             ),
-            _step("complete", PlanActionType.COMPLETE, PlanPurpose.COMPLETE, 4),
-        ],
+            _step("complete", PlanActionType.COMPLETE, PlanPurpose.COMPLETE, len(steps) + 3),
+        ]
+    )
+    return AgentPlan(
+        agent=AgentName.VERIFICATION,
+        steps=steps,
     )
 
 
