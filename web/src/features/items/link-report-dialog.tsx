@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2Icon, LinkIcon, SearchIcon } from 'lucide-react'
+import { BotIcon, Loader2Icon, LinkIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,19 +14,24 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { createSuggestion } from '@/features/claims/claims-api'
+import { createSuggestion, generateAiSuggestion } from '@/features/claims/claims-api'
 import { formatDateTime } from '@/features/reports/reports-api'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { searchLostReports, type FoundReportDetail } from './items-api'
+import {
+  aiMatchFailureMessage,
+  aiMatchSuccessMessage,
+  aiStatusAfterDialogChange,
+  canGenerateAiSuggestion,
+} from './ai-match-feedback'
 
 /**
  * Point a student at an item the desk is holding.
  *
  * This is the only way a student ever hears about a specific found item - there is no
  * browsable list of them, because that is how someone shops for something to claim. The
- * Matching Agent will write the same link with a confidence score; until then a person reads
- * the reports and decides.
+ * Staff can make this link manually or ask the bounded Matching Agent for a recommendation.
  */
 export function LinkReportDialog({
   item,
@@ -42,6 +47,7 @@ export function LinkReportDialog({
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [note, setNote] = useState('')
+  const [aiStatus, setAiStatus] = useState('')
 
   const { data, isPending } = useQuery({
     queryKey: ['lost-reports-for-linking', { search }],
@@ -54,7 +60,7 @@ export function LinkReportDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
       toast.success('The student will see it on their reports.')
-      onOpenChange(false)
+      handleOpenChange(false)
       setSelected(null)
       setNote('')
     },
@@ -62,13 +68,43 @@ export function LinkReportDialog({
       toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.'),
   })
 
+  const generateAi = useMutation({
+    mutationFn: () => generateAiSuggestion(selected!, item.id, note.trim() || undefined),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
+      if (result.suggestion) {
+        // The dialog closes immediately, so put the safe score in the visible toast instead of
+        // transient dialog state that staff would never have a chance to read.
+        toast.success(`${aiMatchSuccessMessage(result)} Staff still decide any claim.`)
+        handleOpenChange(false)
+        setSelected(null)
+        setNote('')
+      } else {
+        const message = aiMatchSuccessMessage(result)
+        setAiStatus(message)
+        toast.message(message)
+      }
+    },
+    onError: (error) => {
+      const message = aiMatchFailureMessage(error instanceof ApiError ? error.status : undefined)
+      setAiStatus(message)
+      toast.error(message)
+    },
+  })
+
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSearch(searchInput)
+    setAiStatus('')
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    setAiStatus((current) => aiStatusAfterDialogChange(nextOpen, current))
+    onOpenChange(nextOpen)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Suggest this {item.itemTypeName.toLowerCase()} to a student</DialogTitle>
@@ -109,7 +145,10 @@ export function LinkReportDialog({
               <button
                 key={report.id}
                 type="button"
-                onClick={() => setSelected(report.id)}
+                onClick={() => {
+                  setSelected(report.id)
+                  setAiStatus('')
+                }}
                 aria-pressed={selected === report.id}
                 className={cn(
                   'flex flex-col gap-1 rounded-xl border p-3 text-left transition-colors',
@@ -150,12 +189,16 @@ export function LinkReportDialog({
           />
         </div>
 
+        <p aria-live="polite" role="status" className="min-h-5 text-sm text-muted-foreground">
+          {aiStatus}
+        </p>
+
         <DialogFooter>
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={link.isPending}
+            onClick={() => handleOpenChange(false)}
+            disabled={link.isPending || generateAi.isPending}
           >
             Cancel
           </Button>
@@ -163,7 +206,7 @@ export function LinkReportDialog({
             type="button"
             className="bg-brand-forest text-white hover:bg-brand-forest/90"
             onClick={() => link.mutate()}
-            disabled={!selected || link.isPending}
+            disabled={!selected || link.isPending || generateAi.isPending}
           >
             {link.isPending ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
@@ -172,7 +215,24 @@ export function LinkReportDialog({
             )}
             Suggest it
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => generateAi.mutate()}
+            disabled={!canGenerateAiSuggestion(selected, generateAi.isPending, link.isPending)}
+            aria-describedby="ai-matching-help"
+          >
+            {generateAi.isPending ? (
+              <Loader2Icon className="animate-spin" aria-hidden="true" />
+            ) : (
+              <BotIcon aria-hidden="true" />
+            )}
+            {generateAi.isPending ? 'Checking with Matching Agent…' : 'Generate AI Match Suggestion'}
+          </Button>
         </DialogFooter>
+        <p id="ai-matching-help" className="text-xs text-muted-foreground">
+          AI compares reports and can only suggest a possible match. It never decides ownership.
+        </p>
       </DialogContent>
     </Dialog>
   )
