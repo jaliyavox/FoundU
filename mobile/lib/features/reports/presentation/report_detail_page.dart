@@ -25,7 +25,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.amber),
+              Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
               SizedBox(width: 8),
               Text('Withdraw Report'),
             ],
@@ -36,7 +36,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
             children: [
               const Text(
                 'Are you sure you want to withdraw this lost report? This indicates you no longer need assistance finding this item.',
-                style: TextStyle(fontSize: 14),
+                style: TextStyle(fontSize: 14, height: 1.4),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -45,6 +45,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                   labelText: 'Reason for withdrawal (Optional)',
                   hintText: 'e.g. Found it at home, item replaced...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
                 maxLines: 2,
               ),
@@ -59,6 +60,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red[700],
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () async {
                 Navigator.of(dialogCtx).pop();
@@ -69,6 +71,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                         reportId: widget.reportId,
                         reason: reasonController.text.trim(),
                       );
+                  ref.invalidate(reportDetailProvider(widget.reportId));
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Report withdrawn successfully.')),
@@ -80,7 +83,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                   );
                 }
               },
-              child: const Text('Withdraw'),
+              child: const Text('Withdraw Report'),
             ),
           ],
         );
@@ -100,6 +103,21 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
         return Colors.grey[600]!;
       default:
         return Colors.teal;
+    }
+  }
+
+  int _getStageIndex(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 0; // Reported
+      case 'matched':
+        return 1; // Matched
+      case 'claimed':
+        return 2; // Claimed
+      case 'resolved':
+        return 3; // Handover / Resolved
+      default:
+        return 0;
     }
   }
 
@@ -148,11 +166,12 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
           final statusColor = _getStatusColor(report.status);
           final isActive = report.status.toLowerCase() == 'active';
           final isWithdrawn = report.status.toLowerCase() == 'withdrawn';
+          final stageIndex = _getStageIndex(report.status);
 
           return Stack(
             children: [
               SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -250,7 +269,31 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                             fontWeight: FontWeight.bold,
                           ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+
+                    // Visual Stage Tracker (matching Web UI)
+                    if (!isWithdrawn) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Report Progress Track',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildStageTracker(stageIndex),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Location Card
                     Card(
@@ -423,44 +466,63 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // View Matches button
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton.icon(
-                          onPressed: () => context.push('/reports/${report.id}/matches'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E7D32),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      Row(
+                        children: [
+                          if (isActive) ...[
+                            // Edit Report Button
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  side: BorderSide(color: Colors.grey[400]!),
+                                ),
+                                onPressed: () => context.push('/reports/${report.id}/edit'),
+                                icon: const Icon(Icons.edit_outlined, size: 18),
+                                label: const Text('Edit Report', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Withdraw Report Button
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  side: BorderSide(color: Colors.red[300]!),
+                                  backgroundColor: Colors.red[50]?.withValues(alpha: 0.5),
+                                  foregroundColor: Colors.red[700],
+                                ),
+                                onPressed: controllerState.isLoading ? null : () => _showWithdrawDialog(context),
+                                icon: const Icon(Icons.undo, size: 18),
+                                label: const Text('Withdraw', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          // View Matches button
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: () => context.push('/reports/${report.id}/matches'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E7D32),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.auto_awesome, size: 18),
+                              label: const Text(
+                                'Possible Matches',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
                           ),
-                          icon: const Icon(Icons.auto_awesome, size: 20),
-                          label: const Text(
-                            'Possible Matches',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
+                        ],
                       ),
-                      if (isActive) ...[
-                        const SizedBox(width: 8),
-                        IconButton.filledTonal(
-                          onPressed: () => context.push('/reports/${report.id}/edit'),
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: 'Edit Report',
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton.filledTonal(
-                          style: IconButton.styleFrom(
-                            foregroundColor: Colors.red[700],
-                            backgroundColor: Colors.red[50],
-                          ),
-                          onPressed: controllerState.isLoading ? null : () => _showWithdrawDialog(context),
-                          icon: const Icon(Icons.remove_circle_outline),
-                          tooltip: 'Withdraw Report',
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -469,6 +531,55 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildStageTracker(int currentStage) {
+    final stages = ['Reported', 'Matched', 'Claimed', 'Resolved'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: List.generate(stages.length, (index) {
+            final isReached = index <= currentStage;
+            final isCurrent = index == currentStage;
+
+            return Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: isCurrent ? 14 : 10,
+                    height: isCurrent ? 14 : 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isReached ? const Color(0xFF2E7D32) : Colors.grey[300],
+                      border: isCurrent ? Border.all(color: const Color(0xFF1E5631), width: 2) : null,
+                    ),
+                  ),
+                  if (index < stages.length - 1)
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: index < currentStage ? const Color(0xFF2E7D32) : Colors.grey[300],
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Reported', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 0 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 0 ? const Color(0xFF2E7D32) : Colors.grey)),
+            Text('Matched', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 1 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 1 ? const Color(0xFF2E7D32) : Colors.grey)),
+            Text('Claimed', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 2 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 2 ? const Color(0xFF2E7D32) : Colors.grey)),
+            Text('Resolved', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 3 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 3 ? const Color(0xFF2E7D32) : Colors.grey)),
+          ],
+        ),
+      ],
     );
   }
 }

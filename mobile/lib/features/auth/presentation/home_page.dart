@@ -22,15 +22,6 @@ class HomePage extends ConsumerWidget {
           ],
         ),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: auth.isLoading
-                ? null
-                : () => ref.read(authControllerProvider.notifier).logout(),
-            tooltip: 'Logout',
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -40,90 +31,28 @@ class HomePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Welcome User Header Card
-                Card(
-                  elevation: 0,
-                  color: const Color(0xFFE8F5E9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: const Color(0xFF2E7D32),
-                          child: Text(
-                            user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'U',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Welcome, ${user?.name ?? 'Student'}!',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E5631),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                user?.email ?? '',
-                                style: const TextStyle(fontSize: 13, color: Colors.black87),
-                              ),
-                              const SizedBox(height: 2),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  user?.role ?? 'Student',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF2E7D32),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
+                // Top Hero / Section Header
                 const Text(
                   'Lost Something?',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
                 ),
                 const SizedBox(height: 6),
                 const Text(
                   'Post a report so our automated matching system and campus desk can help you find it.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // Primary Quick Action Card: Report Lost Item
                 Card(
-                  elevation: 2,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                  elevation: 3,
+                  shadowColor: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   color: const Color(0xFF2E7D32),
                   child: InkWell(
-                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () => context.push('/reports/new'),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -169,11 +98,12 @@ class HomePage extends ConsumerWidget {
                 // Secondary Action Card: My Reports
                 Card(
                   elevation: 1,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                   ),
                   child: InkWell(
-                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () => context.push('/reports'),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -201,7 +131,7 @@ class HomePage extends ConsumerWidget {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'View report status, edit details, or check matches',
+                                  'View report status, edit details, withdraw or check matches',
                                   style: TextStyle(fontSize: 12, color: Colors.grey),
                                 ),
                               ],
@@ -213,25 +143,106 @@ class HomePage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 36),
 
-                // Logout button
-                OutlinedButton.icon(
-                  onPressed: auth.isLoading
-                      ? null
-                      : () => ref.read(authControllerProvider.notifier).logout(),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                // Profile Section at the bottom (matching Web UI sidebar profile footer)
+                const Divider(height: 1),
+                const SizedBox(height: 24),
+
+                Card(
+                  elevation: 0,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                   ),
-                  icon: auth.isLoading
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.logout, size: 18),
-                  label: const Text('Logout'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 26,
+                              backgroundColor: const Color(0xFF2E7D32),
+                              child: Text(
+                                user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'U',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user?.name ?? 'Student',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    user?.email ?? '',
+                                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      user?.role ?? 'Student',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF2E7D32),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        const Divider(height: 1),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: auth.isLoading
+                                ? null
+                                : () => ref.read(authControllerProvider.notifier).logout(),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              side: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: auth.isLoading
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.logout, size: 16, color: Colors.redAccent),
+                            label: const Text(
+                              'Sign out',
+                              style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
