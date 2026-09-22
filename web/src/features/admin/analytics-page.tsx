@@ -43,6 +43,7 @@ const STATUS_LABELS: Record<string, string> = {
   Matched: 'Claim in progress',
   Resolved: 'Returned',
   Withdrawn: 'Withdrawn',
+  Posted: 'Posted by a finder',
   Unclaimed: 'In storage',
   Claimed: 'Claimed',
   Returned: 'Returned',
@@ -228,7 +229,7 @@ export function AnalyticsPage() {
       {/* --------------------------------------------------------- breakdowns */}
       <div className="grid gap-6 lg:grid-cols-3">
         <StatusBreakdown title="Lost reports" rows={data.lostReportsByStatus} order={['Active', 'Matched', 'Resolved', 'Withdrawn']} />
-        <StatusBreakdown title="Found items" rows={data.foundItemsByStatus} order={['Unclaimed', 'Claimed', 'Returned', 'Disposed']} />
+        <StatusBreakdown title="Found items" rows={data.foundItemsByStatus} order={['Posted', 'Unclaimed', 'Claimed', 'Returned', 'Disposed']} />
         <StatusBreakdown
           title="Claims"
           rows={data.claimsByStatus}

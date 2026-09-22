@@ -110,3 +110,51 @@ export const sendMessage = (reportId: string, body: string) =>
 
 /** "483921" reads as "483 921" on screen. */
 export const displayCode = (code: string) => (code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code)
+
+/* --------------------------------------------------------------- found posts */
+
+/** Mirrors FoundPostFeedItemDto - a finder's post before it reaches a desk. */
+export interface FoundPostItem {
+  id: string
+  postedByName: string
+  isMine: boolean
+  categoryName: string
+  itemTypeName: string
+  foundLocationName: string
+  description: string
+  primaryColor: string | null
+  foundAt: string
+  status: 'Posted' | 'Unclaimed' | 'Claimed' | 'Returned' | 'Disposed'
+  /** Only on your own post - what you quote at the desk. */
+  handInCode: string | null
+  createdAt: string
+}
+
+export function getFoundFeed({ page, pageSize, search, categoryId }: FeedQuery & { categoryId?: string | null }) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (search?.trim()) params.set('search', search.trim())
+  if (categoryId) params.set('categoryId', categoryId)
+  return api.get<PagedResult<FoundPostItem>>(`/api/found-posts/feed?${params}`, { optionalAuth: true })
+}
+
+export interface CreateFoundPostInput {
+  categoryId: string
+  itemTypeId: string
+  foundLocationId: string
+  description: string
+  primaryColor?: string
+  foundAt: string
+  lostReportHandInCode?: string
+}
+
+export const postFound = (input: CreateFoundPostInput) => api.post<FoundPostItem>('/api/found-posts', input)
+
+/** "That is mine" - names one of the caller's own reports. The finder is told to hand it in. */
+export const recogniseFoundPost = (id: string, lostReportId: string) =>
+  api.post<FoundPostItem>(`/api/found-posts/${id}/recognise`, { lostReportId })
+
+export const withdrawFoundPost = (id: string, reason?: string) =>
+  api.post<FoundPostItem>(`/api/found-posts/${id}/withdraw`, { reason })
+
+export const getMyFoundPosts = (page = 1, pageSize = 20) =>
+  api.get<PagedResult<FoundPostItem>>(`/api/found-posts/mine?page=${page}&pageSize=${pageSize}`)

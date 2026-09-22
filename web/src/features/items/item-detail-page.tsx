@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeftIcon,
   ClockIcon,
   EyeOffIcon,
   LinkIcon,
+  Loader2Icon,
   MapPinIcon,
+  PackageCheckIcon,
   PackageIcon,
   RotateCwIcon,
   UserIcon,
@@ -15,10 +17,14 @@ import { Button } from '@/components/ui/button'
 import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSuggestionsForItem } from '@/features/claims/claims-api'
-import { formatDateTime } from '@/features/reports/reports-api'
+import { formatDateTime, getStorageLocations } from '@/features/reports/reports-api'
+import { FormSelect } from '@/features/reports/form-select'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { getItem, ITEM_STATUS_STYLES } from './items-api'
+import { type FoundReportDetail, confirmFoundPost, getItem, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
 import { LinkReportDialog } from './link-report-dialog'
 
 /**
@@ -107,7 +113,7 @@ export function ItemDetailPage() {
             )}
           >
             <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-            {item.status === 'Unclaimed' ? 'In storage' : item.status}
+            {ITEM_STATUS_LABELS[item.status]}
           </span>
         </div>
 
@@ -118,10 +124,12 @@ export function ItemDetailPage() {
         <dl className="grid gap-3 sm:grid-cols-2">
           <Fact icon={MapPinIcon} label="Found at" value={item.foundLocationName} />
           <Fact icon={ClockIcon} label="Found" value={formatDateTime(item.foundAt)} />
-          <Fact icon={PackageIcon} label="Kept at" value={item.storageLocationName} />
-          <Fact icon={UserIcon} label="Logged by" value={item.staffName} />
+          <Fact icon={PackageIcon} label="Kept at" value={item.storageLocationName ?? 'Not at a desk yet'} />
+          <Fact icon={UserIcon} label={item.finderName ? 'Found by' : 'Logged by'} value={item.finderName ?? item.staffName ?? '-'} />
         </dl>
       </DashboardPanel>
+
+      {item.status === 'Posted' && <ConfirmPostPanel item={item} />}
 
       {/* Set apart deliberately: this is the one thing on the screen that must not be read
           out to whoever is standing at the counter. */}
@@ -157,7 +165,7 @@ export function ItemDetailPage() {
             </p>
           </div>
 
-          {item.status === 'Unclaimed' && (
+          {(item.status === 'Unclaimed' || item.status === 'Posted') && (
             <Button variant="outline" onClick={() => setLinking(true)}>
               <LinkIcon aria-hidden="true" />
               Suggest to a report
@@ -227,5 +235,89 @@ function Fact({
         <dd className="text-sm">{value}</dd>
       </div>
     </div>
+  )
+}
+
+
+/**
+ * The desk turning a finder's post into a real record. This is the moment the hidden detail
+ * gets written - the one thing the finder was told not to put on the feed - so the panel
+ * asks for it plainly and explains why.
+ */
+function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
+  const queryClient = useQueryClient()
+  const storage = useQuery({ queryKey: ['storage-locations'], queryFn: getStorageLocations })
+  const [storageLocationId, setStorageLocationId] = useState('')
+  const [privateDetail, setPrivateDetail] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+
+  const confirm = useMutation({
+    mutationFn: () =>
+      confirmFoundPost(item.id, { storageLocationId, privateVerificationDetails: privateDetail.trim() || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['found-item', item.id] })
+      queryClient.invalidateQueries({ queryKey: ['found-items'] })
+      toast.success('Confirmed. It is in storage and can be claimed now.')
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        setFieldErrors(error.fieldErrors)
+        if (Object.keys(error.fieldErrors).length === 0) toast.error(error.message)
+      } else {
+        toast.error('Could not reach the server.')
+      }
+    },
+  })
+
+  return (
+    <DashboardPanel className="flex flex-col gap-4 border-amber-500/30 from-amber-500/8 via-amber-500/4 to-transparent dark:from-amber-500/12">
+      <div>
+        <h2 className="font-heading text-base font-medium">Confirm it at the desk</h2>
+        <p className="pt-1 text-sm text-muted-foreground">
+          {item.finderName ?? 'A student'} posted this and has now handed it in. Say where it is kept and
+          record one detail the finder did not publish. From then on it can be claimed.
+        </p>
+        {item.handInCode && (
+          <p className="pt-2 text-xs text-muted-foreground">
+            Their code: <span className="font-mono font-medium tracking-wider text-foreground">{item.handInCode.slice(0, 3)} {item.handInCode.slice(3)}</span>
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="confirm-storage">Kept at</Label>
+        <FormSelect
+          id="confirm-storage"
+          value={storageLocationId}
+          onValueChange={setStorageLocationId}
+          options={(storage.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
+          placeholder={storage.isPending ? 'Loading' : 'Where it is stored'}
+          invalid={Boolean(fieldErrors.StorageLocationId)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="confirm-private">Hidden verification detail</Label>
+        <Textarea
+          id="confirm-private"
+          rows={2}
+          value={privateDetail}
+          onChange={(event) => setPrivateDetail(event.target.value)}
+          placeholder="Name written inside the collar; a bus ticket in the left pocket."
+        />
+        <p className="text-xs text-pretty text-muted-foreground">
+          Never shown to a claimant. Leave it blank if there is genuinely nothing distinctive - do not invent one.
+        </p>
+      </div>
+
+      <Button
+        className="self-start bg-brand-forest text-white hover:bg-brand-forest/90"
+        disabled={!storageLocationId || confirm.isPending}
+        onClick={() => confirm.mutate()}
+      >
+        {confirm.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <PackageCheckIcon aria-hidden="true" />}
+        Confirm and shelve it
+      </Button>
+    </DashboardPanel>
   )
 }
