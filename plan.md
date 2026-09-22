@@ -92,7 +92,7 @@ We can build the web dashboard's structure now and wire it to the API as the API
 - [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
 - [x] Notification bell + list (both roles) — DONE 2026-09-09
 - [x] Admin: users table, analytics (Recharts), dispute review — DONE 2026-09-15
-- [ ] Agent-run panel on claim detail — needs Step 13 API
+- [ ] Agent-run panel on claim detail — the AgentRun trail is written by the API but nothing reads it
 
 ### A4 · Web polish
 - [ ] Loading / empty / error states on every list, form, detail view
@@ -110,8 +110,8 @@ We can build the web dashboard's structure now and wire it to the API as the API
 - [x] Login screen against `POST /api/auth/login`, splash -> login -> home — PR #10
 
 ### B2 · Feature screens
-- [ ] Report-lost form with camera/gallery picker + browse-found list (Step 6)
-- [ ] Claim button, answer-question screen, claim status view (Step 7)
+- [x] Report-lost form — Parami, PR #13
+- [x] Claim, answer-question screen, claim status — Braveena, PR #16
 - [ ] FCM setup, inbox with unread badges + deep links (Step 8)
 
 ### B3 · Mobile polish
@@ -131,7 +131,7 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 - [x] **Step 8** — Notifications + resolution API
 - [x] **Step 9** — Admin + analytics + dispute API — DONE 2026-09-15
 - [x] **Step 5** — AI service + LangGraph graph + `POST /agents/run` — Braveena, PR #11 (every node is a stub)
-- [ ] **Steps 10–13** — the agent nodes themselves, and the .NET<->AI integration
+- [x] **Steps 10–13** — description parser, matching, verification, coordinator; Ollama LLM provider; .NET clients for all three with service auth — Braveena + Parami, PRs #14–#35 (2026-09-20/22)
 
 ---
 
@@ -157,6 +157,21 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-22 - the AI week (PRs #13-#35)
+
+Forty-eight commits from Braveena and Parami in nine days. **Steps 10-13 are in**: an Ollama
+LLM provider, LLM-assisted description parsing and verification questions, a matching agent
+behind a tool registry with checkpointed LangGraph state, a coordinator, authenticated
+calls from ASP.NET (`MatchingAgentClient`, `DescriptionParserAgentClient`,
+`VerificationAgentClient`), and staff controls on the web for AI matching and question
+generation. Flutter gained the report-lost flow (Parami) and the claims verification
+workflow (Braveena). Tests: API 15 -> 87, web 24 -> 34, AI 5 -> 130. The root README now
+carries a full-stack demo start-up and a live AI demo flow.
+
+**Still open after this:** the mobile notifications inbox (B2's last item - nothing in
+`/mobile` mentions notifications), the agent-run panel on claim detail (the trail is written,
+nothing reads it), Step 16 diagrams, B3/A4 polish, and the test accounts in the dev database.
 
 ### 2026-09-15 - Step 9 finished, the flag hole closed, web tests, API conventions
 
