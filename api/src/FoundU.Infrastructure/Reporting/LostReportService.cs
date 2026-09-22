@@ -5,6 +5,7 @@ using FoundU.Application.Common.Pagination;
 using FoundU.Application.FoundReports.Dtos;
 using FoundU.Application.LostReports.Dtos;
 using FoundU.Application.Matching.Dtos;
+using FoundU.Domain.Common;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Persistence;
@@ -58,6 +59,7 @@ public class LostReportService : ILostReportService
         var report = new LostReport
         {
             StudentId = studentId,
+            HandInCode = await NextHandInCodeAsync(cancellationToken),
             CategoryId = request.CategoryId,
             ItemTypeId = request.ItemTypeId,
             LastSeenLocationId = request.LastSeenLocationId,
@@ -288,6 +290,7 @@ public class LostReportService : ILostReportService
             .Take(query.PageSize)
             .Select(r => new LostReportFeedItemDto(
                 r.Id,
+                r.HandInCode,
                 r.Student.FullName,
                 requesterId != null && r.StudentId == requesterId,
                 r.Category.Name,
@@ -601,6 +604,7 @@ public class LostReportService : ILostReportService
             .Take(query.PageSize)
             .Select(r => new LostReportListItemDto(
                 r.Id,
+                r.HandInCode,
                 r.Category.Name,
                 r.ItemType.Name,
                 r.LastSeenLocation.Name,
@@ -631,6 +635,7 @@ public class LostReportService : ILostReportService
             .Where(r => r.Id == id)
             .Select(r => new LostReportDetailDto(
                 r.Id,
+                r.HandInCode,
                 r.CategoryId,
                 r.Category.Name,
                 r.ItemTypeId,
@@ -670,6 +675,21 @@ public class LostReportService : ILostReportService
             "category" => descending ? reports.OrderByDescending(r => r.Category.Name) : reports.OrderBy(r => r.Category.Name),
             _ => descending ? reports.OrderByDescending(r => r.CreatedAt) : reports.OrderBy(r => r.CreatedAt),
         };
+    }
+
+    /// <summary>
+    /// A million codes and a few hundred reports: a collision is rare, but the unique index
+    /// makes it a crash rather than a duplicate, so it is checked here first.
+    /// </summary>
+    private async Task<string> NextHandInCodeAsync(CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var code = HandoverCodes.Generate();
+            if (!await _db.LostReports.AnyAsync(r => r.HandInCode == code, cancellationToken)) return code;
+        }
+
+        throw new InvalidOperationException("Could not allocate a unique hand-in code.");
     }
 
     private async Task EnsureItemTypeBelongsToCategoryAsync(Guid categoryId, Guid itemTypeId, CancellationToken cancellationToken)

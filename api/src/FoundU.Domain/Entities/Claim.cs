@@ -16,6 +16,13 @@ public class Claim : BaseEntity, ISoftDeletable
 
     public ClaimStatus Status { get; set; } = ClaimStatus.Pending;
 
+    /// <summary>
+    /// Issued on approval, quoted by the owner at the desk to collect. Cleared when the item
+    /// is marked collected, so it works exactly once.
+    /// </summary>
+    public string? CollectionCode { get; set; }
+    public DateTime? CollectedAt { get; set; }
+
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
 

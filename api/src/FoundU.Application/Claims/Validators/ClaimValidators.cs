@@ -1,5 +1,7 @@
 using FluentValidation;
 using FoundU.Application.Claims.Dtos;
+using FoundU.Application.Common;
+using FoundU.Domain.Common;
 
 namespace FoundU.Application.Claims.Validators;
 
@@ -75,5 +77,16 @@ public class OverturnClaimRequestValidator : AbstractValidator<OverturnClaimRequ
             .NotEmpty().WithMessage("Say why the rejection is being overturned.")
             .MinimumLength(10).WithMessage("Say enough that the staff member who rejected it understands.")
             .MaximumLength(1000);
+    }
+}
+
+public class CollectClaimRequestValidator : AbstractValidator<CollectClaimRequest>
+{
+    public CollectClaimRequestValidator()
+    {
+        RuleFor(x => x.Code)
+            .NotEmpty().WithMessage("Ask the student for their collection code.")
+            .Must(c => HandoverCodes.LooksValid(c.Replace(" ", "")))
+            .WithMessage("A collection code is six digits.");
     }
 }

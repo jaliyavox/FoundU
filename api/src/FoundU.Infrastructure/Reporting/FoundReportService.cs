@@ -1,7 +1,10 @@
 using FoundU.Application.Abstractions;
+using FoundU.Application.Common;
 using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Common.Pagination;
 using FoundU.Application.FoundReports.Dtos;
+using FoundU.Application.Matching.Dtos;
+using FoundU.Domain.Common;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Persistence;
@@ -12,10 +15,12 @@ namespace FoundU.Infrastructure.Reporting;
 public class FoundReportService : IFoundReportService
 {
     private readonly FoundUDbContext _db;
+    private readonly IMatchSuggestionService _suggestions;
 
-    public FoundReportService(FoundUDbContext db)
+    public FoundReportService(FoundUDbContext db, IMatchSuggestionService suggestions)
     {
         _db = db;
+        _suggestions = suggestions;
     }
 
     public async Task<FoundReportDetailDto> CreateAsync(
@@ -28,6 +33,25 @@ public class FoundReportService : IFoundReportService
         await EnsureItemTypeBelongsToCategoryAsync(request.CategoryId, request.ItemTypeId, cancellationToken);
         await EnsureExistsAsync(_db.CampusLocations, request.FoundLocationId, "Campus location", cancellationToken);
         await EnsureExistsAsync(_db.StorageLocations, request.StorageLocationId, "Storage location", cancellationToken);
+
+        // Resolved before anything is written: a mistyped code should be a 400 with nothing
+        // logged, not an item in storage with no link.
+        Guid? linkedLostReportId = null;
+        if (!string.IsNullOrWhiteSpace(request.HandInCode))
+        {
+            var code = request.HandInCode.Trim().Replace(" ", "");
+            if (!HandoverCodes.LooksValid(code))
+            {
+                throw new ValidationAppException(nameof(request.HandInCode), "A hand-in code is six digits.");
+            }
+
+            linkedLostReportId = await _db.LostReports
+                .Where(r => r.HandInCode == code
+                    && (r.Status == LostReportStatus.Active || r.Status == LostReportStatus.Matched))
+                .Select(r => (Guid?)r.Id)
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new ValidationAppException(nameof(request.HandInCode), "No open report has that code. Check it with the finder.");
+        }
 
         var report = new FoundReport
         {
@@ -59,6 +83,19 @@ public class FoundReportService : IFoundReportService
         });
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // The code did the searching. The suggestion and the owner's notification go through
+        // the same path a hand-made link takes, so nothing downstream knows the difference.
+        if (linkedLostReportId is { } lostReportId)
+        {
+            await _suggestions.CreateAsync(
+                new CreateMatchSuggestionRequest(
+                    lostReportId,
+                    report.Id,
+                    "Handed in at the desk with your report's code."),
+                staffId,
+                cancellationToken);
+        }
 
         return await GetByIdAsync(report.Id, cancellationToken);
     }

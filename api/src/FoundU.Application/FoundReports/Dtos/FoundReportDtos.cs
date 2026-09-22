@@ -16,7 +16,12 @@ public record CreateFoundReportRequest(
     string? PrivateVerificationDetails,
     string? PrimaryColor,
     string? SecondaryColor,
-    DateTime FoundAt);
+    DateTime FoundAt,
+    /// <summary>
+    /// The six digits the finder quoted from the lost report. When present the item is linked
+    /// to that report the moment it is logged, and the owner is told - no searching.
+    /// </summary>
+    string? HandInCode = null);
 
 /// <summary>Row in the staff items table. Keeps the payload small for list views.</summary>
 public record FoundReportListItemDto(

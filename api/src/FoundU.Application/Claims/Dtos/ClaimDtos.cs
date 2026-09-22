@@ -57,8 +57,17 @@ public record ClaimDetailDto(
     DateTime? DecidedAt,
     /// <summary>Set when an administrator overturned a rejection - the name shown is theirs.</summary>
     bool IsOverride,
+    /// <summary>
+    /// Six digits the owner quotes at the desk to collect. Present only for the owner of an
+    /// approved, not-yet-collected claim - staff verify it by typing it, they never read it.
+    /// </summary>
+    string? CollectionCode,
+    DateTime? CollectedAt,
     DateTime CreatedAt,
     DateTime UpdatedAt);
+
+/// <summary>The desk marking an item collected. The code is the whole request.</summary>
+public record CollectClaimRequest(string Code);
 
 /// <summary>Staff writing the questions a claimant must answer.</summary>
 public record AddVerificationQuestionsRequest(IReadOnlyList<string> Questions);

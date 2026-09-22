@@ -113,6 +113,17 @@ public class ClaimsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<AgentRunDto>>> AgentRuns(Guid id, CancellationToken cancellationToken)
         => Ok(await _claims.GetAgentRunsAsync(id, cancellationToken));
 
+    /// <summary>
+    /// The desk handing an item over. The owner quotes their collection code; staff type it.
+    /// A wrong or already-used code is 404 - it must not confirm a right one exists.
+    /// </summary>
+    [HttpPost("collect")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<ClaimDetailDto>> Collect(
+        [FromBody] CollectClaimRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _claims.CollectAsync(request.Code, User.GetUserId(), cancellationToken));
+
     [HttpPost("{id:guid}/cancel")]
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<ClaimDetailDto>> Cancel(

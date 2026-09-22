@@ -34,6 +34,8 @@ public record LostReportPhotoDto(Guid Id, string Url);
 
 public record LostReportListItemDto(
     Guid Id,
+    /// <summary>Six digits a finder quotes at the desk. Routing, not proof - safe on the feed.</summary>
+    string HandInCode,
     string CategoryName,
     string ItemTypeName,
     string LastSeenLocationName,
@@ -65,6 +67,8 @@ public record LostReportListItemDto(
 
 public record LostReportDetailDto(
     Guid Id,
+    /// <summary>Six digits a finder quotes at the desk. Routing, not proof - safe on the feed.</summary>
+    string HandInCode,
     Guid CategoryId,
     string CategoryName,
     Guid ItemTypeId,
@@ -97,6 +101,8 @@ public record WithdrawLostReportRequest(string? Reason);
 /// </summary>
 public record LostReportFeedItemDto(
     Guid Id,
+    /// <summary>Six digits a finder quotes at the desk. Routing, not proof - safe on the feed.</summary>
+    string HandInCode,
     string PostedByName,
     /// <summary>
     /// True when the caller posted this report. Lets the feed hide "I found this" on your own
