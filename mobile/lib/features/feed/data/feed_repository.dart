@@ -42,6 +42,69 @@ class FeedRepository {
     }
   }
 
+  /* ------------------------------------------------------------ found posts */
+
+  Future<FoundPostPage> getFoundFeed({int page = 1, int pageSize = 20, String? search, String? categoryId}) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/found-posts/feed',
+        queryParameters: {
+          'page': page,
+          'pageSize': pageSize,
+          if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+          if (categoryId != null) 'categoryId': categoryId,
+        },
+      );
+      return FoundPostPage.fromJson(response.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<FoundPost> postFound({
+    required String categoryId,
+    required String itemTypeId,
+    required String foundLocationId,
+    required String description,
+    String? primaryColor,
+    required DateTime foundAt,
+    String? lostReportHandInCode,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>('/api/found-posts', data: {
+        'categoryId': categoryId,
+        'itemTypeId': itemTypeId,
+        'foundLocationId': foundLocationId,
+        'description': description,
+        if (primaryColor != null && primaryColor.trim().isNotEmpty) 'primaryColor': primaryColor.trim(),
+        'foundAt': foundAt.toUtc().toIso8601String(),
+        if (lostReportHandInCode != null && lostReportHandInCode.isNotEmpty) 'lostReportHandInCode': lostReportHandInCode,
+      });
+      return FoundPost.fromJson(response.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// "That is mine" - names one of the caller's own reports. The finder is told to hand it in.
+  Future<FoundPost> recogniseFoundPost(String postId, String lostReportId) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>('/api/found-posts/$postId/recognise', data: {'lostReportId': lostReportId});
+      return FoundPost.fromJson(response.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<FoundPost> withdrawFoundPost(String postId) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>('/api/found-posts/$postId/withdraw', data: const {});
+      return FoundPost.fromJson(response.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<void> sendMessage(String reportId, String body) async {
     try {
       await _dio.post<Map<String, dynamic>>('/api/lost-reports/$reportId/messages', data: {'body': body});

@@ -11,6 +11,7 @@ import '../../features/claims/presentation/claim_detail_page.dart';
 import '../../features/claims/presentation/claim_submission_page.dart';
 import '../../features/claims/presentation/my_claims_page.dart';
 import '../../features/feed/presentation/feed_page.dart';
+import '../../features/feed/presentation/post_found_page.dart';
 import '../../features/reports/presentation/my_reports_page.dart';
 import '../../features/reports/presentation/possible_matches_page.dart';
 import '../../features/reports/presentation/report_detail_page.dart';
@@ -47,7 +48,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, shell) => AppShell(navigationShell: shell),
         branches: [
           StatefulShellBranch(routes: [
-            GoRoute(path: '/home', builder: (_, __) => const FeedPage()),
+            GoRoute(
+              path: '/home',
+              builder: (_, __) => const FeedPage(),
+              routes: [
+                GoRoute(path: 'found/new', parentNavigatorKey: _rootKey, builder: (_, __) => const PostFoundPage()),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

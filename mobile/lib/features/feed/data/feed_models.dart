@@ -80,3 +80,66 @@ class FoundClaimResult {
 
 /// "483921" reads as "483 921" on screen.
 String displayCode(String code) => code.length == 6 ? '${code.substring(0, 3)} ${code.substring(3)}' : code;
+
+/// Mirrors FoundPostFeedItemDto - a finder's post before it reaches a desk. A teaser: what,
+/// where, when, in the finder's words, and nothing that proves ownership.
+class FoundPost {
+  const FoundPost({
+    required this.id,
+    required this.postedByName,
+    required this.isMine,
+    required this.categoryName,
+    required this.itemTypeName,
+    required this.foundLocationName,
+    required this.description,
+    required this.primaryColor,
+    required this.foundAt,
+    required this.status,
+    required this.handInCode,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String postedByName;
+  final bool isMine;
+  final String categoryName;
+  final String itemTypeName;
+  final String foundLocationName;
+  final String description;
+  final String? primaryColor;
+  final DateTime foundAt;
+  final String status;
+  /// Only on your own post - what you quote at the desk.
+  final String? handInCode;
+  final DateTime createdAt;
+
+  factory FoundPost.fromJson(Map<String, dynamic> json) => FoundPost(
+        id: json['id'] as String,
+        postedByName: json['postedByName'] as String,
+        isMine: json['isMine'] as bool? ?? false,
+        categoryName: json['categoryName'] as String,
+        itemTypeName: json['itemTypeName'] as String,
+        foundLocationName: json['foundLocationName'] as String,
+        description: json['description'] as String,
+        primaryColor: json['primaryColor'] as String?,
+        foundAt: DateTime.parse(json['foundAt'] as String),
+        status: json['status'] as String,
+        handInCode: json['handInCode'] as String?,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+}
+
+class FoundPostPage {
+  const FoundPostPage({required this.items, required this.page, required this.totalCount, required this.hasNextPage});
+  final List<FoundPost> items;
+  final int page;
+  final int totalCount;
+  final bool hasNextPage;
+
+  factory FoundPostPage.fromJson(Map<String, dynamic> json) => FoundPostPage(
+        items: (json['items'] as List<dynamic>).map((e) => FoundPost.fromJson(e as Map<String, dynamic>)).toList(),
+        page: json['page'] as int,
+        totalCount: json['totalCount'] as int,
+        hasNextPage: json['hasNextPage'] as bool,
+      );
+}
