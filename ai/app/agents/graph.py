@@ -1,9 +1,11 @@
 """Compiled LangGraph workflow for routing FoundU agent requests."""
 
+from collections.abc import Callable
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
 
+from app.agents.checkpoint import SafeInMemorySaver
 from app.agents.coordinator import coordinator_node
 from app.agents.description_parser import description_parser_node
 from app.agents.matching import matching_node
@@ -23,12 +25,18 @@ def select_agent(state: AgentState) -> AgentNodeName:
     return state["requested_agent"].value
 
 
-def build_agent_graph():
+def build_agent_graph(
+    description_parser_handler: Callable[[AgentState], AgentState] = description_parser_node,
+    matching_handler: Callable[[AgentState], AgentState] = matching_node,
+    checkpointer: SafeInMemorySaver | None = None,
+    verification_handler: Callable[[AgentState], AgentState] = verification_node,
+):
+    """Build the routing graph with composed node dependencies."""
     graph = StateGraph(AgentState)
     graph.add_node("route_request", route_request_node)
-    graph.add_node(AgentName.DESCRIPTION_PARSER.value, description_parser_node)
-    graph.add_node(AgentName.MATCHING.value, matching_node)
-    graph.add_node(AgentName.VERIFICATION.value, verification_node)
+    graph.add_node(AgentName.DESCRIPTION_PARSER.value, description_parser_handler)
+    graph.add_node(AgentName.MATCHING.value, matching_handler)
+    graph.add_node(AgentName.VERIFICATION.value, verification_handler)
     graph.add_node(AgentName.COORDINATOR.value, coordinator_node)
 
     graph.add_edge(START, "route_request")
@@ -45,7 +53,7 @@ def build_agent_graph():
     for agent in AgentName:
         graph.add_edge(agent.value, END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 # Compile once at import/startup, not once per HTTP request.

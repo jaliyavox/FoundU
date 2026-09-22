@@ -1,75 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../data/report_models.dart';
 import 'providers/report_providers.dart';
 
 class PossibleMatchesPage extends ConsumerWidget {
   final String reportId;
 
   const PossibleMatchesPage({super.key, required this.reportId});
-
-  void _showClaimInfoDialog(BuildContext context, FoundReportSummaryModel item) {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.verified, color: Color(0xFF2E7D32)),
-              SizedBox(width: 8),
-              Text('Claim at Desk'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'This item matching your lost report is securely stored at campus security / desk.',
-                style: TextStyle(fontSize: 14),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Item: ${item.itemTypeName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text('Found Location: ${item.foundLocationName}'),
-                    const SizedBox(height: 4),
-                    Text('Date Found: ${DateFormat('MMM d, yyyy').format(item.foundAt.toLocal())}'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'To claim this item, please visit the Lost & Found desk during office hours with your Student ID card. Desk staff will verify ownership questions.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Understood'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -78,7 +17,8 @@ class PossibleMatchesPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Possible Matches', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Possible Matches',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         actions: [
           IconButton(
@@ -99,12 +39,15 @@ class PossibleMatchesPage extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 48, color: Colors.red),
                 const SizedBox(height: 12),
-                Text('Failed to load possible matches', style: Theme.of(context).textTheme.titleMedium),
+                Text('Failed to load possible matches',
+                    style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                Text(err.toString(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(err.toString(),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => ref.refresh(possibleMatchesProvider(reportId)),
+                  onPressed: () =>
+                      ref.refresh(possibleMatchesProvider(reportId)),
                   child: const Text('Retry'),
                 )
               ],
@@ -119,7 +62,8 @@ class PossibleMatchesPage extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.auto_awesome, size: 64, color: Colors.amber[400]),
+                    Icon(Icons.auto_awesome,
+                        size: 64, color: Colors.amber[400]),
                     const SizedBox(height: 16),
                     Text(
                       'No matches found yet',
@@ -148,7 +92,8 @@ class PossibleMatchesPage extends ConsumerWidget {
                 color: const Color(0xFFE8F5E9),
                 child: Row(
                   children: [
-                    const Icon(Icons.lightbulb_outline, color: Color(0xFF1E5631)),
+                    const Icon(Icons.lightbulb_outline,
+                        color: Color(0xFF1E5631)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -172,12 +117,15 @@ class PossibleMatchesPage extends ConsumerWidget {
                   itemBuilder: (context, index) {
                     final match = matches[index];
                     final item = match.foundItem;
-                    final hasScore = match.isAgentGenerated && match.matchScore != null;
-                    final scorePercentage = hasScore ? (match.matchScore! * 100).round() : null;
+                    final hasScore =
+                        match.isAgentGenerated && match.matchScore != null;
+                    final scorePercentage =
+                        hasScore ? (match.matchScore! * 100).round() : null;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       elevation: 3,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -190,14 +138,16 @@ class PossibleMatchesPage extends ConsumerWidget {
                               children: [
                                 if (hasScore)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF2E7D32),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+                                        const Icon(Icons.auto_awesome,
+                                            size: 14, color: Colors.white),
                                         const SizedBox(width: 4),
                                         Text(
                                           '$scorePercentage% MATCH',
@@ -212,7 +162,8 @@ class PossibleMatchesPage extends ConsumerWidget {
                                   )
                                 else
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: Colors.blue[100],
                                       borderRadius: BorderRadius.circular(12),
@@ -227,14 +178,18 @@ class PossibleMatchesPage extends ConsumerWidget {
                                     ),
                                   ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: Colors.grey[200],
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     item.categoryName,
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87),
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87),
                                   ),
                                 ),
                               ],
@@ -243,8 +198,13 @@ class PossibleMatchesPage extends ConsumerWidget {
 
                             // Item Name & Location
                             Text(
-                              item.itemTypeName.isNotEmpty ? item.itemTypeName : item.categoryName,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              item.itemTypeName.isNotEmpty
+                                  ? item.itemTypeName
+                                  : item.categoryName,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
@@ -252,12 +212,15 @@ class PossibleMatchesPage extends ConsumerWidget {
 
                             Row(
                               children: [
-                                const Icon(Icons.place_outlined, size: 16, color: Color(0xFF2E7D32)),
+                                const Icon(Icons.place_outlined,
+                                    size: 16, color: Color(0xFF2E7D32)),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     'Found at: ${item.foundLocationName}',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],
@@ -265,11 +228,13 @@ class PossibleMatchesPage extends ConsumerWidget {
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                const Icon(Icons.event, size: 16, color: Colors.grey),
+                                const Icon(Icons.event,
+                                    size: 16, color: Colors.grey),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Found on: ${dateFormat.format(item.foundAt.toLocal())}',
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.grey),
                                 ),
                               ],
                             ),
@@ -278,16 +243,21 @@ class PossibleMatchesPage extends ConsumerWidget {
                             // General Description
                             Text(
                               item.generalDescription,
-                              style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[800]),
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                             ),
 
-                            if (match.note != null && match.note!.isNotEmpty) ...[
+                            if (match.note != null &&
+                                match.note!.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               Text(
                                 'Note: ${match.note}',
-                                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.teal),
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.teal),
                               ),
                             ],
 
@@ -298,14 +268,17 @@ class PossibleMatchesPage extends ConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: () => _showClaimInfoDialog(context, item),
+                                  onPressed: () => context.push(
+                                      '/claims/new?lostReportId=$reportId&foundReportId=${item.id}'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF2E7D32),
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                   icon: const Icon(Icons.verified, size: 18),
-                                  label: const Text('Claim at Campus Desk'),
+                                  label: const Text('Start claim'),
                                 ),
                               ],
                             ),

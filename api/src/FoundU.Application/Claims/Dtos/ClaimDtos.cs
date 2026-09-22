@@ -83,3 +83,25 @@ public class ClaimQuery : PaginationQuery
     /// <summary>Filter by ClaimStatus name (Pending, WaitingForAnswer, UnderReview, ...).</summary>
     public string? Status { get; set; }
 }
+
+/// <summary>
+/// One recorded run of an agent, as staff see it on a claim.
+///
+/// Only the auditable outcome, never model reasoning: <see cref="Outcome"/> is the
+/// FinalOutcomeJson the service wrote, which by its own contract excludes hidden evidence,
+/// submitted answers and any chain-of-thought. Staff-only - a student must not learn which
+/// way the agent leaned before a person decides.
+/// </summary>
+public record AgentRunDto(
+    Guid Id,
+    /// <summary>Which agent, from the run's objective: Matching, Verification, DescriptionParsing, Planner.</summary>
+    string Agent,
+    string Objective,
+    string Status,
+    string? ErrorMessage,
+    /// <summary>The safe outcome object, already parsed, so the client does not re-parse a string.</summary>
+    System.Text.Json.JsonElement? Outcome,
+    /// <summary>What triggered it - the claim itself, or the found item it rests on.</summary>
+    string TriggerEntityType,
+    DateTime StartedAt,
+    DateTime? CompletedAt);
