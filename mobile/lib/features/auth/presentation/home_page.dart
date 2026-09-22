@@ -22,15 +22,6 @@ class HomePage extends ConsumerWidget {
           ],
         ),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: auth.isLoading
-                ? null
-                : () => ref.read(authControllerProvider.notifier).logout(),
-            tooltip: 'Logout',
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -112,24 +103,25 @@ class HomePage extends ConsumerWidget {
 
                 const Text(
                   'Lost Something?',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
                 ),
                 const SizedBox(height: 6),
                 const Text(
                   'Post a report so our automated matching system and campus desk can help you find it.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // Primary Quick Action Card: Report Lost Item
                 Card(
-                  elevation: 2,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                  elevation: 3,
+                  shadowColor: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   color: const Color(0xFF2E7D32),
                   child: InkWell(
-                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () => context.push('/reports/new'),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -215,11 +207,12 @@ class HomePage extends ConsumerWidget {
                 // Secondary Action Card: My Reports
                 Card(
                   elevation: 1,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                   ),
                   child: InkWell(
-                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () => context.push('/reports'),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -262,7 +255,11 @@ class HomePage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 36),
+
+                // Profile Section at the bottom (matching Web UI sidebar profile footer)
+                const Divider(height: 1),
+                const SizedBox(height: 24),
 
                 // Logout button
                 OutlinedButton.icon(
@@ -275,14 +272,8 @@ class HomePage extends ConsumerWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: auth.isLoading
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.logout, size: 18),
-                  label: const Text('Logout'),
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
