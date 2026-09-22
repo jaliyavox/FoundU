@@ -72,6 +72,14 @@ public class ClaimService : IClaimService
             .FirstOrDefaultAsync(f => f.Id == request.FoundReportId, cancellationToken)
             ?? throw new NotFoundAppException($"Found report '{request.FoundReportId}' was not found.");
 
+        // A finder's post cannot be claimed: nothing is at a desk yet, and the hidden detail
+        // that verification rests on does not exist until a desk writes it.
+        if (foundReport.Status == FoundReportStatus.Posted)
+        {
+            throw new ConflictAppException(
+                "This item has not reached a desk yet. Once the finder hands it in, you can claim it.");
+        }
+
         if (foundReport.Status != FoundReportStatus.Unclaimed)
         {
             throw new ConflictAppException("This item is no longer available to claim.");

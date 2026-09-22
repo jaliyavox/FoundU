@@ -5,8 +5,24 @@ namespace FoundU.Domain.Entities;
 
 public class FoundReport : BaseEntity, ISoftDeletable
 {
-    public Guid StaffId { get; set; }
-    public AppUser Staff { get; set; } = default!;
+    /// <summary>
+    /// The staff member who logged it at a desk. Null while it is only a finder's post.
+    /// </summary>
+    public Guid? StaffId { get; set; }
+    public AppUser? Staff { get; set; }
+
+    /// <summary>
+    /// The student who found it and posted, when it started as a post. Kept after the desk
+    /// confirms it, so the finder can be thanked and the desk knows who handed it in.
+    /// </summary>
+    public Guid? FinderId { get; set; }
+    public AppUser? Finder { get; set; }
+
+    /// <summary>
+    /// Six digits the finder quotes at the desk so staff pull up the post rather than
+    /// re-typing it. Only set on finder posts.
+    /// </summary>
+    public string? HandInCode { get; set; }
 
     public Guid CategoryId { get; set; }
     public Category Category { get; set; } = default!;
@@ -17,8 +33,9 @@ public class FoundReport : BaseEntity, ISoftDeletable
     public Guid FoundLocationId { get; set; }
     public CampusLocation FoundLocation { get; set; } = default!;
 
-    public Guid StorageLocationId { get; set; }
-    public StorageLocation StorageLocation { get; set; } = default!;
+    /// <summary>Null while it is only a finder's post - nothing is in storage yet.</summary>
+    public Guid? StorageLocationId { get; set; }
+    public StorageLocation? StorageLocation { get; set; }
 
     /// <summary>
     /// Staff-entered general description used for matching and internal operations.

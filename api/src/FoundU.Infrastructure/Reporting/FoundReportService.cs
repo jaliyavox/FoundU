@@ -148,12 +148,13 @@ public class FoundReportService : IFoundReportService
                 r.Category.Name,
                 r.ItemType.Name,
                 r.FoundLocation.Name,
-                r.StorageLocation.Name,
+                r.StorageLocation == null ? null : r.StorageLocation.Name,
                 r.GeneralDescription,
                 r.PrimaryColor,
                 r.FoundAt,
                 r.Status.ToString(),
                 r.PrivateVerificationDetails != null,
+                r.Finder == null ? null : r.Finder.FullName,
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -174,7 +175,7 @@ public class FoundReportService : IFoundReportService
                 r.FoundLocationId,
                 r.FoundLocation.Name,
                 r.StorageLocationId,
-                r.StorageLocation.Name,
+                r.StorageLocation == null ? null : r.StorageLocation.Name,
                 r.GeneralDescription,
                 r.PrivateVerificationDetails,
                 r.PrimaryColor,
@@ -182,7 +183,9 @@ public class FoundReportService : IFoundReportService
                 r.FoundAt,
                 r.Status.ToString(),
                 r.StaffId,
-                r.Staff.FullName,
+                r.Staff == null ? null : r.Staff.FullName,
+                r.Finder == null ? null : r.Finder.FullName,
+                r.HandInCode,
                 r.CreatedAt,
                 r.UpdatedAt))
             .FirstOrDefaultAsync(cancellationToken);

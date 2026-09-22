@@ -13,5 +13,11 @@ public enum NotificationType
     ItemReportedFound,
 
     /// <summary>A finder wrote to the report's author.</summary>
-    MessageReceived
+    MessageReceived,
+
+    /// <summary>The desk confirmed a finder's post - the item is in storage now.</summary>
+    FoundPostConfirmed,
+
+    /// <summary>An owner recognised the item a finder posted - time to walk it to a desk.</summary>
+    FoundPostRecognised
 }
