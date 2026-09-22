@@ -52,6 +52,8 @@ export interface CreateFoundReportInput {
   primaryColor?: string
   secondaryColor?: string
   foundAt: string
+  /** The six digits the finder quoted. Links the item to that report the moment it is logged. */
+  handInCode?: string
 }
 
 export interface ItemsQuery {

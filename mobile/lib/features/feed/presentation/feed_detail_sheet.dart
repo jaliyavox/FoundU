@@ -154,6 +154,7 @@ class _FeedDetailState extends ConsumerState<_FeedDetail> {
                   _Stage.handingIn => _HandIn(
                       key: const ValueKey('handin'),
                       firstName: firstName,
+                      handInCode: item.handInCode,
                       controller: _message,
                       busy: _busy,
                       sent: _sent,
@@ -266,8 +267,9 @@ class _Confirm extends StatelessWidget {
 /// The three steps, then the optional message. The item goes through a desk - never
 /// directly between two strangers - because the desk holds the detail that proves ownership.
 class _HandIn extends StatelessWidget {
-  const _HandIn({super.key, required this.firstName, required this.controller, required this.busy, required this.sent, required this.onSend});
+  const _HandIn({super.key, required this.firstName, required this.handInCode, required this.controller, required this.busy, required this.sent, required this.onSend});
   final String firstName;
+  final String handInCode;
   final TextEditingController controller;
   final bool busy;
   final bool sent;
@@ -286,6 +288,32 @@ class _HandIn extends StatelessWidget {
       children: [
         Text('Thank you. Three steps from here.', style: text.titleMedium),
         const SizedBox(height: 12),
+        // The code is what makes the desk step quick: staff type it and the item is linked
+        // to this post on the spot.
+        if (handInCode.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(color: Brand.forest, borderRadius: BorderRadius.circular(Brand.radiusControl)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Quote this code at the desk', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Text(
+                        displayCode(handInCode),
+                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: 4),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.tag_rounded, color: Colors.white60),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         for (final (i, step) in steps.indexed)
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),

@@ -43,6 +43,7 @@ export function LogItemPage() {
   const [privateVerificationDetails, setPrivateVerificationDetails] = useState('')
   const [primaryColor, setPrimaryColor] = useState('')
   const [foundAt, setFoundAt] = useState(() => defaultWindow().to)
+  const [handInCode, setHandInCode] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
 
   const create = useMutation({
@@ -56,6 +57,7 @@ export function LogItemPage() {
         privateVerificationDetails: privateVerificationDetails.trim() || undefined,
         primaryColor: primaryColor.trim() || undefined,
         foundAt: toUtcIso(foundAt),
+        handInCode: handInCode.replace(/\s/g, '') || undefined,
       }),
     onSuccess: (item) => {
       queryClient.invalidateQueries({ queryKey: ['found-items'] })
@@ -147,6 +149,27 @@ export function LogItemPage() {
       </DashboardPanel>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        {/* First, because it is the fast path: a finder who quotes a code skips the search.
+            The link and the owner's notification happen when the item is saved. */}
+        <DashboardPanel className="flex flex-col gap-3">
+          <Field
+            label="Hand-in code"
+            htmlFor="hand-in-code"
+            errors={fieldErrors.HandInCode}
+            hint="If the finder quoted six digits from the lost post, type them here and the item is linked to that report the moment you save. Leave it blank otherwise."
+          >
+            <Input
+              id="hand-in-code"
+              value={handInCode}
+              onChange={(event) => setHandInCode(event.target.value.replace(/[^\d\s]/g, '').slice(0, 7))}
+              inputMode="numeric"
+              placeholder="483 921"
+              className="max-w-48 font-mono text-lg tracking-[0.2em]"
+              aria-invalid={Boolean(fieldErrors.HandInCode)}
+            />
+          </Field>
+        </DashboardPanel>
+
         <DashboardPanel className="flex flex-col gap-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Category" htmlFor="category" errors={fieldErrors.CategoryId}>

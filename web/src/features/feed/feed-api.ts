@@ -4,6 +4,8 @@ import type { PagedResult } from '@/lib/api/types'
 /** Mirrors FoundU.Application.LostReports.Dtos.LostReportFeedItemDto. */
 export interface LostReportFeedItem {
   id: string
+  /** Six digits a finder quotes at the desk. Routing, not proof - which is why it is public. */
+  handInCode: string
   postedByName: string
   /** Server-computed: true when the signed-in caller posted this. */
   isMine: boolean
@@ -105,3 +107,6 @@ export interface LostReportMessage {
 /** Authenticated - this is the point of the sign-in gate on the feed. */
 export const sendMessage = (reportId: string, body: string) =>
   api.post<LostReportMessage>(`/api/lost-reports/${reportId}/messages`, { body })
+
+/** "483921" reads as "483 921" on screen. */
+export const displayCode = (code: string) => (code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code)

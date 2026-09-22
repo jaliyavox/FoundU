@@ -49,6 +49,7 @@ export interface CreateLostReportInput {
 
 export interface LostReportListItem {
   id: string
+  handInCode: string
   categoryName: string
   itemTypeName: string
   lastSeenLocationName: string

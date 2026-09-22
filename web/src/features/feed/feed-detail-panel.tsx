@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom'
-import { ActivityIcon, ArrowLeftIcon, ClockIcon, HandHeartIcon, MapPinIcon } from 'lucide-react'
+import { ActivityIcon, ArrowLeftIcon, ClockIcon, HandHeartIcon, HashIcon, MapPinIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuth } from '@/features/auth/use-auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-import { formatWindow, timeAgo, type LostReportFeedItem } from './feed-api'
+import { displayCode, formatWindow, timeAgo, type LostReportFeedItem } from './feed-api'
 import { ItemMedia } from './item-media'
 import { ZoomButton } from './photo-lightbox'
 import { MessageAuthor } from './message-author'
@@ -175,6 +175,18 @@ export function FeedDetailPanel({
                 </Button>
               ) : (
                 <div className="fu-reveal flex flex-col gap-5">
+                  {/* The code is what makes the desk step quick: staff type it and the item is
+                      linked to this report on the spot. */}
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-brand-forest/15 bg-brand-forest px-4 py-3 text-white">
+                    <div>
+                      <p className="text-xs text-white/70">Quote this code at the desk</p>
+                      <p className="font-mono text-2xl font-semibold tracking-[0.2em] tabular-nums">
+                        {displayCode(item.handInCode)}
+                      </p>
+                    </div>
+                    <HashIcon className="size-6 shrink-0 text-white/60" aria-hidden="true" />
+                  </div>
+
                   <p className="text-sm text-pretty text-neutral-600">
                     The three steps are shown with the card. Hand it in first - then tell
                     {' '}{item.postedByName.split(' ')[0]} where it went.

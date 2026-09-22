@@ -70,6 +70,9 @@ export interface ClaimDetail {
   decidedAt: string | null
   /** True when an administrator overturned a rejection - the name shown is theirs. */
   isOverride: boolean
+  /** Present only for the owner of an approved, uncollected claim. Staff never receive it. */
+  collectionCode: string | null
+  collectedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -131,6 +134,9 @@ export const submitAnswers = (id: string, answers: { questionId: string; answerT
 export const decideClaim = (id: string, decision: string, reason?: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/decision`, { decision, reason })
 
+/** Staff: the owner quoted their collection code; this hands the item over. 404 if wrong or used. */
+export const collectClaim = (code: string) => api.post<ClaimDetail>('/api/claims/collect', { code })
+
 /** Admin only: overturn a rejection after a dispute. Recorded as an override. */
 export const overturnClaim = (id: string, reason: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/overturn`, { reason })
@@ -167,7 +173,7 @@ export const CLAIM_STATUS_COPY: Record<ClaimStatus, { label: string; student: st
   },
   Approved: {
     label: 'Approved',
-    student: 'It is yours - collect it from the desk holding it.',
+    student: 'It is yours. Take your student ID and your collection code to the desk.',
     tone: 'good',
   },
   Rejected: {

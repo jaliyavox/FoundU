@@ -5,6 +5,7 @@
 class FeedItem {
   const FeedItem({
     required this.id,
+    required this.handInCode,
     required this.postedByName,
     required this.isMine,
     required this.categoryName,
@@ -19,6 +20,8 @@ class FeedItem {
   });
 
   final String id;
+  /// Six digits a finder quotes at the desk. Routing, not proof - which is why it is public.
+  final String handInCode;
   final String postedByName;
   final bool isMine;
   final String categoryName;
@@ -35,6 +38,7 @@ class FeedItem {
 
   factory FeedItem.fromJson(Map<String, dynamic> json) => FeedItem(
         id: json['id'] as String,
+        handInCode: json['handInCode'] as String? ?? '',
         postedByName: json['postedByName'] as String,
         isMine: json['isMine'] as bool? ?? false,
         categoryName: json['categoryName'] as String,
@@ -73,3 +77,6 @@ class FoundClaimResult {
   factory FoundClaimResult.fromJson(Map<String, dynamic> json) =>
       FoundClaimResult(totalFinders: json['totalFinders'] as int);
 }
+
+/// "483921" reads as "483 921" on screen.
+String displayCode(String code) => code.length == 6 ? '${code.substring(0, 3)} ${code.substring(3)}' : code;
