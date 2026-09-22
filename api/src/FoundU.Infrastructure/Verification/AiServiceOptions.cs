@@ -6,7 +6,7 @@ public sealed class AiServiceOptions
     public const string ServiceKeyHeaderName = "X-FoundU-Service-Key";
 
     public string BaseUrl { get; init; } = "http://localhost:8000";
-    public int TimeoutSeconds { get; init; } = 5;
+    public int TimeoutSeconds { get; init; } = 30;
     public string ServiceKey { get; init; } = string.Empty;
 
     public static string RequireServiceKey(AiServiceOptions options)
