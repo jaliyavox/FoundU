@@ -12,6 +12,7 @@ class AgentName(StrEnum):
     MATCHING = "matching"
     VERIFICATION = "verification"
     COORDINATOR = "coordinator"
+    INTAKE = "intake"
 
 
 class PlanActionType(StrEnum):
@@ -366,6 +367,11 @@ AGENT_PERMISSIONS: dict[AgentName, AgentPermissions] = {
             "createVerificationChallenge",
             "recordVerificationResult",
         ],
+    ),
+    AgentName.INTAKE: AgentPermissions(
+        agent=AgentName.INTAKE,
+        has_approval_permission=False,  # Suggests; the owner confirms and the desk verifies
+        allow_listed_tools=[],  # ASP.NET searches; the agent never touches the database
     ),
     AgentName.COORDINATOR: AgentPermissions(
         agent=AgentName.COORDINATOR,
