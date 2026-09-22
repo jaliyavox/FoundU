@@ -99,14 +99,25 @@ export const registerFoundClaim = (reportId: string) =>
 export interface LostReportMessage {
   id: string
   senderName: string
+  /** True when the reader wrote it - the thread lays out as a conversation. */
+  isMine: boolean
+  /** The other person in this thread; what the author passes back as recipientId to reply. */
+  counterpartId: string
+  counterpartName: string
   body: string
   isRead: boolean
   createdAt: string
 }
 
-/** Authenticated - this is the point of the sign-in gate on the feed. */
-export const sendMessage = (reportId: string, body: string) =>
-  api.post<LostReportMessage>(`/api/lost-reports/${reportId}/messages`, { body })
+/**
+ * Authenticated - this is the point of the sign-in gate on the feed. A finder leaves
+ * recipientId empty; the author names the finder they are replying to.
+ */
+export const sendMessage = (reportId: string, body: string, recipientId?: string) =>
+  api.post<LostReportMessage>(`/api/lost-reports/${reportId}/messages`, { body, recipientId })
+
+/** The reader's threads on a report. 403 for someone who is in none of them. */
+export const getMessages = (reportId: string) => api.get<LostReportMessage[]>(`/api/lost-reports/${reportId}/messages`)
 
 /** "483921" reads as "483 921" on screen. */
 export const displayCode = (code: string) => (code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code)
