@@ -68,6 +68,15 @@ public class ClaimsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _claims.AddQuestionsAsync(id, User.GetUserId(), request, cancellationToken));
 
+    /// <summary>
+    /// Generates non-leading verification questions from staff-only evidence. The result only
+    /// moves the claim to answer collection; staff retain all final decision authority.
+    /// </summary>
+    [HttpPost("{id:guid}/questions/generate")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<ClaimDetailDto>> GenerateQuestions(Guid id, CancellationToken cancellationToken)
+        => Ok(await _claims.GenerateQuestionsAsync(id, User.GetUserId(), cancellationToken));
+
     /// <summary>The student answering. Every outstanding question must be answered at once.</summary>
     [HttpPost("{id:guid}/answers")]
     [Authorize(Policy = PolicyNames.Student)]
@@ -94,6 +103,15 @@ public class ClaimsController : ControllerBase
         [FromBody] OverturnClaimRequest request,
         CancellationToken cancellationToken)
         => Ok(await _claims.OverturnAsync(id, User.GetUserId(), request, cancellationToken));
+
+    /// <summary>
+    /// The agent trail behind a claim. Staff only: a student must not learn which way the
+    /// agent leaned before a person decides.
+    /// </summary>
+    [HttpGet("{id:guid}/agent-runs")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<IReadOnlyList<AgentRunDto>>> AgentRuns(Guid id, CancellationToken cancellationToken)
+        => Ok(await _claims.GetAgentRunsAsync(id, cancellationToken));
 
     [HttpPost("{id:guid}/cancel")]
     [Authorize(Policy = PolicyNames.Student)]

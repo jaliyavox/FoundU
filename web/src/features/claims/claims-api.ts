@@ -30,6 +30,13 @@ export interface MatchSuggestion {
   createdAt: string
 }
 
+/** Safe result of a staff-requested, non-authoritative Matching Agent comparison. */
+export interface GenerateMatchSuggestionResult {
+  recommendation: 'match_candidate' | 'no_match' | 'manual_review'
+  score: number
+  suggestion: MatchSuggestion | null
+}
+
 export interface ClaimQuestion {
   id: string
   questionText: string
@@ -88,6 +95,10 @@ export const getSuggestionsForItem = (foundReportId: string) =>
 export const createSuggestion = (lostReportId: string, foundReportId: string, note?: string) =>
   api.post<MatchSuggestion>('/api/match-suggestions', { lostReportId, foundReportId, note })
 
+/** Calls ASP.NET only; the browser never has access to the internal FastAPI service. */
+export const generateAiSuggestion = (lostReportId: string, foundReportId: string, note?: string) =>
+  api.post<GenerateMatchSuggestionResult>('/api/match-suggestions/generate-ai', { lostReportId, foundReportId, note })
+
 export const dismissSuggestion = (id: string, reason?: string) =>
   api.post<MatchSuggestion>(`/api/match-suggestions/${id}/dismiss`, { reason })
 
@@ -109,6 +120,10 @@ export const getClaim = (id: string) => api.get<ClaimDetail>(`/api/claims/${id}`
 
 export const addQuestions = (id: string, questions: string[]) =>
   api.post<ClaimDetail>(`/api/claims/${id}/questions`, { questions })
+
+/** Calls ASP.NET only; private verification evidence remains server-side. */
+export const generateVerificationQuestions = (id: string) =>
+  api.post<ClaimDetail>(`/api/claims/${id}/questions/generate`)
 
 export const submitAnswers = (id: string, answers: { questionId: string; answerText: string }[]) =>
   api.post<ClaimDetail>(`/api/claims/${id}/answers`, { answers })
@@ -181,3 +196,23 @@ export const TONE_STYLES: Record<Tone, string> = {
   waiting: 'border-foreground/12 bg-foreground/5 text-muted-foreground',
   muted: 'border-foreground/10 bg-transparent text-muted-foreground',
 }
+
+/* --------------------------------------------------------------- agent runs */
+
+/**
+ * One recorded agent run, as staff see it. `outcome` is the safe audit object the API wrote -
+ * it never carries hidden evidence, submitted answers or model reasoning.
+ */
+export interface AgentRun {
+  id: string
+  agent: 'Matching' | 'Verification' | 'DescriptionParsing' | 'Planner'
+  objective: string
+  status: 'Running' | 'PausedForApproval' | 'Completed' | 'Failed'
+  errorMessage: string | null
+  outcome: Record<string, unknown> | null
+  triggerEntityType: string
+  startedAt: string
+  completedAt: string | null
+}
+
+export const getAgentRuns = (claimId: string) => api.get<AgentRun[]>(`/api/claims/${claimId}/agent-runs`)

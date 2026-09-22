@@ -31,7 +31,76 @@ class HomePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top Hero / Section Header
+                // Welcome User Header Card
+                Card(
+                  elevation: 0,
+                  color: const Color(0xFFE8F5E9),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: const Color(0xFF2E7D32),
+                          child: Text(
+                            user?.name.isNotEmpty == true
+                                ? user!.name[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Welcome, ${user?.name ?? 'Student'}!',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E5631),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user?.email ?? '',
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.black87),
+                              ),
+                              const SizedBox(height: 2),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2E7D32)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  user?.role ?? 'Student',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2E7D32),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 const Text(
                   'Lost Something?',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
@@ -64,7 +133,8 @@ class HomePage extends ConsumerWidget {
                               color: Colors.white24,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.add_a_photo, color: Colors.white, size: 28),
+                            child: const Icon(Icons.add_a_photo,
+                                color: Colors.white, size: 28),
                           ),
                           const SizedBox(width: 16),
                           const Expanded(
@@ -82,14 +152,53 @@ class HomePage extends ConsumerWidget {
                                 SizedBox(height: 4),
                                 Text(
                                   'Category, location, time window & photo upload',
-                                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.white70),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
+                          const Icon(Icons.arrow_forward_ios,
+                              color: Colors.white, size: 18),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                Card(
+                  elevation: 1,
+                  shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(16))),
+                  child: InkWell(
+                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    onTap: () => context.push('/claims'),
+                    child: const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Row(children: [
+                        CircleAvatar(
+                            backgroundColor: Color(0xFFE8F5E9),
+                            child: Icon(Icons.verified_user_outlined,
+                                color: Color(0xFF2E7D32))),
+                        SizedBox(width: 16),
+                        Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                              Text('My Claims',
+                                  style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold)),
+                              SizedBox(height: 4),
+                              Text(
+                                  'Answer verification questions and track reviews',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey))
+                            ])),
+                        Icon(Icons.arrow_forward_ios,
+                            color: Colors.grey, size: 18),
+                      ]),
                     ),
                   ),
                 ),
@@ -115,7 +224,8 @@ class HomePage extends ConsumerWidget {
                               color: Color(0xFFE8F5E9),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.assignment_outlined, color: Color(0xFF2E7D32), size: 28),
+                            child: const Icon(Icons.assignment_outlined,
+                                color: Color(0xFF2E7D32), size: 28),
                           ),
                           const SizedBox(width: 16),
                           const Expanded(
@@ -131,13 +241,15 @@ class HomePage extends ConsumerWidget {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'View report status, edit details, withdraw or check matches',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  'View report status, edit details, or check matches',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
+                          const Icon(Icons.arrow_forward_ios,
+                              color: Colors.grey, size: 18),
                         ],
                       ),
                     ),
@@ -149,97 +261,16 @@ class HomePage extends ConsumerWidget {
                 const Divider(height: 1),
                 const SizedBox(height: 24),
 
-                Card(
-                  elevation: 0,
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 26,
-                              backgroundColor: const Color(0xFF2E7D32),
-                              child: Text(
-                                user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'U',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    user?.name ?? 'Student',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    user?.email ?? '',
-                                    style: const TextStyle(fontSize: 13, color: Colors.grey),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      user?.role ?? 'Student',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF2E7D32),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        const Divider(height: 1),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: auth.isLoading
-                                ? null
-                                : () => ref.read(authControllerProvider.notifier).logout(),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              side: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            icon: auth.isLoading
-                                ? const SizedBox.square(
-                                    dimension: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.logout, size: 16, color: Colors.redAccent),
-                            label: const Text(
-                              'Sign out',
-                              style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                // Logout button
+                OutlinedButton.icon(
+                  onPressed: auth.isLoading
+                      ? null
+                      : () =>
+                          ref.read(authControllerProvider.notifier).logout(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 16),

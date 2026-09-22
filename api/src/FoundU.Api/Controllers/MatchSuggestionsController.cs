@@ -13,7 +13,7 @@ namespace FoundU.Api.Controllers;
 ///
 /// There is no browsable list of found items - that is how someone shops for something to
 /// claim - so this is the controlled way a student learns that one specific item might be
-/// theirs. Staff make the link by hand today; the Matching Agent writes the same rows later.
+/// theirs. Staff can make the link by hand or request a bounded AI recommendation.
 /// </summary>
 [ApiController]
 [Route("api/match-suggestions")]
@@ -33,6 +33,17 @@ public class MatchSuggestionsController : ControllerBase
         [FromBody] CreateMatchSuggestionRequest request,
         CancellationToken cancellationToken)
         => Ok(await _suggestions.CreateAsync(request, User.GetUserId(), cancellationToken));
+
+    /// <summary>
+    /// Staff can ask the bounded Matching Agent to compare one safe lost/found pair. Its result
+    /// remains a suggestion only; it cannot create claims or decide ownership.
+    /// </summary>
+    [HttpPost("generate-ai")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<GenerateMatchSuggestionResultDto>> GenerateWithAgent(
+        [FromBody] CreateMatchSuggestionRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _suggestions.GenerateWithAgentAsync(request, User.GetUserId(), cancellationToken));
 
     /// <summary>What the student sees on their own reports.</summary>
     [HttpGet("mine")]

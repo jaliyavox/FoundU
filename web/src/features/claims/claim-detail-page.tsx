@@ -31,12 +31,15 @@ import {
   cancelClaim,
   CLAIM_STATUS_COPY,
   decideClaim,
+  generateVerificationQuestions,
   getClaim,
   overturnClaim,
   submitAnswers,
   type ClaimDetail,
 } from './claims-api'
+import { AgentRunsPanel } from './agent-runs-panel'
 import { ClaimStatusChip } from './claim-status-chip'
+import { canGenerateVerificationQuestions, verificationQuestionGenerationMessage } from './verification-question-generation-feedback'
 
 /**
  * One claim, for whoever is allowed to see it.
@@ -147,6 +150,9 @@ export function ClaimDetailPage() {
       {isStaff ? <StaffControls claim={claim} /> : <StudentControls claim={claim} />}
 
       {user?.role === 'Admin' && claim.status === 'Rejected' && <OverturnControls claim={claim} />}
+
+      {/* Staff only, and after the controls: it informs the decision, it is not the decision. */}
+      {isStaff && <AgentRunsPanel claimId={claim.id} />}
     </section>
   )
 }
@@ -471,6 +477,18 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
     },
   })
 
+  const generateQuestions = useMutation({
+    mutationFn: () => generateVerificationQuestions(claim.id),
+    onSuccess: (updated) => {
+      refresh()
+      const message = verificationQuestionGenerationMessage(updated)
+      if (updated.status === 'WaitingForAnswer' && updated.questions.length > 0) toast.success(message)
+      else toast.error(message)
+    },
+    onError: () =>
+      toast.error('AI question generation is unavailable. You can still write verification questions manually.'),
+  })
+
   const decide = useMutation({
     mutationFn: (decision: string) => decideClaim(claim.id, decision, reason.trim() || undefined),
     onSuccess: (updated) => {
@@ -496,7 +514,7 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
 
   if (!isOpen) return null
 
-  const isBusy = ask.isPending || decide.isPending
+  const isBusy = ask.isPending || generateQuestions.isPending || decide.isPending
 
   return (
     <>
@@ -531,6 +549,18 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
         )}
 
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => generateQuestions.mutate()}
+            disabled={!canGenerateVerificationQuestions(generateQuestions.isPending, ask.isPending, decide.isPending)}
+            aria-describedby="ai-verification-help"
+          >
+            {generateQuestions.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+            {generateQuestions.isPending
+              ? 'Generating AI verification questions…'
+              : 'Generate AI Verification Questions'}
+          </Button>
           {questions.length < 5 && (
             <Button
               variant="outline"
@@ -552,6 +582,9 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
             Send to the claimant
           </Button>
         </div>
+        <p id="ai-verification-help" className="text-xs text-muted-foreground">
+          AI drafts safe questions only. Staff still decide ownership.
+        </p>
       </DashboardPanel>
 
       <DashboardPanel className="flex flex-col gap-4">

@@ -13,11 +13,13 @@ using FoundU.Infrastructure.Identity;
 using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Storage;
 using FoundU.Infrastructure.Reporting;
+using FoundU.Infrastructure.Verification;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace FoundU.Infrastructure;
@@ -106,6 +108,35 @@ public static class DependencyInjection
         services.AddScoped<IClaimService, ClaimService>();
         services.AddScoped<IMatchSuggestionService, MatchSuggestionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddOptions<AiServiceOptions>()
+            .Bind(configuration.GetSection(AiServiceOptions.SectionName));
+        services.AddHttpClient<IVerificationAgentClient, VerificationAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress))
+                throw new InvalidOperationException("AiService:BaseUrl must be an absolute URL.");
+
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
+        services.AddHttpClient<IMatchingAgentClient, MatchingAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress))
+                throw new InvalidOperationException("AiService:BaseUrl must be an absolute URL.");
+
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
+        services.AddHttpClient<IDescriptionParserAgentClient, DescriptionParserAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            // Parser enrichment must not make report creation fail on a bad optional AI config.
+            // The client checks the same configuration and returns its bounded fallback before send.
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress))
+                client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
         services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
 
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);

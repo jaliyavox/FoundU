@@ -30,6 +30,9 @@ public interface IClaimService
     /// </summary>
     Task<ClaimDetailDto> AddQuestionsAsync(Guid claimId, Guid staffId, AddVerificationQuestionsRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>Generates safe questions from trusted staff evidence using the Verification Agent.</summary>
+    Task<ClaimDetailDto> GenerateQuestionsAsync(Guid claimId, Guid staffId, CancellationToken cancellationToken = default);
+
     /// <summary>The student answering every outstanding question, which sends the claim to review.</summary>
     Task<ClaimDetailDto> SubmitAnswersAsync(Guid claimId, Guid studentId, SubmitClaimAnswersRequest request, CancellationToken cancellationToken = default);
 
@@ -44,6 +47,12 @@ public interface IClaimService
     /// as an override decision so the audit shows both the original call and the reversal.
     /// </summary>
     Task<ClaimDetailDto> OverturnAsync(Guid claimId, Guid adminId, OverturnClaimRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The agent trail behind a claim: every recorded run on the claim, plus the matching runs on
+    /// the found item it rests on. Newest first. Staff only.
+    /// </summary>
+    Task<IReadOnlyList<AgentRunDto>> GetAgentRunsAsync(Guid claimId, CancellationToken cancellationToken = default);
 
     /// <summary>The student giving up on their own claim. Nothing is deleted - it is recorded.</summary>
     Task<ClaimDetailDto> CancelAsync(Guid claimId, Guid studentId, string? reason, CancellationToken cancellationToken = default);
