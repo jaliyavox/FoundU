@@ -18,12 +18,16 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
     private static readonly HashSet<string> AllowedRecommendations =
         ["likely_match", "manual_review", "unlikely_match"];
     private readonly HttpClient _httpClient;
-    private readonly string _serviceKey;
+    private readonly AiServiceOptions _options;
 
     public VerificationAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
     {
         _httpClient = httpClient;
-        _serviceKey = AiServiceOptions.RequireServiceKey(options.Value);
+        // Not validated here. A throw in a constructor takes down every service that depends
+        // on this client - on a machine without the key that meant all of /api/claims - so
+        // the key is checked when a call is made, inside the try that turns any failure into
+        // "the agent is unavailable", which the callers already handle by continuing by hand.
+        _options = options.Value;
     }
 
     public Task<VerificationAgentCallResult<GenerateVerificationQuestionsResult>> GenerateQuestionsAsync(
@@ -108,7 +112,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         {
             Content = JsonContent.Create(request, options: JsonOptions),
         };
-        httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, _serviceKey);
+        httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
         return httpRequest;
     }
 

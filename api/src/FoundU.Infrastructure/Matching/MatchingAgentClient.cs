@@ -18,12 +18,16 @@ public sealed class MatchingAgentClient : IMatchingAgentClient
     private static readonly HashSet<string> AllowedRecommendations =
         ["match_candidate", "no_match", "manual_review"];
     private readonly HttpClient _httpClient;
-    private readonly string _serviceKey;
+    private readonly AiServiceOptions _options;
 
     public MatchingAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
     {
         _httpClient = httpClient;
-        _serviceKey = AiServiceOptions.RequireServiceKey(options.Value);
+        // Not validated here. A throw in a constructor takes down every service that depends
+        // on this client - on a machine without the key that meant all of /api/claims - so
+        // the key is checked when a call is made, inside the try that turns any failure into
+        // "the agent is unavailable", which the callers already handle by continuing by hand.
+        _options = options.Value;
     }
 
     public async Task<MatchingAgentCallResult<MatchingAgentRecommendation>> MatchReportsAsync(
@@ -42,7 +46,7 @@ public sealed class MatchingAgentClient : IMatchingAgentClient
             {
                 Content = JsonContent.Create(request, options: JsonOptions),
             };
-            httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, _serviceKey);
+            httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
 
             using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
             if (!response.IsSuccessStatusCode)

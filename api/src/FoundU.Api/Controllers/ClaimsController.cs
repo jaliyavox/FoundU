@@ -104,6 +104,15 @@ public class ClaimsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _claims.OverturnAsync(id, User.GetUserId(), request, cancellationToken));
 
+    /// <summary>
+    /// The agent trail behind a claim. Staff only: a student must not learn which way the
+    /// agent leaned before a person decides.
+    /// </summary>
+    [HttpGet("{id:guid}/agent-runs")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<IReadOnlyList<AgentRunDto>>> AgentRuns(Guid id, CancellationToken cancellationToken)
+        => Ok(await _claims.GetAgentRunsAsync(id, cancellationToken));
+
     [HttpPost("{id:guid}/cancel")]
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<ClaimDetailDto>> Cancel(

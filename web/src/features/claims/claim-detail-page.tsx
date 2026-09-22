@@ -37,6 +37,7 @@ import {
   submitAnswers,
   type ClaimDetail,
 } from './claims-api'
+import { AgentRunsPanel } from './agent-runs-panel'
 import { ClaimStatusChip } from './claim-status-chip'
 import { canGenerateVerificationQuestions, verificationQuestionGenerationMessage } from './verification-question-generation-feedback'
 
@@ -149,6 +150,9 @@ export function ClaimDetailPage() {
       {isStaff ? <StaffControls claim={claim} /> : <StudentControls claim={claim} />}
 
       {user?.role === 'Admin' && claim.status === 'Rejected' && <OverturnControls claim={claim} />}
+
+      {/* Staff only, and after the controls: it informs the decision, it is not the decision. */}
+      {isStaff && <AgentRunsPanel claimId={claim.id} />}
     </section>
   )
 }

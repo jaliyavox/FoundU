@@ -530,6 +530,67 @@ public class ClaimService : IClaimService
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<AgentRunDto>> GetAgentRunsAsync(
+        Guid claimId,
+        CancellationToken cancellationToken = default)
+    {
+        var claim = await _db.Claims
+            .AsNoTracking()
+            .Where(c => c.Id == claimId)
+            .Select(c => new { c.Id, c.FoundReportId })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundAppException($"Claim '{claimId}' was not found.");
+
+        // Two kinds of run explain a claim: the verification runs on the claim itself, and the
+        // matching run on the item that suggested it - "why was this item put in front of the
+        // student" is part of the story of "why is this claim here".
+        var runs = await _db.AgentRuns
+            .AsNoTracking()
+            .Where(r => r.ClaimId == claim.Id
+                || (r.TriggerEntityType == nameof(FoundReport) && r.TriggerEntityId == claim.FoundReportId))
+            .OrderByDescending(r => r.StartedAt)
+            .ToListAsync(cancellationToken);
+
+        return runs.Select(r => new AgentRunDto(
+                r.Id,
+                AgentOf(r),
+                r.Objective,
+                r.Status.ToString(),
+                r.ErrorMessage,
+                ParseOutcome(r.FinalOutcomeJson),
+                r.TriggerEntityType,
+                r.StartedAt,
+                r.CompletedAt))
+            .ToList();
+    }
+
+    /// <summary>The run rows do not carry an agent name; the objective and outcome do.</summary>
+    private static string AgentOf(AgentRun run)
+    {
+        if (run.Objective.Contains("Verification", StringComparison.OrdinalIgnoreCase)) return "Verification";
+        if (run.Objective.Contains("match", StringComparison.OrdinalIgnoreCase)) return "Matching";
+        if (run.Objective.Contains("pars", StringComparison.OrdinalIgnoreCase)) return "DescriptionParsing";
+        return "Planner";
+    }
+
+    /// <summary>
+    /// Parsed once here rather than handed to the client as a string. A row whose JSON does
+    /// not parse still shows - with no outcome - rather than taking the panel down.
+    /// </summary>
+    private static System.Text.Json.JsonElement? ParseOutcome(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.Clone();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     public async Task<ClaimDetailDto> CancelAsync(
         Guid claimId,
         Guid studentId,

@@ -196,3 +196,23 @@ export const TONE_STYLES: Record<Tone, string> = {
   waiting: 'border-foreground/12 bg-foreground/5 text-muted-foreground',
   muted: 'border-foreground/10 bg-transparent text-muted-foreground',
 }
+
+/* --------------------------------------------------------------- agent runs */
+
+/**
+ * One recorded agent run, as staff see it. `outcome` is the safe audit object the API wrote -
+ * it never carries hidden evidence, submitted answers or model reasoning.
+ */
+export interface AgentRun {
+  id: string
+  agent: 'Matching' | 'Verification' | 'DescriptionParsing' | 'Planner'
+  objective: string
+  status: 'Running' | 'PausedForApproval' | 'Completed' | 'Failed'
+  errorMessage: string | null
+  outcome: Record<string, unknown> | null
+  triggerEntityType: string
+  startedAt: string
+  completedAt: string | null
+}
+
+export const getAgentRuns = (claimId: string) => api.get<AgentRun[]>(`/api/claims/${claimId}/agent-runs`)
