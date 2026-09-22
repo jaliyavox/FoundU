@@ -10,6 +10,7 @@ import '../data/feed_models.dart';
 import '../data/feed_repository.dart';
 import 'feed_card.dart';
 import 'feed_controller.dart';
+import 'message_thread.dart';
 
 /// Opens a post from the feed. A bottom sheet rather than a page: the feed stays where it
 /// was underneath, so the reading position survives.
@@ -43,14 +44,6 @@ class _FeedDetail extends ConsumerStatefulWidget {
 class _FeedDetailState extends ConsumerState<_FeedDetail> {
   _Stage _stage = _Stage.reading;
   bool _busy = false;
-  final _message = TextEditingController();
-  bool _sent = false;
-
-  @override
-  void dispose() {
-    _message.dispose();
-    super.dispose();
-  }
 
   Future<void> _confirmFound() async {
     setState(() => _busy = true);
@@ -60,22 +53,6 @@ class _FeedDetailState extends ConsumerState<_FeedDetail> {
       await ref.read(feedRepositoryProvider).registerFoundClaim(widget.item.id);
       if (!mounted) return;
       setState(() => _stage = _Stage.handingIn);
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _send() async {
-    final body = _message.text.trim();
-    if (body.isEmpty) return;
-    setState(() => _busy = true);
-    try {
-      await ref.read(feedRepositoryProvider).sendMessage(widget.item.id, body);
-      if (!mounted) return;
-      setState(() => _sent = true);
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
@@ -155,10 +132,7 @@ class _FeedDetailState extends ConsumerState<_FeedDetail> {
                       key: const ValueKey('handin'),
                       firstName: firstName,
                       handInCode: item.handInCode,
-                      controller: _message,
-                      busy: _busy,
-                      sent: _sent,
-                      onSend: _send,
+                      reportId: item.id,
                     ),
                 },
         ),
@@ -267,13 +241,10 @@ class _Confirm extends StatelessWidget {
 /// The three steps, then the optional message. The item goes through a desk - never
 /// directly between two strangers - because the desk holds the detail that proves ownership.
 class _HandIn extends StatelessWidget {
-  const _HandIn({super.key, required this.firstName, required this.handInCode, required this.controller, required this.busy, required this.sent, required this.onSend});
+  const _HandIn({super.key, required this.firstName, required this.handInCode, required this.reportId});
   final String firstName;
   final String handInCode;
-  final TextEditingController controller;
-  final bool busy;
-  final bool sent;
-  final VoidCallback onSend;
+  final String reportId;
 
   @override
   Widget build(BuildContext context) {
@@ -350,30 +321,9 @@ class _HandIn extends StatelessWidget {
         const SizedBox(height: 8),
         const Divider(),
         const SizedBox(height: 14),
-        if (sent)
-          Row(
-            children: [
-              const Icon(Icons.check_circle, color: Brand.green, size: 20),
-              const SizedBox(width: 8),
-              Expanded(child: Text('Sent. $firstName will see it on their report.', style: text.bodyMedium)),
-            ],
-          )
-        else ...[
-          Text('Tell $firstName where it went', style: text.titleSmall),
-          const SizedBox(height: 8),
-          TextField(
-            controller: controller,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(hintText: 'Handed it in at the library desk this morning.'),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: busy ? null : onSend,
-            icon: const Icon(Icons.send_rounded, size: 18),
-            label: const Text('Send message'),
-          ),
-        ],
+        Text('Tell $firstName where it went', style: text.titleSmall),
+        const SizedBox(height: 8),
+        MessageThread(reportId: reportId, isAuthor: false),
       ],
     );
   }

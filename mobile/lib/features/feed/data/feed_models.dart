@@ -143,3 +143,35 @@ class FoundPostPage {
         hasNextPage: json['hasNextPage'] as bool,
       );
 }
+
+/// One message in a thread on a lost report. `isMine` lays it out as a conversation;
+/// `counterpartId` is what the author passes back to reply.
+class ReportMessage {
+  const ReportMessage({
+    required this.id,
+    required this.senderName,
+    required this.isMine,
+    required this.counterpartId,
+    required this.counterpartName,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String senderName;
+  final bool isMine;
+  final String counterpartId;
+  final String counterpartName;
+  final String body;
+  final DateTime createdAt;
+
+  factory ReportMessage.fromJson(Map<String, dynamic> json) => ReportMessage(
+        id: json['id'] as String,
+        senderName: json['senderName'] as String,
+        isMine: json['isMine'] as bool? ?? false,
+        counterpartId: json['counterpartId'] as String,
+        counterpartName: json['counterpartName'] as String,
+        body: json['body'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+}

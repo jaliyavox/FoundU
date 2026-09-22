@@ -105,10 +105,26 @@ class FeedRepository {
     }
   }
 
-  Future<void> sendMessage(String reportId, String body) async {
+  /// A finder leaves [recipientId] empty; the author names the finder they reply to.
+  Future<void> sendMessage(String reportId, String body, {String? recipientId}) async {
     try {
-      await _dio.post<Map<String, dynamic>>('/api/lost-reports/$reportId/messages', data: {'body': body});
+      await _dio.post<Map<String, dynamic>>('/api/lost-reports/$reportId/messages', data: {
+        'body': body,
+        if (recipientId != null) 'recipientId': recipientId,
+      });
     } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// The reader's threads on a report. A finder who has not written yet is 403 - an empty
+  /// thread, not a failure, so it comes back as an empty list.
+  Future<List<ReportMessage>> getMessages(String reportId) async {
+    try {
+      final response = await _dio.get<List<dynamic>>('/api/lost-reports/$reportId/messages');
+      return (response.data ?? const []).map((e) => ReportMessage.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 403) return const [];
       throw ApiException.fromDio(error);
     }
   }
