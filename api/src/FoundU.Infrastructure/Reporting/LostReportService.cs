@@ -489,6 +489,7 @@ public class LostReportService : ILostReportService
         Guid reportId,
         Guid senderId,
         string body,
+        Guid? recipientId,
         CancellationToken cancellationToken = default)
     {
         var report = await _db.LostReports
@@ -496,31 +497,53 @@ public class LostReportService : ILostReportService
             .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
             ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
 
-        if (report.StudentId == senderId)
-        {
-            throw new ValidationAppException(nameof(LostReportMessage.Body),
-                "This is your own report - you cannot message yourself.");
-        }
-
         // A withdrawn or resolved report is no longer looking for anything.
-        if (report.Status != LostReportStatus.Active)
+        if (report.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
         {
             throw new ConflictAppException("This report is closed and is no longer accepting messages.");
+        }
+
+        var isAuthor = report.StudentId == senderId;
+        Guid recipient;
+
+        if (isAuthor)
+        {
+            // The author replies into an existing thread - never opens one. A finder who has
+            // not written cannot be written to, which keeps the direction of first contact
+            // with the person who has the item.
+            recipient = recipientId
+                ?? throw new ValidationAppException(nameof(SendLostReportMessageRequest.RecipientId), "Say who the reply is to.");
+
+            var threadExists = await _db.LostReportMessages.AnyAsync(
+                m => m.LostReportId == reportId && m.SenderId == recipient, cancellationToken);
+            if (!threadExists)
+            {
+                throw new ValidationAppException(nameof(SendLostReportMessageRequest.RecipientId), "That person has not written to you about this report.");
+            }
+        }
+        else
+        {
+            if (recipientId is not null && recipientId != report.StudentId)
+            {
+                throw new ValidationAppException(nameof(SendLostReportMessageRequest.RecipientId), "A finder can only write to the report's author.");
+            }
+            recipient = report.StudentId;
         }
 
         var message = new LostReportMessage
         {
             LostReportId = reportId,
             SenderId = senderId,
+            RecipientId = recipient,
             Body = body.Trim(),
         };
 
         _db.LostReportMessages.Add(message);
 
         _notifications.Queue(
-            report.StudentId,
+            recipient,
             NotificationType.MessageReceived,
-            "A message about your lost item",
+            isAuthor ? "A reply about the item you found" : "A message about your lost item",
             // The body is quoted rather than summarised: "you have a new message" makes
             // someone open the app to find out something they could have been told.
             message.Body.Length <= 140 ? message.Body : message.Body[..140] + "...",
@@ -529,13 +552,21 @@ public class LostReportService : ILostReportService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        var senderName = await _db.Users
+        var names = await _db.Users
             .AsNoTracking()
-            .Where(u => u.Id == senderId)
-            .Select(u => u.FullName)
-            .FirstAsync(cancellationToken);
+            .Where(u => u.Id == senderId || u.Id == recipient)
+            .Select(u => new { u.Id, u.FullName })
+            .ToListAsync(cancellationToken);
 
-        return new LostReportMessageDto(message.Id, senderName, message.Body, message.IsRead, message.CreatedAt);
+        return new LostReportMessageDto(
+            message.Id,
+            names.First(n => n.Id == senderId).FullName,
+            true,
+            recipient,
+            names.First(n => n.Id == recipient).FullName,
+            message.Body,
+            message.IsRead,
+            message.CreatedAt);
     }
 
     public async Task<IReadOnlyList<LostReportMessageDto>> GetMessagesAsync(
@@ -549,17 +580,42 @@ public class LostReportService : ILostReportService
             .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken)
             ?? throw new NotFoundAppException($"Lost report '{reportId}' was not found.");
 
-        // Only the author reads their own messages. Staff may read them to settle a dispute.
-        if (!requesterIsStaff && report.StudentId != requesterId)
+        var isAuthor = report.StudentId == requesterId;
+
+        var messages = _db.LostReportMessages
+            .AsNoTracking()
+            .Where(m => m.LostReportId == reportId);
+
+        // The author reads every thread; staff read all to settle a dispute; a finder reads
+        // only the thread they are in. Anyone else has nothing here - 403, because the
+        // report itself is public and its existence is no secret.
+        if (!isAuthor && !requesterIsStaff)
         {
-            throw new ForbiddenAppException("You can only read messages on your own reports.");
+            var participates = await messages.AnyAsync(
+                m => m.SenderId == requesterId || m.RecipientId == requesterId, cancellationToken);
+            if (!participates)
+            {
+                throw new ForbiddenAppException("You can only read messages you are part of.");
+            }
+            messages = messages.Where(m => m.SenderId == requesterId || m.RecipientId == requesterId);
         }
 
-        return await _db.LostReportMessages
-            .AsNoTracking()
-            .Where(m => m.LostReportId == reportId)
-            .OrderByDescending(m => m.CreatedAt)
-            .Select(m => new LostReportMessageDto(m.Id, m.Sender.FullName, m.Body, m.IsRead, m.CreatedAt))
+        var authorId = report.StudentId;
+
+        return await messages
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new LostReportMessageDto(
+                m.Id,
+                m.Sender.FullName,
+                m.SenderId == requesterId,
+                // The counterpart is whoever is not the author: the finder that thread belongs to.
+                m.SenderId == authorId ? (m.RecipientId ?? authorId) : m.SenderId,
+                m.SenderId == authorId
+                    ? (m.Recipient == null ? m.Sender.FullName : m.Recipient.FullName)
+                    : m.Sender.FullName,
+                m.Body,
+                m.IsRead,
+                m.CreatedAt))
             .ToListAsync(cancellationToken);
     }
 
