@@ -267,6 +267,8 @@ class HomePage extends ConsumerWidget {
                       ? null
                       : () =>
                           ref.read(authControllerProvider.notifier).logout(),
+                  icon: const Icon(Icons.logout_outlined),
+                  label: const Text('Logout'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
