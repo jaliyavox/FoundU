@@ -28,6 +28,12 @@ public class LostReportMessageConfiguration : IEntityTypeConfiguration<LostRepor
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(m => m.Recipient)
+            .WithMany()
+            .HasForeignKey(m => m.RecipientId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(m => m.RecipientId);
+
         // The owner's inbox reads newest-first per report.
         builder.HasIndex(m => new { m.LostReportId, m.CreatedAt });
         builder.HasIndex(m => m.SenderId);

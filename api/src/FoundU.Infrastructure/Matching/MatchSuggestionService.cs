@@ -54,7 +54,7 @@ public class MatchSuggestionService : IMatchSuggestionService
             .FirstOrDefaultAsync(f => f.Id == request.FoundReportId, cancellationToken)
             ?? throw new NotFoundAppException($"Found report '{request.FoundReportId}' was not found.");
 
-        if (foundReport.Status != FoundReportStatus.Unclaimed)
+        if (foundReport.Status is not (FoundReportStatus.Unclaimed or FoundReportStatus.Posted))
         {
             throw new ConflictAppException("That item has already been handed back.");
         }
@@ -280,7 +280,7 @@ public class MatchSuggestionService : IMatchSuggestionService
     {
         if (lostReport.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
             throw new ConflictAppException("That report is closed - the student is no longer looking.");
-        if (foundReport.Status != FoundReportStatus.Unclaimed)
+        if (foundReport.Status is not (FoundReportStatus.Unclaimed or FoundReportStatus.Posted))
             throw new ConflictAppException("That item has already been handed back.");
     }
 

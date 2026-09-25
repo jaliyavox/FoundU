@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/app-layout'
 import { LoginPage } from '@/features/auth/login-page'
 import { FeedPage } from '@/features/feed/feed-page'
+import { PostFoundPage } from '@/features/feed/post-found-page'
 import { RegisterPage } from '@/features/auth/register-page'
 import { ProtectedRoute } from './protected-route'
 import { AdminUsersPage } from '@/features/admin/admin-users-page'
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
           // Both sides read the same claim from opposite ends, and the API decides who may
           // see which - so this route is open to any signed-in user rather than duplicated.
           { path: 'claims/:id', element: <ClaimDetailPage /> },
+
+          // Anyone signed in can post something they found - a staff member walking across
+          // campus is a finder too.
+          { path: 'found/new', element: <PostFoundPage /> },
           {
             element: <ProtectedRoute allow={['Admin']} />,
             children: [

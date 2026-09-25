@@ -21,6 +21,7 @@ import { FeedCard } from './feed-card'
 import { CardConnector } from './card-connector'
 import { FeedDetailPanel } from './feed-detail-panel'
 import { FeedSpotlight } from './feed-spotlight'
+import { FoundFeed } from './found-feed'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { homeRouteForRole } from '@/routes/role-home'
@@ -44,6 +45,9 @@ export function FeedPage() {
   const [confirming, setConfirming] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
+  // Two boards, one page: what people are looking for, and what people have found and not
+  // yet walked to a desk. The search applies to whichever is showing.
+  const [mode, setMode] = useState<'lost' | 'found'>('lost')
 
   const { data, isPending, isError, error, isFetching, refetch } = useQuery({
     // The signed-in user is part of the key because the response is: `isMine` is computed
@@ -82,14 +86,31 @@ export function FeedPage() {
           </div>
 
           <div className="mx-auto w-full max-w-5xl px-6">
-            <p className="text-sm font-medium text-brand-green">Lost feed</p>
+            <div className="inline-flex rounded-full border border-white/12 bg-white/[0.06] p-1" role="tablist" aria-label="Which board">
+              {(['lost', 'found'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                    mode === m ? 'bg-white text-brand-forest' : 'text-white/70 hover:text-white',
+                  )}
+                >
+                  {m === 'lost' ? 'Lost' : 'Found'}
+                </button>
+              ))}
+            </div>
 
-            <h1 className="pt-3 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              What people are looking for
+            <h1 className="pt-5 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+              {mode === 'lost' ? 'What people are looking for' : 'What people have found'}
             </h1>
             <p className="max-w-xl pt-3 text-sm text-pretty text-white/60 sm:text-base">
-              Every open report from across campus. Recognise something? Hand it in at the nearest
-              desk and we will get it back to them.
+              {mode === 'lost'
+                ? 'Every open report from across campus. Recognise something? Hand it in at the nearest desk and we will get it back to them.'
+                : 'Things students picked up and posted before reaching a desk. Recognise yours? Say so, and the finder is asked to hand it in.'}
             </p>
 
             <div className="flex flex-col gap-3 pt-8 sm:flex-row sm:items-center">
@@ -122,10 +143,10 @@ export function FeedPage() {
               <Button
                 className="group rounded-xl bg-white text-brand-forest hover:bg-white/90"
                 nativeButton={false}
-                render={<Link to={postHref} />}
+                render={<Link to={mode === 'lost' ? postHref : user ? '/found/new' : '/login'} />}
               >
                 <PlusIcon aria-hidden="true" />
-                {postLabel}
+                {mode === 'lost' ? postLabel : user ? 'Post a found item' : 'Sign in to post'}
               </Button>
             </div>
           </div>
@@ -134,7 +155,7 @@ export function FeedPage() {
         <GradientDivider />
 
         <section
-          aria-label="Lost item reports"
+          aria-label={mode === 'lost' ? 'Lost item reports' : 'Found item posts'}
           className="relative overflow-hidden bg-brand-mist"
         >
           {/* Same light ground as the FAQ band, so the dark cards read as raised panels. */}
@@ -150,7 +171,9 @@ export function FeedPage() {
           </div>
 
           <div className="relative mx-auto w-full max-w-5xl px-6 py-12">
-          {isPending ? (
+          {mode === 'found' ? (
+            <FoundFeed search={search} />
+          ) : isPending ? (
             <FeedSkeleton />
           ) : isError ? (
             <FeedError error={error} onRetry={() => refetch()} />

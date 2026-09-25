@@ -38,6 +38,13 @@ public class LostReport : BaseEntity, ISoftDeletable
 
     public LostReportStatus Status { get; set; } = LostReportStatus.Active;
 
+    /// <summary>
+    /// Six digits a finder quotes at the desk so staff can link the item to this report
+    /// without searching. Unique across reports; visible on the public feed because it
+    /// routes an item, it does not prove ownership.
+    /// </summary>
+    public string HandInCode { get; set; } = HandoverCodes.Generate();
+
     public string? WithdrawReason { get; set; }
     public DateTime? WithdrawnAt { get; set; }
 

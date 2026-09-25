@@ -39,6 +39,7 @@ import {
 } from './claims-api'
 import { AgentRunsPanel } from './agent-runs-panel'
 import { ClaimStatusChip } from './claim-status-chip'
+import { displayCode } from '@/features/feed/feed-api'
 import { canGenerateVerificationQuestions, verificationQuestionGenerationMessage } from './verification-question-generation-feedback'
 
 /**
@@ -143,6 +144,16 @@ export function ClaimDetailPage() {
         )}
       </DashboardPanel>
 
+      {claim.collectionCode && <CollectionCodePanel claim={claim} />}
+      {claim.collectedAt && !isStaff && (
+        <DashboardPanel className="flex items-center gap-3">
+          <CheckIcon className="size-5 text-brand-green" aria-hidden="true" />
+          <p className="text-sm">
+            Collected on {formatDateTime(claim.collectedAt)}. That closes the report.
+          </p>
+        </DashboardPanel>
+      )}
+
       <ItemPanel claim={claim} />
 
       <QuestionsPanel claim={claim} isStaff={isStaff} />
@@ -228,6 +239,25 @@ function OverturnControls({ claim }: { claim: ClaimDetail }) {
 }
 
 /* -------------------------------------------------------------------- pieces */
+
+/**
+ * The owner's collection code. Only ever rendered for the owner - the API withholds it from
+ * every staff response - and made large enough to read out across a counter.
+ */
+function CollectionCodePanel({ claim }: { claim: ClaimDetail }) {
+  return (
+    <DashboardPanel className="flex flex-col gap-3 border-brand-forest/60 from-brand-forest via-brand-forest to-[oklch(0.32_0.09_144)] text-white dark:border-brand-forest/60 dark:from-brand-forest dark:via-brand-forest dark:to-[oklch(0.32_0.09_144)]">
+      <p className="text-sm text-white/75">Your collection code</p>
+      <p className="font-mono text-4xl font-semibold tracking-[0.25em] tabular-nums">
+        {displayCode(claim.collectionCode!)}
+      </p>
+      <p className="text-sm text-pretty text-white/80">
+        Take your student ID to the desk named in your notification and quote this. It works
+        once - the desk types it and hands the {claim.foundItem.itemTypeName.toLowerCase()} over.
+      </p>
+    </DashboardPanel>
+  )
+}
 
 /** The item as both sides may see it - the student-safe shape, no hidden evidence. */
 function ItemPanel({ claim }: { claim: ClaimDetail }) {

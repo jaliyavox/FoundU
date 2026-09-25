@@ -1,22 +1,26 @@
-import { Link } from 'react-router-dom'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Link, useNavigate } from 'react-router-dom'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   InboxIcon,
+  Loader2Icon,
+  PackageCheckIcon,
   RotateCwIcon,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DashboardPanel, PanelDivider, PanelSheen } from '@/components/layout/dashboard-panel'
 import { panelSurface } from '@/components/layout/panel-surface'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FormSelect } from '@/features/reports/form-select'
 import { timeAgo } from '@/features/feed/feed-api'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { getClaimQueue } from './claims-api'
+import { toast } from 'sonner'
+import { collectClaim, getClaimQueue } from './claims-api'
 import { ClaimStatusChip } from './claim-status-chip'
 
 const PAGE_SIZE = 15
@@ -66,6 +70,10 @@ export function ClaimQueuePage() {
             Students who say an item in storage is theirs. Longest wait first.
           </p>
         </div>
+
+        <PanelDivider />
+
+        <CollectBox />
 
         <PanelDivider />
 
@@ -193,5 +201,67 @@ export function ClaimQueuePage() {
         </>
       )}
     </section>
+  )
+}
+
+
+/**
+ * The hand-over. The owner quotes six digits, staff type them, the item leaves the shelf.
+ * Kept at the top of the queue because it is the one thing the desk does with someone
+ * standing in front of it.
+ */
+function CollectBox() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [code, setCode] = useState('')
+
+  const collect = useMutation({
+    mutationFn: () => collectClaim(code.replace(/\s/g, '')),
+    onSuccess: (claim) => {
+      setCode('')
+      queryClient.invalidateQueries({ queryKey: ['claim-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['found-items'] })
+      toast.success(`${claim.foundItem.itemTypeName} handed to ${claim.studentName}.`)
+      navigate(`/claims/${claim.id}`)
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.'),
+  })
+
+  const ready = code.replace(/\s/g, '').length === 6
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (ready) collect.mutate()
+      }}
+      className="flex flex-col gap-3 sm:flex-row sm:items-end"
+    >
+      <div className="flex flex-1 flex-col gap-2">
+        <Label htmlFor="collect-code">Hand an item over</Label>
+        <Input
+          id="collect-code"
+          value={code}
+          onChange={(event) => setCode(event.target.value.replace(/[^\d\s]/g, '').slice(0, 7))}
+          inputMode="numeric"
+          placeholder="The student's collection code"
+          className="font-mono text-lg tracking-[0.2em]"
+          autoComplete="off"
+        />
+      </div>
+      <Button
+        type="submit"
+        className="bg-brand-forest text-white hover:bg-brand-forest/90"
+        disabled={!ready || collect.isPending}
+      >
+        {collect.isPending ? (
+          <Loader2Icon className="animate-spin" aria-hidden="true" />
+        ) : (
+          <PackageCheckIcon aria-hidden="true" />
+        )}
+        Mark collected
+      </Button>
+    </form>
   )
 }

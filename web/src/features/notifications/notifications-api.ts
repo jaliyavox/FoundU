@@ -46,9 +46,14 @@ export function linkFor(notification: AppNotification): string | null {
   switch (notification.relatedEntityType) {
     case 'Claim':
       return `/claims/${notification.relatedEntityId}`
+    case 'FoundReport':
+      // A finder's own post: confirmed at a desk, or recognised by its owner.
+      return '/feed'
     case 'MatchSuggestion':
     case 'LostReport':
-      return '/my-reports'
+      // The author's reply reaches a finder, whose side of the thread lives on the feed post,
+      // not on a report they do not own.
+      return notification.type === 'MessageReceived' && notification.title.startsWith('A reply') ? '/feed' : '/my-reports'
     default:
       return null
   }

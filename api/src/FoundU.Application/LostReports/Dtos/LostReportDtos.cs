@@ -34,6 +34,8 @@ public record LostReportPhotoDto(Guid Id, string Url);
 
 public record LostReportListItemDto(
     Guid Id,
+    /// <summary>Six digits a finder quotes at the desk. Routing, not proof - safe on the feed.</summary>
+    string HandInCode,
     string CategoryName,
     string ItemTypeName,
     string LastSeenLocationName,
@@ -65,6 +67,8 @@ public record LostReportListItemDto(
 
 public record LostReportDetailDto(
     Guid Id,
+    /// <summary>Six digits a finder quotes at the desk. Routing, not proof - safe on the feed.</summary>
+    string HandInCode,
     Guid CategoryId,
     string CategoryName,
     Guid ItemTypeId,
@@ -97,6 +101,8 @@ public record WithdrawLostReportRequest(string? Reason);
 /// </summary>
 public record LostReportFeedItemDto(
     Guid Id,
+    /// <summary>Six digits a finder quotes at the desk. Routing, not proof - safe on the feed.</summary>
+    string HandInCode,
     string PostedByName,
     /// <summary>
     /// True when the caller posted this report. Lets the feed hide "I found this" on your own
@@ -134,8 +140,11 @@ public class LostReportQuery : PaginationQuery
 /// </summary>
 public record LostReportFoundClaimDto(Guid ReportId, int TotalFinders, DateTime CreatedAt);
 
-/// <summary>Written by a signed-in user to the author of a lost report.</summary>
-public record SendLostReportMessageRequest(string Body);
+/// <summary>
+/// Written by a signed-in user on a lost report. A finder writes to the author and leaves
+/// <c>RecipientId</c> empty; the author replies to one finder and names them.
+/// </summary>
+public record SendLostReportMessageRequest(string Body, Guid? RecipientId = null);
 
 /// <summary>
 /// A message as the report's author sees it. Carries the sender's display name only - never
@@ -144,6 +153,14 @@ public record SendLostReportMessageRequest(string Body);
 public record LostReportMessageDto(
     Guid Id,
     string SenderName,
+    /// <summary>True when the reader wrote it - so a thread can be laid out as a conversation.</summary>
+    bool IsMine,
+    /// <summary>
+    /// The other person in this thread. Only ever a user id the reader is already talking to;
+    /// it is what the author passes back as <c>RecipientId</c> to reply.
+    /// </summary>
+    Guid CounterpartId,
+    string CounterpartName,
     string Body,
     bool IsRead,
     DateTime CreatedAt);

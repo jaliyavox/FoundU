@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BellRingIcon,
   ChevronLeftIcon,
+  MessageSquareIcon,
   ChevronRightIcon,
   FileTextIcon,
   Loader2Icon,
@@ -32,6 +33,8 @@ import { timeAgo } from '@/features/feed/feed-api'
 import { ItemIllustration } from '@/features/feed/item-illustration'
 import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
+import { MessageThread } from '@/features/feed/message-thread'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
 import { EditLostReportDialog } from './edit-lost-report-dialog'
@@ -51,6 +54,7 @@ export function MyReportsPage() {
   const [sortDirection, setSortDirection] = useState<string>('desc')
 
   const [withdrawTarget, setWithdrawTarget] = useState<LostReportListItem | null>(null)
+  const [messagesFor, setMessagesFor] = useState<LostReportListItem | null>(null)
   const [editTarget, setEditTarget] = useState<LostReportListItem | null>(null)
   const [detailTargetId, setDetailTargetId] = useState<string | null>(null)
 
@@ -298,6 +302,7 @@ export function MyReportsPage() {
                   report={report}
                   onViewDetails={() => setDetailTargetId(report.id)}
                   onEdit={() => setEditTarget(report)}
+                  onMessages={() => setMessagesFor(report)}
                   onWithdraw={() => setWithdrawTarget(report)}
                   isWithdrawing={withdraw.isPending && withdraw.variables === report.id}
                 />
@@ -336,6 +341,25 @@ export function MyReportsPage() {
       )}
 
       {/* Dialog Modals */}
+      {/* The owner's side of every conversation on one report. A sheet, so the card it
+          belongs to stays on screen behind it. */}
+      <Sheet open={messagesFor !== null} onOpenChange={(open) => !open && setMessagesFor(null)}>
+        <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
+          {messagesFor && (
+            <div className="flex flex-col gap-5 p-6">
+              <SheetHeader className="gap-1 p-0">
+                <SheetTitle>Messages about your {messagesFor.itemTypeName.toLowerCase()}</SheetTitle>
+                <SheetDescription>
+                  Finders write here to say where it went. The desk handles the hand-over, so
+                  there is nothing to arrange - but a thank-you never hurts.
+                </SheetDescription>
+              </SheetHeader>
+              <MessageThread reportId={messagesFor.id} isAuthor />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       <WithdrawDialog
         report={withdrawTarget}
         onConfirm={() => withdrawTarget && withdraw.mutate(withdrawTarget.id)}
@@ -379,12 +403,14 @@ function ReportCard({
   report,
   onViewDetails,
   onEdit,
+  onMessages,
   onWithdraw,
   isWithdrawing,
 }: {
   report: LostReportListItem
   onViewDetails: () => void
   onEdit: () => void
+  onMessages: () => void
   onWithdraw: () => void
   isWithdrawing: boolean
 }) {
@@ -447,6 +473,18 @@ function ReportCard({
             >
               Details
             </Button>
+
+            {!isWithdrawn && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onMessages}
+                className="shrink-0 border-foreground/15 bg-background/60 hover:bg-background"
+              >
+                <MessageSquareIcon className="size-3.5" aria-hidden="true" />
+                Messages{report.messageCount > 0 && ` (${report.messageCount})`}
+              </Button>
+            )}
 
             {report.status === 'Active' && (
               <>

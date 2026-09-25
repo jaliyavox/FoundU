@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeOffIcon,
+  HashIcon,
+  Loader2Icon,
   PackageSearchIcon,
   PlusIcon,
   RotateCwIcon,
@@ -26,14 +28,16 @@ import {
 } from '@/components/ui/table'
 import { FormSelect } from '@/features/reports/form-select'
 import { formatDateTime } from '@/features/reports/reports-api'
+import { toast } from 'sonner'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { getItems, ITEM_STATUS_STYLES } from './items-api'
+import { getFoundPostByCode, getItems, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
 
 const PAGE_SIZE = 15
 
 const STATUS_OPTIONS = [
   { value: 'Unclaimed', label: 'In storage' },
+  { value: 'Posted', label: 'Posted by finders' },
   { value: 'all', label: 'Everything' },
   { value: 'Claimed', label: 'Claimed' },
   { value: 'Returned', label: 'Returned' },
@@ -133,6 +137,10 @@ export function ItemsPage() {
             Search
           </Button>
         </form>
+
+        <PanelDivider />
+
+        <PostByCodeBox />
       </DashboardPanel>
 
       {isPending ? (
@@ -226,7 +234,7 @@ export function ItemsPage() {
                       </TableCell>
 
                       <TableCell className="text-sm text-muted-foreground">
-                        {item.storageLocationName}
+                        {item.storageLocationName ?? (item.finderName ? `With ${item.finderName}` : '-')}
                       </TableCell>
 
                       <TableCell>
@@ -237,7 +245,7 @@ export function ItemsPage() {
                           )}
                         >
                           <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                          {item.status === 'Unclaimed' ? 'In storage' : item.status}
+                          {ITEM_STATUS_LABELS[item.status]}
                         </span>
                       </TableCell>
 
@@ -291,5 +299,52 @@ export function ItemsPage() {
         </>
       )}
     </section>
+  )
+}
+
+
+/**
+ * A finder at the counter says "I posted it - the code is 783 971". This pulls the post up
+ * so the desk confirms it rather than typing it in again.
+ */
+function PostByCodeBox() {
+  const navigate = useNavigate()
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const ready = code.replace(/\s/g, '').length === 6
+
+  async function lookUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!ready) return
+    setBusy(true)
+    try {
+      const post = await getFoundPostByCode(code.replace(/\s/g, ''))
+      navigate(`/items/${post.id}`)
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={lookUp} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="flex flex-1 flex-col gap-2">
+        <Label htmlFor="post-code">A finder is handing something in</Label>
+        <Input
+          id="post-code"
+          value={code}
+          onChange={(event) => setCode(event.target.value.replace(/[^\d\s]/g, '').slice(0, 7))}
+          inputMode="numeric"
+          placeholder="The code from their post"
+          className="font-mono text-lg tracking-[0.2em]"
+          autoComplete="off"
+        />
+      </div>
+      <Button type="submit" variant="outline" disabled={!ready || busy}>
+        {busy ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <HashIcon aria-hidden="true" />}
+        Pull up the post
+      </Button>
+    </form>
   )
 }

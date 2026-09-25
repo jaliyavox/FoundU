@@ -56,10 +56,11 @@ public class AdminAnalyticsService : IAdminAnalyticsService
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => DateOnly.FromDateTime(x.Key), x => x.Count, cancellationToken);
 
-        // "Returned" is the day a claim was approved - the decision row is the record of it.
-        var returnedPerDay = await _db.ApprovalDecisions
-            .Where(d => d.Decision == ApprovalDecisionType.Approved && d.DecidedAt >= since)
-            .GroupBy(d => d.DecidedAt.Date)
+        // "Returned" is the day the owner collected it - approval reserves the item, the
+        // collection code being used is when it actually leaves the shelf.
+        var returnedPerDay = await _db.Claims
+            .Where(c => c.CollectedAt != null && c.CollectedAt >= since)
+            .GroupBy(c => c.CollectedAt!.Value.Date)
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => DateOnly.FromDateTime(x.Key), x => x.Count, cancellationToken);
 
@@ -102,11 +103,11 @@ public class AdminAnalyticsService : IAdminAnalyticsService
         // Posted -> approved, per approved claim. The two timestamps come back and the
         // subtraction happens here: approvals number in the tens for a campus desk, and the
         // date-diff functions differ per database. A mean, and the label says so.
-        var daysToReturn = (await _db.ApprovalDecisions
-                .Where(d => d.Decision == ApprovalDecisionType.Approved)
-                .Select(d => new { Posted = d.Claim.LostReport.CreatedAt, Approved = d.DecidedAt })
+        var daysToReturn = (await _db.Claims
+                .Where(c => c.CollectedAt != null)
+                .Select(c => new { Posted = c.LostReport.CreatedAt, Collected = c.CollectedAt!.Value })
                 .ToListAsync(cancellationToken))
-            .Select(x => (x.Approved - x.Posted).TotalDays)
+            .Select(x => (x.Collected - x.Posted).TotalDays)
             .ToList();
 
         var resolved = await _db.LostReports.CountAsync(r => r.Status == LostReportStatus.Resolved, cancellationToken);

@@ -158,6 +158,34 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
 
+### 2026-09-22 - the product model: codes, finder posts, two-way threads (steps 1-4 of 5)
+
+The owner's flow as described - lose it, post it, hear from a finder, finder hands it to
+security with a code, owner collects with a code - and the finder's flow - found it while
+walking, post it, the agent or the owner matches it, walk it to a desk.
+
+1. **Hand-in code** on every lost report (6 digits, cryptographic, public - it routes, it does
+   not prove). Staff type it on the log-item form and the item is linked and the owner told.
+2. **Finder-posted found items** - a `FoundReport` in a new `Posted` state (StaffId and
+   StorageLocationId nullable, FinderId added). Teasers on a Found board; nobody can claim one
+   until a desk confirms it, which is when the hidden detail gets written. The owner can say
+   "that is mine" from the board; the matching agent is asked about the five newest open
+   reports in the category under a 20-second budget.
+3. **Collection code** on approval. Approval now reserves the item (Claimed); the owner
+   quotes the code at the desk, `POST /api/claims/collect` returns it and resolves the
+   report. Staff never receive the code - every staff-facing response blanks it, and the
+   end-to-end test caught the decision response leaking it before that helper existed.
+4. **Two-way messages** - one thread per finder per report. The author replies into a thread
+   and never opens one.
+
+All four are on web and mobile. Screens: Lost / Found board toggle, post-found form, desk
+pull-up-by-code and confirm panel, collect box on the staff queue, message threads on both
+ends, codes wherever a person needs to read one out.
+
+**Left of the five: the owner-facing agent intake** ("Ask FoundU") - guided questions, search
+the boards, either open a claim with instructions or draft the lost post. Everything it
+would call already exists.
+
 ### 2026-09-22 - the AI week (PRs #13-#35)
 
 Forty-eight commits from Braveena and Parami in nine days. **Steps 10-13 are in**: an Ollama

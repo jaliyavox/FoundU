@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/theme/brand.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -142,6 +144,14 @@ class _ClaimDetailPageState extends ConsumerState<ClaimDetailPage> {
                       ),
                     ),
                   ),
+                  if (claim.collectionCode != null) ...[
+                    const SizedBox(height: 16),
+                    _CollectionCode(code: claim.collectionCode!),
+                  ],
+                  if (claim.collectedAt != null) ...[
+                    const SizedBox(height: 16),
+                    const _Notice('Collected. That closes the report - thank you for using FoundU.'),
+                  ],
                   const SizedBox(height: 16),
                   Text('Your lost report',
                       style: Theme.of(context).textTheme.titleMedium),
@@ -226,4 +236,47 @@ class _Notice extends StatelessWidget {
           color: const Color(0xFFFFF3E0),
           borderRadius: BorderRadius.circular(8)),
       child: Text(text));
+}
+
+
+/// The owner's collection code, big enough to read across a counter. The desk types it;
+/// it works once.
+class _CollectionCode extends StatelessWidget {
+  const _CollectionCode({required this.code});
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final display = code.length == 6 ? '${code.substring(0, 3)} ${code.substring(3)}' : code;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Brand.forest,
+        borderRadius: BorderRadius.circular(Brand.radiusCard),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Your collection code', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(height: 6),
+          Text(
+            display,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 36,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 6,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Take your student ID to the desk named in your notification and quote this. It works once.',
+            style: TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
 }

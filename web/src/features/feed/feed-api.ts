@@ -4,6 +4,8 @@ import type { PagedResult } from '@/lib/api/types'
 /** Mirrors FoundU.Application.LostReports.Dtos.LostReportFeedItemDto. */
 export interface LostReportFeedItem {
   id: string
+  /** Six digits a finder quotes at the desk. Routing, not proof - which is why it is public. */
+  handInCode: string
   postedByName: string
   /** Server-computed: true when the signed-in caller posted this. */
   isMine: boolean
@@ -97,11 +99,73 @@ export const registerFoundClaim = (reportId: string) =>
 export interface LostReportMessage {
   id: string
   senderName: string
+  /** True when the reader wrote it - the thread lays out as a conversation. */
+  isMine: boolean
+  /** The other person in this thread; what the author passes back as recipientId to reply. */
+  counterpartId: string
+  counterpartName: string
   body: string
   isRead: boolean
   createdAt: string
 }
 
-/** Authenticated - this is the point of the sign-in gate on the feed. */
-export const sendMessage = (reportId: string, body: string) =>
-  api.post<LostReportMessage>(`/api/lost-reports/${reportId}/messages`, { body })
+/**
+ * Authenticated - this is the point of the sign-in gate on the feed. A finder leaves
+ * recipientId empty; the author names the finder they are replying to.
+ */
+export const sendMessage = (reportId: string, body: string, recipientId?: string) =>
+  api.post<LostReportMessage>(`/api/lost-reports/${reportId}/messages`, { body, recipientId })
+
+/** The reader's threads on a report. 403 for someone who is in none of them. */
+export const getMessages = (reportId: string) => api.get<LostReportMessage[]>(`/api/lost-reports/${reportId}/messages`)
+
+/** "483921" reads as "483 921" on screen. */
+export const displayCode = (code: string) => (code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code)
+
+/* --------------------------------------------------------------- found posts */
+
+/** Mirrors FoundPostFeedItemDto - a finder's post before it reaches a desk. */
+export interface FoundPostItem {
+  id: string
+  postedByName: string
+  isMine: boolean
+  categoryName: string
+  itemTypeName: string
+  foundLocationName: string
+  description: string
+  primaryColor: string | null
+  foundAt: string
+  status: 'Posted' | 'Unclaimed' | 'Claimed' | 'Returned' | 'Disposed'
+  /** Only on your own post - what you quote at the desk. */
+  handInCode: string | null
+  createdAt: string
+}
+
+export function getFoundFeed({ page, pageSize, search, categoryId }: FeedQuery & { categoryId?: string | null }) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (search?.trim()) params.set('search', search.trim())
+  if (categoryId) params.set('categoryId', categoryId)
+  return api.get<PagedResult<FoundPostItem>>(`/api/found-posts/feed?${params}`, { optionalAuth: true })
+}
+
+export interface CreateFoundPostInput {
+  categoryId: string
+  itemTypeId: string
+  foundLocationId: string
+  description: string
+  primaryColor?: string
+  foundAt: string
+  lostReportHandInCode?: string
+}
+
+export const postFound = (input: CreateFoundPostInput) => api.post<FoundPostItem>('/api/found-posts', input)
+
+/** "That is mine" - names one of the caller's own reports. The finder is told to hand it in. */
+export const recogniseFoundPost = (id: string, lostReportId: string) =>
+  api.post<FoundPostItem>(`/api/found-posts/${id}/recognise`, { lostReportId })
+
+export const withdrawFoundPost = (id: string, reason?: string) =>
+  api.post<FoundPostItem>(`/api/found-posts/${id}/withdraw`, { reason })
+
+export const getMyFoundPosts = (page = 1, pageSize = 20) =>
+  api.get<PagedResult<FoundPostItem>>(`/api/found-posts/mine?page=${page}&pageSize=${pageSize}`)

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../feed/presentation/message_thread.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -438,6 +440,18 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                    ],
+
+                    if (!isWithdrawn) ...[
+                      const Text('Messages', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Finders write here to say where it went. The desk handles the hand-over.',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 12),
+                      MessageThread(reportId: widget.reportId, isAuthor: true),
+                      const SizedBox(height: 20),
                     ],
 
                     // Post timestamp
