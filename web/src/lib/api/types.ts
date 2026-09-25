@@ -1,0 +1,55 @@
+/** Mirrors FoundU.Domain.Enums.UserRole. */
+export type UserRole = 'Student' | 'Staff' | 'Admin'
+
+/** Mirrors FoundU.Application.Auth.Dtos.UserDto. */
+export interface User {
+  id: string
+  fullName: string
+  email: string
+  role: UserRole
+  studentNumber: string | null
+  isSuspended: boolean
+}
+
+/** Identity fields available from both login/refresh and /api/auth/me. */
+export type AuthUser = Pick<User, 'id' | 'fullName' | 'email' | 'role'>
+
+/** /me is a claims projection, not the full UserDto returned by login. */
+export interface MeResponse {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+}
+
+/** Mirrors FoundU.Application.Auth.Dtos.AuthResponse. */
+export interface AuthResponse {
+  accessToken: string
+  accessTokenExpiresAtUtc: string
+  refreshToken: string
+  refreshTokenExpiresAtUtc: string
+  user: User
+}
+
+/** The RFC 7807 envelope GlobalExceptionHandler returns for every error. */
+export interface ProblemDetails {
+  type?: string
+  title?: string
+  status?: number
+  detail?: string
+  instance?: string
+  traceId?: string
+  /** Field-level messages, present only on 400s raised by ValidationAppException. */
+  errors?: Record<string, string[]>
+}
+
+/** Mirrors FoundU.Application.Common.Pagination.PagedResult<T>. */
+export interface PagedResult<T> {
+  items: T[]
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+}

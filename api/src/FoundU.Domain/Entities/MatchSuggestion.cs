@@ -15,6 +15,13 @@ public class MatchSuggestion : BaseEntity
     /// <summary>0.00 - 1.00 confidence score produced by the Matching Agent.</summary>
     public decimal MatchScore { get; set; }
 
+    /// <summary>
+    /// A line from the staff member who made the link by hand, shown to the student
+    /// ("this came in from the library desk on Tuesday"). Null for agent-generated rows,
+    /// which explain themselves through MatchingFactorsJson instead.
+    /// </summary>
+    public string? StaffNote { get; set; }
+
     public string? MatchingFactorsJson { get; set; }
     public string? ConflictingFactorsJson { get; set; }
 

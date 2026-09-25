@@ -1,43 +1,152 @@
 using FoundU.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using FoundU.Api.Filters;
+using FoundU.Api.Middleware;
+using FoundU.Domain.Entities;
+using FoundU.Infrastructure;
+using FoundU.Infrastructure.Persistence.Seed;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.OpenApi.Models;
+using Serilog;
+
+// Bootstrap logger - active before the full DI container exists, so startup failures are logged too.
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
+
+try
+{
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((context, services, configuration) => configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .WriteTo.Console());
 
-builder.Services.AddDbContext<FoundUDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("FoundUDatabase")));
+builder.Services.AddControllers(options =>
+    {
+        // Runs FluentValidation against every request DTO before the action executes -
+        // see /docs/api/conventions.md "Validation".
+        options.Filters.Add<ValidationFilter>();
+    });
 
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-// CORS for the React dev origin. Origins tightened / moved to config in Step 3.
-const string DevCorsPolicy = "DevCors";
+builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new OpenApiInfo { Title = "FoundU API", Version = "v1" });
+
+        var bearerScheme = new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Paste the access token only - Swagger adds the 'Bearer ' prefix automatically.",
+            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+        };
+
+        options.AddSecurityDefinition("Bearer", bearerScheme);
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement { { bearerScheme, Array.Empty<string>() } });
+    });
+
+builder.Services.AddFoundUInfrastructure(builder.Configuration);
+
+    // .NET 8 IExceptionHandler pipeline - GlobalExceptionHandler turns every exception into the
+    // standard ProblemDetails envelope. See /docs/api/conventions.md "Error envelope".
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+    builder.Services.AddProblemDetails();
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? new[]
+        {
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://localhost:2106",
+            "http://localhost:11836",
+            "http://127.0.0.1:11836"
+        };
+
 builder.Services.AddCors(options =>
-{
-    options.AddPolicy(DevCorsPolicy, policy => policy
-        .WithOrigins("http://localhost:5173")
-        .AllowAnyHeader()
-        .AllowAnyMethod());
-});
+    {
+        options.AddPolicy("ReactDev", policy =>
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin))
+                    return false;
+
+                if (allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+                    return true;
+
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    return false;
+
+                return uri.Host is "localhost" or "127.0.0.1" or "::1";
+            });
+
+            policy.AllowAnyHeader();
+            policy.AllowAnyMethod();
+            policy.AllowCredentials();
+        });
+    });
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
     using var scope = app.Services.CreateScope();
-    await FoundU.Infrastructure.Persistence.Seed.DevelopmentDataSeeder.SeedAsync(
-        scope.ServiceProvider.GetRequiredService<FoundUDbContext>(),
-        scope.ServiceProvider.GetRequiredService<IConfiguration>());
-}
+        await DevelopmentDataSeeder.SeedAsync(
+            scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>(),
+            scope.ServiceProvider.GetRequiredService<FoundUDbContext>(),
+            scope.ServiceProvider.GetRequiredService<IConfiguration>());
+    }
+
+// Uploaded photos are served from wwwroot. The feed is public, so these are too.
+//
+// The directory is created here rather than relied upon: if wwwroot does not exist when the
+// host starts, WebRootPath is null and UseStaticFiles() silently serves nothing - uploads
+// save fine and then 404. An explicit provider makes the root unambiguous either way.
+var webRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(webRoot);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(webRoot),
+});
 
 app.UseHttpsRedirection();
-app.UseCors(DevCorsPolicy);
+app.UseCors("ReactDev");
+
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
 
 // Exposed so WebApplicationFactory-based integration tests can reference the entry point.
-public partial class Program { }
+}
+catch (HostAbortedException)
+{
+    throw;
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "FoundU API terminated unexpectedly during startup");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+
+public partial class Program;

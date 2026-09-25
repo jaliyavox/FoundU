@@ -11,6 +11,11 @@ public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
         builder.ToTable("Claims");
         builder.HasKey(c => c.Id);
 
+        builder.Property(c => c.CollectionCode).HasMaxLength(6).IsFixedLength();
+        builder.Property(c => c.CollectedAt).HasColumnType("timestamptz");
+        // The desk looks an approved claim up by code; null rows are the vast majority.
+        builder.HasIndex(c => c.CollectionCode).HasFilter("\"CollectionCode\" IS NOT NULL");
+
         builder.Property(c => c.Status)
             .HasConversion<string>()
             .HasMaxLength(30)

@@ -1,0 +1,69 @@
+using FoundU.Application.Common.Pagination;
+using FoundU.Application.LostReports.Dtos;
+using FoundU.Application.Matching.Dtos;
+
+namespace FoundU.Application.Abstractions;
+
+/// <summary>
+/// Lost items reported by students. Ownership matters here in a way it does not for found
+/// reports: a student may only read or withdraw their own, which is why the caller's id and
+/// whether they are staff are passed in rather than inferred.
+/// </summary>
+public interface ILostReportService
+{
+    Task<LostReportDetailDto> CreateAsync(CreateLostReportRequest request, Guid studentId, CancellationToken cancellationToken = default);
+
+    Task<LostReportDetailDto> UpdateAsync(Guid id, UpdateLostReportRequest request, Guid studentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Staff/Admin view across every student's reports.</summary>
+    Task<PagedResult<LostReportListItemDto>> SearchAsync(LostReportQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>The signed-in student's own reports.</summary>
+    Task<PagedResult<LostReportListItemDto>> SearchForStudentAsync(Guid studentId, LostReportQuery query, CancellationToken cancellationToken = default);
+
+    Task<LostReportDetailDto> GetByIdAsync(Guid id, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Public, unauthenticated feed. Active reports only - withdrawn and resolved ones drop off,
+    /// so the board reflects what people are still looking for.
+    /// </summary>
+    Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(LostReportQuery query, Guid? requesterId = null, CancellationToken cancellationToken = default);
+
+    Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Raises a flag for staff attention. The report's owner may flag their own; Staff/Admin
+    /// may flag any. Nobody else - a flag is a request for a person's time.
+    /// </summary>
+    Task FlagAsync(Guid id, FlagLostReportRequest request, Guid userId, bool userIsStaff, CancellationToken cancellationToken = default);
+
+    /// <summary>Staff clearing a flag once it has been looked at.</summary>
+    Task ClearFlagAsync(Guid id, Guid staffId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MatchSuggestionDto>> GetPossibleMatchesAsync(Guid reportId, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attaches photos to a report the caller owns. Enforces the count, size and real file
+    /// type - the client's checks are a convenience, these are the ones that hold.
+    /// </summary>
+    Task<IReadOnlyList<LostReportPhotoDto>> AddPhotosAsync(Guid reportId, Guid ownerId, IReadOnlyList<PhotoUpload> uploads, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a message to the report's author. Requires a signed-in sender, who may not be
+    /// the author themselves, and only works while the report is still Active.
+    /// </summary>
+    /// <summary>Records "I found this" from a signed-in user. Idempotent per person.</summary>
+    Task<LostReportFoundClaimDto> RegisterFoundClaimAsync(
+        Guid reportId,
+        Guid finderId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A finder writing to the author, or the author replying to a finder. Threads are per
+    /// finder per report; nobody but those two and staff can read one.
+    /// </summary>
+    Task<LostReportMessageDto> SendMessageAsync(Guid reportId, Guid senderId, string body, Guid? recipientId, CancellationToken cancellationToken = default);
+
+    /// <summary>The report author's messages. Staff may also read them for dispute handling.</summary>
+    Task<IReadOnlyList<LostReportMessageDto>> GetMessagesAsync(Guid reportId, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
+}

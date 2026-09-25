@@ -1,15 +1,16 @@
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace FoundU.Infrastructure.Persistence.Seed;
 
 /// <summary>
-/// Seeds a local development/demo Admin account. Deliberately kept OUT of EF Core's HasData
-/// (migration-baked seeding) because HasData runs unconditionally in every environment,
-/// including production - which is exactly how a placeholder credential ends up looking like
-/// a real one in a deployed system.
+/// Seeds a local development/demo Admin account through UserManager, so the password goes
+/// through Identity's own PasswordHasher&lt;AppUser&gt; (never a hand-rolled hash). Deliberately
+/// kept OUT of EF Core's HasData (migration-baked seeding), because HasData runs unconditionally
+/// in every environment including production.
 ///
 /// Call this only when the hosting environment is Development, e.g. in Program.cs:
 ///
@@ -17,19 +18,21 @@ namespace FoundU.Infrastructure.Persistence.Seed;
 ///   {
 ///       using var scope = app.Services.CreateScope();
 ///       await DevelopmentDataSeeder.SeedAsync(
+///           scope.ServiceProvider.GetRequiredService&lt;UserManager&lt;AppUser&gt;&gt;(),
 ///           scope.ServiceProvider.GetRequiredService&lt;FoundUDbContext&gt;(),
 ///           scope.ServiceProvider.GetRequiredService&lt;IConfiguration&gt;());
 ///   }
 ///
 /// The admin password comes from configuration/environment variables
-/// (Seed:DevAdminPassword or DEV_ADMIN_PASSWORD), never a hardcoded hash, and a warning is
-/// logged if it falls back to the default so nobody mistakes it for a secure setup.
+/// (Seed:DevAdminPassword or DEV_ADMIN_PASSWORD), never a hardcoded hash.
 /// </summary>
 public static class DevelopmentDataSeeder
 {
-    public static async Task SeedAsync(FoundUDbContext db, IConfiguration configuration)
+    public static async Task SeedAsync(UserManager<AppUser> userManager, FoundUDbContext db, IConfiguration configuration)
     {
-        var alreadySeeded = await db.AppUsers.IgnoreQueryFilters().AnyAsync(u => u.Role == UserRole.Admin);
+        await db.Database.MigrateAsync();
+
+        var alreadySeeded = await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Role == UserRole.Admin);
         if (alreadySeeded)
         {
             return;
@@ -39,19 +42,59 @@ public static class DevelopmentDataSeeder
             ?? Environment.GetEnvironmentVariable("DEV_ADMIN_PASSWORD")
             ?? "DevOnly-ChangeMe-123!"; // clearly-labelled fallback, dev environments only
 
+        const string email = "admin@foundu.com";
+
         var admin = new AppUser
         {
             Id = SeedIds.AdminUserId,
+            UserName = email, // UserName == Email by convention - see AppUser.cs
+            Email = email,
+            EmailConfirmed = true,
             FullName = "FoundU Dev Administrator",
-            Email = "dev-admin@foundu.local",
-            NormalizedEmail = "DEV-ADMIN@FOUNDU.LOCAL",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(devPassword),
             Role = UserRole.Admin,
             IsSuspended = false,
             IsDeleted = false
         };
 
-        db.AppUsers.Add(admin);
-        await db.SaveChangesAsync();
+        var result = await userManager.CreateAsync(admin, devPassword);
+
+        if (!result.Succeeded)
+        {
+            var errors = string.Join("; ", result.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Failed to seed development Admin account: {errors}");
+        }
+
+        if (!await db.Categories.AnyAsync())
+        {
+            var electronics = new Category { Id = Guid.NewGuid(), Name = "Electronics", Description = "Laptops, phones, chargers, audio devices" };
+            var bags = new Category { Id = Guid.NewGuid(), Name = "Bags & Wallets", Description = "Backpacks, wallets, purses, pouches" };
+            var keys = new Category { Id = Guid.NewGuid(), Name = "Keys & Cards", Description = "Keys, keychains, student IDs, bank cards" };
+            var clothing = new Category { Id = Guid.NewGuid(), Name = "Clothing & Accessories", Description = "Jackets, hats, glasses, umbrellas" };
+
+            db.Categories.AddRange(electronics, bags, keys, clothing);
+
+            db.ItemTypes.AddRange(
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Laptop" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Smartphone" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Headphones / Earbuds" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = electronics.Id, Name = "Charger / Adapter" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = bags.Id, Name = "Backpack" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = bags.Id, Name = "Wallet" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = keys.Id, Name = "Keys" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = keys.Id, Name = "Student ID Card" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = clothing.Id, Name = "Jacket" },
+                new ItemType { Id = Guid.NewGuid(), CategoryId = clothing.Id, Name = "Water Bottle" }
+            );
+
+            db.CampusLocations.AddRange(
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Main Library", Building = "Library Hall" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Student Center", Building = "Building A" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Engineering Complex", Building = "Tech Block B" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Cafeteria", Building = "Student Union" },
+                new CampusLocation { Id = Guid.NewGuid(), Name = "Sports Center Gym", Building = "Athletic Annex" }
+            );
+
+            await db.SaveChangesAsync();
+        }
     }
 }

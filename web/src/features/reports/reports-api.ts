@@ -1,0 +1,259 @@
+import { api } from '@/lib/api/client'
+import type { PagedResult } from '@/lib/api/types'
+
+/* ---------------------------------------------------------------- reference */
+
+export interface ItemType {
+  id: string
+  categoryId: string
+  name: string
+}
+
+export interface Category {
+  id: string
+  name: string
+  description: string | null
+  itemTypes: ItemType[]
+}
+
+export interface CampusLocation {
+  id: string
+  name: string
+  building: string | null
+  description: string | null
+}
+
+export interface StorageLocation {
+  id: string
+  name: string
+  building: string | null
+  capacity: number | null
+}
+
+export const getCategories = () => api.get<Category[]>('/api/reference/categories')
+export const getLocations = () => api.get<CampusLocation[]>('/api/reference/locations')
+export const getStorageLocations = () => api.get<StorageLocation[]>('/api/reference/storage-locations')
+
+/* -------------------------------------------------------------- lost reports */
+
+export interface CreateLostReportInput {
+  categoryId: string
+  itemTypeId: string
+  lastSeenLocationId: string
+  description: string
+  primaryColor?: string
+  secondaryColor?: string
+  estimatedLostFromAt: string
+  estimatedLostToAt: string
+}
+
+export interface LostReportListItem {
+  id: string
+  handInCode: string
+  categoryName: string
+  itemTypeName: string
+  lastSeenLocationName: string
+  description: string
+  primaryColor: string | null
+  estimatedLostFromAt: string
+  estimatedLostToAt: string
+  status: string
+  photoUrls: string[]
+  /** Messages from finders. A message on a lost report only ever means "I found this". */
+  messageCount: number
+  /** How many people pressed "I found this" - one per person, however often they press. */
+  foundClaimCount: number
+  lastFoundClaimAt: string | null
+  createdAt: string
+}
+
+export interface LostReportQuery {
+  page: number
+  pageSize: number
+  search?: string
+  status?: string
+  categoryId?: string
+  itemTypeId?: string
+  lastSeenLocationId?: string
+  sortBy?: string
+  sortDirection?: string
+}
+
+export interface LostReportDetail {
+  id: string
+  categoryId: string
+  categoryName: string
+  itemTypeId: string
+  itemTypeName: string
+  lastSeenLocationId: string
+  lastSeenLocationName: string
+  description: string
+  primaryColor: string | null
+  secondaryColor: string | null
+  estimatedLostFromAt: string
+  estimatedLostToAt: string
+  status: string
+  withdrawReason: string | null
+  withdrawnAt: string | null
+  studentId: string
+  studentName: string
+  parsedAttributesJson: string | null
+  photos: { id: string; url: string }[]
+  isFlagged: boolean
+  flagReason: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PossibleMatch {
+  id: string
+  lostReportId: string
+  lostReportDescription: string
+  foundItem: {
+    id: string
+    categoryName: string
+    itemTypeName: string
+    foundLocationName: string
+    generalDescription: string
+    primaryColor: string | null
+    foundAt: string
+    status: string
+  }
+  status: string
+  staffNote: string | null
+  isAgentGenerated: boolean
+  matchScore: number | null
+  claimId: string | null
+  createdAt: string
+}
+
+/** Mirrors FoundU.Application.Common.PhotoRules - kept in step by hand, and by the API. */
+export const PHOTO_RULES = {
+  maxPhotos: 2,
+  maxBytes: 5 * 1024 * 1024,
+  maxSizeLabel: '5 MB',
+  accept: 'image/jpeg,image/png,image/webp',
+} as const
+
+/**
+ * Photos are attached after the report exists, because the API keys them to its id. A failure
+ * here leaves the report in place - the caller decides how loudly to complain.
+ */
+export async function uploadLostReportPhotos(reportId: string, files: File[]) {
+  const body = new FormData()
+  files.forEach((file) => body.append('photos', file))
+
+  // The shared client adds auth and refreshes expired access tokens. It also leaves the
+  // Content-Type unset for FormData so the browser can supply the multipart boundary.
+  return api.post<{ id: string; url: string }[]>(
+    `/api/lost-reports/${reportId}/photos`,
+    body,
+  )
+}
+
+export const createLostReport = (input: CreateLostReportInput) =>
+  api.post<{ id: string }>('/api/lost-reports', input)
+
+export const updateLostReport = (id: string, input: CreateLostReportInput) =>
+  api.put<LostReportDetail>(`/api/lost-reports/${id}`, input)
+
+export const getMyLostReports = (query: LostReportQuery) => {
+  const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
+  if (query.search?.trim()) params.set('search', query.search.trim())
+  if (query.status) params.set('status', query.status)
+  if (query.categoryId) params.set('categoryId', query.categoryId)
+  if (query.lastSeenLocationId) params.set('lastSeenLocationId', query.lastSeenLocationId)
+  if (query.sortBy) params.set('sortBy', query.sortBy)
+  if (query.sortDirection) params.set('sortDirection', query.sortDirection)
+  return api.get<PagedResult<LostReportListItem>>(`/api/lost-reports/mine?${params}`)
+}
+
+export const getLostReports = (query: LostReportQuery) => {
+  const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
+  if (query.search?.trim()) params.set('search', query.search.trim())
+  if (query.status) params.set('status', query.status)
+  if (query.categoryId) params.set('categoryId', query.categoryId)
+  if (query.lastSeenLocationId) params.set('lastSeenLocationId', query.lastSeenLocationId)
+  if (query.sortBy) params.set('sortBy', query.sortBy)
+  if (query.sortDirection) params.set('sortDirection', query.sortDirection)
+  return api.get<PagedResult<LostReportListItem>>(`/api/lost-reports?${params}`)
+}
+
+export const getLostReport = (id: string) =>
+  api.get<LostReportDetail>(`/api/lost-reports/${id}`)
+
+export const getPossibleMatches = (id: string) =>
+  api.get<PossibleMatch[]>(`/api/lost-reports/${id}/possible-matches`)
+
+export const flagLostReport = (id: string, reason: string, flagType?: string) =>
+  api.post<unknown>(`/api/lost-reports/${id}/flag`, { reason, flagType })
+
+export const withdrawLostReport = (id: string, reason?: string) =>
+  api.post<unknown>(`/api/lost-reports/${id}/withdraw`, { reason })
+
+/* ------------------------------------------------------------- found reports */
+
+export interface CreateFoundReportInput {
+  categoryId: string
+  itemTypeId: string
+  foundLocationId: string
+  storageLocationId: string
+  generalDescription: string
+  privateVerificationDetails?: string
+  primaryColor?: string
+  secondaryColor?: string
+  foundAt: string
+}
+
+export interface FoundReportListItem {
+  id: string
+  categoryName: string
+  itemTypeName: string
+  foundLocationName: string
+  storageLocationName: string
+  generalDescription: string
+  primaryColor: string | null
+  foundAt: string
+  status: string
+  hasVerificationDetails: boolean
+  createdAt: string
+}
+
+export interface FoundReportQuery {
+  page: number
+  pageSize: number
+  search?: string
+  status?: string
+}
+
+export const createFoundReport = (input: CreateFoundReportInput) =>
+  api.post<{ id: string }>('/api/found-reports', input)
+
+export const getFoundReports = ({ page, pageSize, search, status }: FoundReportQuery) => {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (search?.trim()) params.set('search', search.trim())
+  if (status) params.set('status', status)
+  return api.get<PagedResult<FoundReportListItem>>(`/api/found-reports?${params}`)
+}
+
+/* -------------------------------------------------------------------- shared */
+
+/** A <input type="datetime-local"> value is local wall time; the API wants UTC ISO. */
+export const toUtcIso = (localValue: string) => new Date(localValue).toISOString()
+
+/** Default the "lost between" window to the last couple of hours. */
+export function defaultWindow() {
+  const now = new Date()
+  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+  const toLocalInput = (date: Date) =>
+    new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  return { from: toLocalInput(twoHoursAgo), to: toLocalInput(now) }
+}
+
+export const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('en', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  })

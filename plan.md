@@ -9,18 +9,38 @@ scaffolded as we need them.
 
 ---
 
-## Environment status (checked 2026-08-06)
+## Environment status (re-checked 2026-08-18)
 
 | Tool | Required | Installed | Note |
 |------|----------|-----------|------|
 | Node / npm | 20+ | Yes 24.13.1 / 11.8.0 | ready for `/web` |
-| .NET SDK | 8 | Yes 8.0.423 | ready for `/api` |
-| Python | 3.11 | No, have 3.9.6 | fine to defer; upgrade before `/ai` |
+| .NET SDK | 8 | Yes 8.0.423 (+ `dotnet ef` 8.0.11) | ready for `/api` |
+| Docker | any | Yes, Desktop installed | Postgres 16 + Ollama running |
+| Python | 3.11 | No, have 3.9.6 | upgrade before `/ai` |
 | Flutter | stable | No, not installed | install before mobile phase |
-| Docker | any | No, not on PATH | needed for Postgres + Ollama compose |
 
-**Action items before later phases:** install Flutter (`brew install --cask flutter`),
-install Docker Desktop, and install Python 3.11 (`brew install python@3.11`).
+**Action items before later phases:** install Flutter (`brew install --cask flutter`)
+and Python 3.11 (`brew install python@3.11`).
+
+### Local ports (this machine)
+
+Two native EnterpriseDB PostgreSQL installs already occupy **5432** and **5433**, so
+`docker-compose.yml` maps Docker's Postgres 16 to **5434**. Teammates on a clean machine
+can use the default 5432 — just keep `appsettings.Development.json` in step.
+
+| Service | URL |
+|---------|-----|
+| PostgreSQL 16 (Docker) | `localhost:5434` — db/user/pass all `foundu` |
+| Ollama | `localhost:11434` |
+| API | `http://localhost:5292` (Swagger at `/swagger`) |
+| Web dev server | `http://localhost:5173` |
+
+`api/src/FoundU.Api/appsettings.Development.json` is **gitignored** and missing from a fresh
+clone. The API will not start without it — the JWT signing-key check rejects placeholders.
+It needs `ConnectionStrings:FoundUDatabase`, `Jwt:SigningKey`, and `Seed:DevAdminPassword`.
+
+**Dev accounts** (Development seed / registration):
+`admin@foundu.com` · `student@foundu.com` · `student2@foundu.com`
 
 ---
 
@@ -49,28 +69,30 @@ Goal: the four sub-project folders exist and each builds on its own.
 
 We can build the web dashboard's structure now and wire it to the API as the API lands.
 
-### A1 · Web shell (subset of Step 4a)
-- [ ] Scaffold Vite + React + TS in `/web`
-- [ ] Router with public + role-guarded routes (React Router)
-- [ ] TanStack Query set up
-- [ ] Typed fetch client that attaches JWT and refreshes on 401
-- [ ] App layout (sidebar + header)
-- [ ] Login page
-- [ ] Toast system
-- [ ] Feature-first folder structure
-- [ ] Env config for API base URL
+### A1 · Web shell (subset of Step 4a) — DONE 2026-08-18
+- [x] Scaffold Vite + React + TS in `/web`
+- [x] Router with public + role-guarded routes (React Router v7)
+- [x] TanStack Query set up (status-aware retries: 4xx never retried)
+- [x] Typed fetch client that attaches JWT and refreshes on 401 (single-flight refresh)
+- [x] App layout — collapsible shadcn sidebar + header, role-filtered nav
+- [x] Login page with field-level validation errors
+- [x] Toast system (sonner)
+- [x] Feature-first folder structure
+- [x] Env config for API base URL
+- [x] Tailwind v4 + shadcn/ui (`base-nova`, Base UI) — conventions in `/docs/design.md`
 
-### A2 · Auth wiring
-- [ ] Login calls `POST /api/auth/login`, stores tokens, routes by role
-- [ ] Route guards for Student / Staff / Admin
-- [ ] (Uses mock/stub API responses until `/api` auth exists — see Track C)
+### A2 · Auth wiring — DONE 2026-08-18
+- [x] Login calls `POST /api/auth/login`, stores tokens, routes by role
+- [x] Route guards for Student / Staff / Admin, with return-to-intended-URL
+- [x] Wired to the real `/api` auth (no stubs needed — Step 3 landed first)
 
 ### A3 · Feature screens (built as API endpoints come online)
-- [ ] Found-item log form + items table (staff sees private fields) — needs Step 6 API
-- [ ] Claims review queue + claim detail (approve/reject) — needs Step 7 API
-- [ ] Staff notification log — needs Step 8 API
-- [ ] Admin: users table, analytics (Recharts), dispute review — needs Step 9 API
-- [ ] Agent-run panel on claim detail — needs Step 13 API
+- [x] Found-item log form + items table (staff sees private fields) — DONE 2026-09-09
+- [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
+- [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
+- [x] Notification bell + list (both roles) — DONE 2026-09-09
+- [x] Admin: users table, analytics (Recharts), dispute review — DONE 2026-09-15
+- [ ] Agent-run panel on claim detail — the AgentRun trail is written by the API but nothing reads it
 
 ### A4 · Web polish
 - [ ] Loading / empty / error states on every list, form, detail view
@@ -81,15 +103,15 @@ We can build the web dashboard's structure now and wire it to the API as the API
 ## Track B — FLUTTER APP (after web is functional)
 
 ### B1 · Mobile shell (subset of Step 4b)
-- [ ] `flutter create` in `/mobile`, feature-first structure
-- [ ] go_router, Riverpod
-- [ ] Dio client with auth interceptor
-- [ ] flutter_secure_storage for tokens
-- [ ] Light theme + login screen against `POST /api/auth/login`, route by role
+- [x] `flutter create` in `/mobile`, feature-first structure — Braveena, PR #10
+- [x] go_router, Riverpod — PR #10
+- [x] Dio client with auth interceptor — PR #10
+- [x] flutter_secure_storage for tokens — PR #10
+- [x] Login screen against `POST /api/auth/login`, splash -> login -> home — PR #10
 
 ### B2 · Feature screens
-- [ ] Report-lost form with camera/gallery picker + browse-found list (Step 6)
-- [ ] Claim button, answer-question screen, claim status view (Step 7)
+- [x] Report-lost form — Parami, PR #13
+- [x] Claim, answer-question screen, claim status — Braveena, PR #16
 - [ ] FCM setup, inbox with unread badges + deep links (Step 8)
 
 ### B3 · Mobile polish
@@ -101,13 +123,15 @@ We can build the web dashboard's structure now and wire it to the API as the API
 
 The web app needs real endpoints to be more than a shell. Minimum to unblock Track A:
 
-- [ ] **Step 2** — EF Core domain model + initial migration (schema is the contract)
-- [ ] **Step 3** — JWT auth + Identity, roles, ProblemDetails envelope, FluentValidation, Swagger, `/docs/api-conventions.md`
-- [ ] **Step 6** — Reporting slice API
-- [ ] **Step 7** — Claims + staff review API
-- [ ] **Step 8** — Notifications + resolution API
-- [ ] **Step 9** — Admin + analytics + dispute API
-- [ ] **Step 5 / 10–13** — AI service + agent nodes + .NET<->AI integration
+- [x] **Step 2** — EF Core domain model + initial migration (25 entities, 27 tables, taxonomy seeded via `HasData`)
+- [x] **Step 3** — JWT auth + Identity, roles, ProblemDetails envelope, FluentValidation, Swagger
+      *(`/docs/api/conventions.md` written 2026-09-15)*
+- [x] **Step 6** — Reporting slice API (reference lookups, found reports, lost reports)
+- [x] **Step 7** — Claims + staff review API
+- [x] **Step 8** — Notifications + resolution API
+- [x] **Step 9** — Admin + analytics + dispute API — DONE 2026-09-15
+- [x] **Step 5** — AI service + LangGraph graph + `POST /agents/run` — Braveena, PR #11 (every node is a stub)
+- [x] **Steps 10–13** — description parser, matching, verification, coordinator; Ollama LLM provider; .NET clients for all three with service auth — Braveena + Parami, PRs #14–#35 (2026-09-20/22)
 
 ---
 
@@ -125,6 +149,269 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 10. **B1–B3** — Flutter app (login -> features -> polish)
 11. **Step 5 / 10–13** — AI agents + integration
 12. **Steps 14–17** — tests, docs, seed data, demo
+
+---
+
+---
+
+## Progress log
+
+Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-22 - the product model: codes, finder posts, two-way threads (steps 1-4 of 5)
+
+The owner's flow as described - lose it, post it, hear from a finder, finder hands it to
+security with a code, owner collects with a code - and the finder's flow - found it while
+walking, post it, the agent or the owner matches it, walk it to a desk.
+
+1. **Hand-in code** on every lost report (6 digits, cryptographic, public - it routes, it does
+   not prove). Staff type it on the log-item form and the item is linked and the owner told.
+2. **Finder-posted found items** - a `FoundReport` in a new `Posted` state (StaffId and
+   StorageLocationId nullable, FinderId added). Teasers on a Found board; nobody can claim one
+   until a desk confirms it, which is when the hidden detail gets written. The owner can say
+   "that is mine" from the board; the matching agent is asked about the five newest open
+   reports in the category under a 20-second budget.
+3. **Collection code** on approval. Approval now reserves the item (Claimed); the owner
+   quotes the code at the desk, `POST /api/claims/collect` returns it and resolves the
+   report. Staff never receive the code - every staff-facing response blanks it, and the
+   end-to-end test caught the decision response leaking it before that helper existed.
+4. **Two-way messages** - one thread per finder per report. The author replies into a thread
+   and never opens one.
+
+All four are on web and mobile. Screens: Lost / Found board toggle, post-found form, desk
+pull-up-by-code and confirm panel, collect box on the staff queue, message threads on both
+ends, codes wherever a person needs to read one out.
+
+**Left of the five: the owner-facing agent intake** ("Ask FoundU") - guided questions, search
+the boards, either open a claim with instructions or draft the lost post. Everything it
+would call already exists.
+
+### 2026-09-22 - the AI week (PRs #13-#35)
+
+Forty-eight commits from Braveena and Parami in nine days. **Steps 10-13 are in**: an Ollama
+LLM provider, LLM-assisted description parsing and verification questions, a matching agent
+behind a tool registry with checkpointed LangGraph state, a coordinator, authenticated
+calls from ASP.NET (`MatchingAgentClient`, `DescriptionParserAgentClient`,
+`VerificationAgentClient`), and staff controls on the web for AI matching and question
+generation. Flutter gained the report-lost flow (Parami) and the claims verification
+workflow (Braveena). Tests: API 15 -> 87, web 24 -> 34, AI 5 -> 130. The root README now
+carries a full-stack demo start-up and a live AI demo flow.
+
+**Still open after this:** the mobile notifications inbox (B2's last item - nothing in
+`/mobile` mentions notifications), the agent-run panel on claim detail (the trail is written,
+nothing reads it), Step 16 diagrams, B3/A4 polish, and the test accounts in the dev database.
+
+### 2026-09-15 - Step 9 finished, the flag hole closed, web tests, API conventions
+
+- **Flags.** `POST /flag` now checks who is asking (owner of that report, or Staff/Admin);
+  it also had no validator, so an empty reason reached `.Trim()` and threw a 500. `FlaggedBy`
+  recorded (migration `AddLostReportFlaggedBy`), `POST /unflag` for staff, `?flagged=true` on
+  the staff list. `UpdateLostReportRequest` had no validator either - added.
+- **Analytics** - `GET /api/admin/analytics/overview` and `/admin/analytics` with Recharts.
+  The three-series palette was validated for colour-vision separation on both surfaces; the
+  brand greens alone fail (they are a ramp), so they carry the single-series bars instead.
+- **Disputes** - `POST /api/claims/{id}/overturn` (Admin) turns a rejection into an approval
+  through the normal approval path, recorded as an override next to the original decision.
+  Only rejections, and only while the item is still in storage. `/admin/moderation` lists
+  flagged reports and rejected claims. Admin nav is now Analytics / Moderation / Users.
+- **Web tests exist** - Vitest, `npm test`, in CI. 24 tests over the logic that decides what a
+  screen says. The first run caught a real bug: `timeAgo` labelled every value one unit too
+  small, so eight days read as "yesterday" and three weeks as "3 days ago". Fixed and pinned.
+- **`/docs/api/conventions.md`** written, at the path the code comments point to.
+- Both admin pages screenshotted in light and dark via headless Chrome over CDP
+  (no Playwright on this machine); the line chart moved from a smoothed curve to straight
+  segments because the curve dipped below zero between a busy day and a quiet one.
+
+### 2026-09-14 - teammates' PRs #9-#12 merged
+
+- **#9 Braveena** - web auth client hardened: session versioning, refresh failure split into
+  "rejected" vs "server down", `FormData` bodies (photo upload no longer hand-rolls fetch).
+- **#10 Braveena** - Flutter shell, **B1 done**: real `flutter create`, go_router, Riverpod, Dio
+  auth interceptor, secure token storage, splash -> login -> home.
+- **#11 Braveena** - **Step 5 done**: compiled LangGraph `StateGraph` routing to four nodes and
+  `POST /agents/run`. Every node returns a stub - Steps 10-13 are the nodes themselves.
+- **#12 Parami** - My reports gains search/filter/sort, an edit dialog and a detail dialog;
+  `PUT /api/lost-reports/{id}`, `/possible-matches`, `/flag`; seeder now runs `MigrateAsync()`
+  on startup (no more `dotnet ef database update` locally).
+
+**Open from #12:** `POST /flag` has no ownership or role check - any signed-in user can flag
+any report - and nothing on the staff side reads `IsFlagged` yet, so the flag goes nowhere.
+`FlagType` is ignored. The seeder's category block is dead code (`HasData` already seeds them).
+
+### 2026-09-09 - Step 8 notifications
+
+Until now a student only learned that their bag had turned up by opening the dashboard and
+looking. Every event in the flow now reaches the person it concerns.
+
+- **`INotificationService.Queue`** adds the row **without saving**: the caller's own
+  `SaveChanges` commits it, so a notification and the event it describes land in one
+  transaction. A claim that was approved but whose owner was never told is a bug that only
+  shows up as a person waiting.
+- **Endpoints** - `GET /api/notifications`, `GET /unread-count`, `POST /{id}/read`,
+  `POST /read-all`. Every route is scoped to the caller; there is no route that reads someone
+  else's, for any role. Reading a notification that is not yours returns **404, not 403** -
+  the difference would confirm the id exists.
+- **Two new `NotificationType` values** (`ItemReportedFound`, `MessageReceived`) for the feed
+  flow the Step 2 model predated. The column is a string conversion, so no migration.
+- Approval sends **two**: the outcome, and where to collect it. They answer different
+  questions, and the second is the one someone re-reads on the way across campus.
+- A message notification **quotes the message** rather than saying "you have a new message",
+  which makes someone open the app to learn something they could have been told.
+- Pressing "I found this" twice notifies once - one finder should not look like two.
+- **The bell** sits in the dashboard header: polled every 60s (no socket, and a minute of
+  staleness is honest here), badge, list, mark-one/mark-all, and opening a row marks it read
+  and navigates to what it is about.
+
+Verified end to end: seven notifications from one walk-through, in order, each addressed to
+the right person, with the finder's own count staying at zero.
+
+### 2026-09-09 - staff found-item screens
+
+The last A3 screen that Step 6 had already unblocked, and the staff half of the match bridge -
+until now staff could only link an item to a report through curl.
+
+- **`/items`** - the items table. Defaults to what is still in storage, because that is the
+  working set: a desk needs to know what it is holding, not everything it ever held. Search,
+  status filter, paging.
+- **`/items/new`** - the log form. One screen, not a wizard: a student fills in a report on a
+  phone after losing something, but this is typed at a counter with the item in hand.
+- **`/items/:id`** - detail, plus **Suggest to a report**, which creates the match suggestion
+  the student then sees.
+- The hidden verification detail gets **its own panel** on both screens rather than sitting
+  among the other fields. It is the one thing on the page that must not be read aloud to
+  whoever is standing at the counter, and the form says so plainly - including "leave it blank
+  if there is genuinely nothing distinctive, do not invent one".
+- The table shows only **whether** a hidden detail was recorded, never the detail.
+
+Contracts checked against the live API: the table query, search, the detail (403 for a
+student), the active-report picker, and the suggestions already on an item.
+
+### 2026-09-09 - claims screens and the staff match bridge
+
+Step 7 shipped an API with no way in: found reports are staff-only on purpose, and the thing
+meant to introduce a student to an item - `MatchSuggestion`, written by the Matching Agent -
+belongs to Step 11, which is blocked on Python 3.11. So the manual half of that bridge now
+exists. **Staff link an item to a lost report by hand; the student sees it on their reports and
+claims from there.** `GeneratedByAgentRunId` stays null, and when the agent lands it writes the
+same rows without the screens changing.
+
+- **New endpoints** - `POST /api/match-suggestions` (Staff), `GET /mine` (Student),
+  `GET /for-item/{id}` (Staff), `POST /{id}/dismiss` (Student).
+- **Migration** `20260909120456_AddMatchSuggestionStaffNote` - a line the student reads, which
+  does not belong in the agent's `MatchingFactorsJson` column.
+- `MatchScore` is **hidden** for hand-made links rather than faked. A person comparing two
+  records has no confidence score, and a number that means nothing is worse than none.
+- Opening a claim confirms the suggestion that led to it, with status history.
+- **Screens:** suggestions panel on My reports and My claims; `/my-claims` list; `/claims`
+  staff queue (oldest first, defaults to what needs attention); one `/claims/:id` detail for
+  both sides - students answer, staff ask and decide. Two screens for one record drift apart,
+  and the API already decides who may see it.
+- Whether an answer was judged correct is never rendered, matching the API.
+
+**Still no notifications.** A student only discovers a suggestion by opening the dashboard.
+That is Step 8, and it is the next thing worth building.
+
+### 2026-08-19 - Step 7 claims + staff review API
+
+`Administration` was merged into `main` first, so the report flow, dashboard panels and found
+claims are on one line of history again.
+
+**Endpoints** (`/api/claims`) - no migration needed, Step 2 already modelled every entity:
+
+| Verb | Route | Who | What |
+| --- | --- | --- | --- |
+| POST | `/api/claims` | Student | Claim a found item against your own lost report |
+| GET | `/api/claims/mine` | Student | Your claims, newest first |
+| GET | `/api/claims` | Staff/Admin | The review queue, **oldest first** - longest wait is worked next |
+| GET | `/api/claims/{id}` | both | Students read only their own |
+| POST | `/api/claims/{id}/questions` | Staff/Admin | Write the verification questions |
+| POST | `/api/claims/{id}/answers` | Student | Answer every outstanding question at once |
+| POST | `/api/claims/{id}/decision` | Staff/Admin | Approved / Rejected / RevisionRequested |
+| POST | `/api/claims/{id}/cancel` | Student | Give up on your own claim |
+
+**Status wiring.** A claim is what finally moves a lost report off `Active`: creating one sets
+it to `Matched`, approval sets it to `Resolved` and the found item to `Returned`. Rejection or
+cancellation puts the report back to `Active` unless another claim of theirs is still open, so
+nothing gets stranded on `Matched`. Approving one claim rejects every other open claim on the
+same item with "Another claim for this item was approved."
+
+This is what makes the progress track on the report card real - before Step 7 nothing in the
+API ever set `Matched` or `Resolved`, so a report could never advance past "someone found it".
+
+**The privacy line.** `FoundReport.PrivateVerificationDetails` never enters a student-reachable
+projection; claim detail projects the item through `FoundReportSummaryDto`, which is the
+student-safe shape. `ClaimAnswer.IsCorrect` is also withheld from students - telling a claimant
+which answers passed hands a fraudulent one a feedback loop for guessing the rest. Verified by
+dumping every student-reachable payload and grepping it.
+
+**Verified against the database** (spare API on 5299, so it never touched the dev instance):
+duplicate claim 409; rival reading another student's claim 403; partial answers 400 with the
+count outstanding; approve -> claim Approved, item Returned, report Resolved; deciding twice
+409; reject -> report back to Active, item back to Unclaimed; RevisionRequested -> student
+rewrites the same answer -> UnderReview; cancel -> report back to Active; student hitting the
+staff queue 403.
+
+**Not built, deliberately.** `VerificationQuestion.GeneratedByAgentRunId` stays null and
+`ClaimAnswer.IsCorrect` stays null - both belong to the Verification Agent in Step 12. Staff
+write the questions and judge the answers by hand until then, which is a working desk process,
+not a stub.
+
+### 2026-08-19 - public landing, brand, and the lost feed
+
+- **Brand applied** - four greens (mist/sage/green/forest) as `--brand-*` tokens, logo mark
+  (`FoundUMark`/`FoundULogo`) plus favicon. Full reference in **`/docs/design.md`**.
+- **Landing page** - dark bento sections: animated hero, capability strip, How it works,
+  parallax divider (light band), Features, FAQ (light band), CTA, footer. Reusable shells live
+  in `components/landing/bento.tsx`.
+- **Auth pages** - `/login` and `/register` share `AuthLayout` (split form + brand panel with a
+  four-step process animation). Register wires to `POST /api/auth/register`.
+- **Lost feed** - **new public endpoint `GET /api/lost-reports/feed`**, anonymous, active
+  reports only, paginated and searchable. Returns the poster's display name and **no other
+  personal data** (no email, student number or user id). Page at `/feed`, open to visitors;
+  posting requires an account.
+- **Model change:** lost reports are now publicly listable. This reverses the earlier
+  "nothing student-facing is published" stance - found items remain staff-only, which is what
+  protects claim verification.
+- **House style:** no pill/badge "tags" anywhere - eyebrows are plain
+  `text-sm font-medium text-brand-green`. Plain `-` instead of en/em dashes in UI copy.
+
+### 2026-08-18 — Step 6 reporting API
+
+- **Reference lookups** — `GET /api/reference/{categories,locations,storage-locations}`.
+  Categories return their item types nested so one call fills both dropdowns.
+- **Found reports** (Staff/Admin) — create, paged/filtered/sorted list, detail.
+- **Lost reports** — students create, read and withdraw their own; Staff/Admin list and read all.
+- `PrivateVerificationDetails` appears only in the Staff detail DTO. The list DTO exposes a
+  `hasVerificationDetails` boolean instead, and free-text search deliberately does **not** cover
+  that column — a searchable secret is not a secret.
+- Sorting goes through an allow-list, never string-interpolated SQL.
+- **Behaviour change:** `PolicyNames.Staff` was `RequireRole(Staff)`, which locked Admins out of
+  every staff endpoint. Now `RequireRole(Staff, Admin)`. `Student` stays exclusive.
+- Verified against the live DB: 201 on create, 400 on category/item-type mismatch and unknown
+  status, 401 unauthenticated, 403 for student→staff, admin→student and student→other-student's
+  report, 409 on double withdraw.
+
+### 2026-08-18 — A1/A2 web shell
+
+- Replaced the Vite starter with the real shell (see A1/A2 above).
+- Tailwind v4 + shadcn/ui installed; UI conventions written up in **`/docs/design.md`** — read it
+  before writing screens.
+- **Gotcha:** this shadcn style is built on Base UI, so composition uses `render={<Link/>}`,
+  **not** Radix's `asChild`. Most tutorials online show the wrong one.
+- **Gotcha:** the `@/` alias must be declared in **both** `tsconfig.json` and `tsconfig.app.json`.
+  Without the root one, `shadcn add` silently writes components into a literal `./@` folder.
+
+### 2026-08-18 — environment repairs
+
+- Fixed `FoundUDbContextFactory`: it resolved config relative to the working directory, but
+  `dotnet ef` runs from `bin/Debug/net8.0`, so both `AddJsonFile` calls silently no-opped and it
+  fell back to a hardcoded `localhost:5432 / postgres` string. Now walks up from
+  `AppContext.BaseDirectory` to find `FoundU.Api`, and **throws** instead of guessing.
+- Docker Postgres remapped to **5434** (see Local ports above).
+- Wiped a stale `foundu_pgdata` volume still holding the superseded `20260806081522_InitialSchema`.
+  **If migrations fail with "relation already exists", the volume is stale** — drop and re-apply.
+- Dev admin seed is now `admin@foundu.com`. The seeder no-ops when any Admin exists, so changing
+  the seed requires dropping the database, not just editing the constant.
 
 ---
 

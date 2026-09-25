@@ -148,6 +148,13 @@ namespace FoundU.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
 
@@ -155,9 +162,11 @@ namespace FoundU.Infrastructure.Migrations
                         .HasColumnType("timestamptz");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -170,23 +179,36 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<bool>("IsSuspended")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("NormalizedEmail")
-                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                        .HasColumnType("text");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("text");
 
                     b.Property<string>("StudentNumber")
                         .HasMaxLength(50)
@@ -202,15 +224,26 @@ namespace FoundU.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamptz");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsSuspended");
 
                     b.HasIndex("NormalizedEmail")
-                        .IsUnique();
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex");
 
                     b.HasIndex("Role");
 
@@ -455,6 +488,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsHighlighted")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -478,6 +514,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Phones, laptops, chargers, headphones",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Electronics",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -488,6 +525,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Backpacks, handbags, wallets, purses",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Bags & Wallets",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -498,6 +536,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Jackets, hats, scarves and other apparel",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Clothing",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -508,6 +547,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Student IDs, cards, documents",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Documents & Cards",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -518,6 +558,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "House, locker, or vehicle keys",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Keys",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -528,6 +569,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Watches, jewelry, glasses",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Jewelry & Accessories",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -538,7 +580,19 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Textbooks, notebooks, stationery",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Books & Stationery",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("21111111-1111-1111-1111-111111111119"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "University ID, national ID, driving licence, passport",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsHighlighted = true,
+                            Name = "ID & Licences",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
@@ -548,6 +602,7 @@ namespace FoundU.Infrastructure.Migrations
                             Description = "Anything not covered above",
                             IsActive = true,
                             IsDeleted = false,
+                            IsHighlighted = false,
                             Name = "Other",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
@@ -558,6 +613,14 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CollectedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(6)
+                        .HasColumnType("character(6)")
+                        .IsFixedLength();
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
@@ -586,6 +649,9 @@ namespace FoundU.Infrastructure.Migrations
                         .HasColumnType("timestamptz");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CollectionCode")
+                        .HasFilter("\"CollectionCode\" IS NOT NULL");
 
                     b.HasIndex("FoundReportId")
                         .IsUnique()
@@ -737,6 +803,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<Guid?>("FinderId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("FoundAt")
                         .HasColumnType("timestamptz");
 
@@ -747,6 +816,11 @@ namespace FoundU.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("HandInCode")
+                        .HasMaxLength(6)
+                        .HasColumnType("character(6)")
+                        .IsFixedLength();
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -772,7 +846,7 @@ namespace FoundU.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<Guid>("StaffId")
+                    b.Property<Guid?>("StaffId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -780,7 +854,7 @@ namespace FoundU.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<Guid>("StorageLocationId")
+                    b.Property<Guid?>("StorageLocationId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -790,9 +864,15 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("CategoryId");
 
+                    b.HasIndex("FinderId");
+
                     b.HasIndex("FoundAt");
 
                     b.HasIndex("FoundLocationId");
+
+                    b.HasIndex("HandInCode")
+                        .IsUnique()
+                        .HasFilter("\"HandInCode\" IS NOT NULL");
 
                     b.HasIndex("ItemTypeId");
 
@@ -969,6 +1049,376 @@ namespace FoundU.Infrastructure.Migrations
                             IsDeleted = false,
                             Name = "Wallet",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111119"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111113"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Jacket",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111111a"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111113"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Hoodie",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111111b"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111113"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Scarf",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111111c"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111113"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Cap",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111111d"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111113"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Umbrella",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111111e"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111114"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Student Card",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111111f"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111114"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "ID Card",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111120"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111114"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Bus Pass",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111121"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111114"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Bank Card",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111122"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111115"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "House Keys",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111123"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111115"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Car Keys",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111124"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111115"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Locker Key",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111125"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111116"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Watch",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111126"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111116"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Glasses",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111127"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111116"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Ring",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111128"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111116"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Bracelet",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111129"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111117"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Textbook",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111112a"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111117"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Notebook",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111112b"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111117"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Calculator",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111112c"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111117"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Pencil Case",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111112d"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111118"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Water Bottle",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111112e"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111118"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Lunch Box",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-11111111112f"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111118"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Sports Equipment",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111130"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111118"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Charger",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111131"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "University ID",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111132"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "National ID",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111133"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Driving Licence",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111134"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Passport",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111141"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111142"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111112"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111143"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111113"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111144"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111114"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111145"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111115"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111146"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111116"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111147"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111117"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111148"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111118"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("51111111-1111-1111-1111-111111111149"),
+                            CategoryId = new Guid("21111111-1111-1111-1111-111111111119"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 
@@ -1034,10 +1484,28 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<DateTime>("EstimatedLostToAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<string>("FlagReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("FlaggedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("FlaggedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("HandInCode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character(6)")
+                        .IsFixedLength();
+
                     b.Property<string>("IdentifyingFeaturesJson")
                         .HasColumnType("jsonb");
 
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFlagged")
                         .HasColumnType("boolean");
 
                     b.Property<Guid>("ItemTypeId")
@@ -1079,6 +1547,11 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("CategoryId");
 
+                    b.HasIndex("FlaggedByUserId");
+
+                    b.HasIndex("HandInCode")
+                        .IsUnique();
+
                     b.HasIndex("ItemTypeId");
 
                     b.HasIndex("LastSeenLocationId");
@@ -1089,12 +1562,93 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("EstimatedLostFromAt", "EstimatedLostToAt");
 
+                    b.HasIndex("IsFlagged", "FlaggedAt");
+
                     b.HasIndex("Status", "CategoryId", "ItemTypeId", "LastSeenLocationId");
 
                     b.ToTable("LostReports", null, t =>
                         {
                             t.HasCheckConstraint("CK_LostReports_EstimatedLostRange", "\"EstimatedLostFromAt\" <= \"EstimatedLostToAt\"");
                         });
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.LostReportFoundClaim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("FinderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsSeenByOwner")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("LostReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SeenAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FinderId");
+
+                    b.HasIndex("LostReportId", "CreatedAt");
+
+                    b.HasIndex("LostReportId", "FinderId")
+                        .IsUnique();
+
+                    b.ToTable("LostReportFoundClaims", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.LostReportMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("LostReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid?>("RecipientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("LostReportId", "CreatedAt");
+
+                    b.ToTable("LostReportMessages", (string)null);
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostReportStatusHistory", b =>
@@ -1216,6 +1770,10 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<string>("MatchingFactorsJson")
                         .HasColumnType("jsonb");
 
+                    b.Property<string>("StaffNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1295,6 +1853,58 @@ namespace FoundU.Infrastructure.Migrations
                     b.ToTable("Notifications", (string)null);
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("ReasonRevoked")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ReplacedByTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("RevokedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ExpiresAt");
+
+                    b.ToTable("RefreshTokens", (string)null);
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.StorageLocation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1345,6 +1955,39 @@ namespace FoundU.Infrastructure.Migrations
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Security Desk - Building A",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("41111111-1111-1111-1111-111111111112"),
+                            Building = "Building C",
+                            Capacity = 80,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Library Front Desk",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("41111111-1111-1111-1111-111111111113"),
+                            Building = "Sports Block",
+                            Capacity = 60,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Sports Complex Office",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("41111111-1111-1111-1111-111111111114"),
+                            Building = "Building A",
+                            Capacity = 120,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Student Services",
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -1425,6 +2068,70 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("GeneratedByAgentRunId");
 
                     b.ToTable("VerificationQuestions", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AppUserClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderDisplayName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("LoginProvider", "ProviderKey");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AppUserLogins", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text");
+
+                    b.HasKey("UserId", "LoginProvider", "Name");
+
+                    b.ToTable("AppUserTokens", (string)null);
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.AgentRun", b =>
@@ -1577,6 +2284,11 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Finder")
+                        .WithMany()
+                        .HasForeignKey("FinderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FoundU.Domain.Entities.CampusLocation", "FoundLocation")
                         .WithMany("FoundReportsFoundHere")
                         .HasForeignKey("FoundLocationId")
@@ -1592,16 +2304,16 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasOne("FoundU.Domain.Entities.AppUser", "Staff")
                         .WithMany("FoundReports")
                         .HasForeignKey("StaffId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FoundU.Domain.Entities.StorageLocation", "StorageLocation")
                         .WithMany("FoundReports")
                         .HasForeignKey("StorageLocationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Category");
+
+                    b.Navigation("Finder");
 
                     b.Navigation("FoundLocation");
 
@@ -1660,6 +2372,11 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "FlaggedByUser")
+                        .WithMany()
+                        .HasForeignKey("FlaggedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("FoundU.Domain.Entities.ItemType", "ItemType")
                         .WithMany("LostReports")
                         .HasForeignKey("ItemTypeId")
@@ -1680,11 +2397,58 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.Navigation("Category");
 
+                    b.Navigation("FlaggedByUser");
+
                     b.Navigation("ItemType");
 
                     b.Navigation("LastSeenLocation");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.LostReportFoundClaim", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Finder")
+                        .WithMany()
+                        .HasForeignKey("FinderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoundU.Domain.Entities.LostReport", "LostReport")
+                        .WithMany("FoundClaims")
+                        .HasForeignKey("LostReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Finder");
+
+                    b.Navigation("LostReport");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.LostReportMessage", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.LostReport", "LostReport")
+                        .WithMany("Messages")
+                        .HasForeignKey("LostReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("LostReport");
+
+                    b.Navigation("Recipient");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostReportStatusHistory", b =>
@@ -1760,6 +2524,17 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.StorageTransfer", b =>
                 {
                     b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
@@ -1812,6 +2587,33 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("GeneratedByAgentRun");
                 });
 
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.AgentRun", b =>
                 {
                     b.Navigation("MatchSuggestions");
@@ -1834,6 +2636,8 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("LostReports");
 
                     b.Navigation("Notifications");
+
+                    b.Navigation("RefreshTokens");
 
                     b.Navigation("StorageTransfers");
                 });
@@ -1891,7 +2695,11 @@ namespace FoundU.Infrastructure.Migrations
                 {
                     b.Navigation("Claims");
 
+                    b.Navigation("FoundClaims");
+
                     b.Navigation("MatchSuggestions");
+
+                    b.Navigation("Messages");
 
                     b.Navigation("Photos");
 

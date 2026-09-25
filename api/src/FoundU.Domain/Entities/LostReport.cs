@@ -38,8 +38,26 @@ public class LostReport : BaseEntity, ISoftDeletable
 
     public LostReportStatus Status { get; set; } = LostReportStatus.Active;
 
+    /// <summary>
+    /// Six digits a finder quotes at the desk so staff can link the item to this report
+    /// without searching. Unique across reports; visible on the public feed because it
+    /// routes an item, it does not prove ownership.
+    /// </summary>
+    public string HandInCode { get; set; } = HandoverCodes.Generate();
+
     public string? WithdrawReason { get; set; }
     public DateTime? WithdrawnAt { get; set; }
+
+    public bool IsFlagged { get; set; }
+    public string? FlagReason { get; set; }
+    public DateTime? FlaggedAt { get; set; }
+
+    /// <summary>
+    /// Who raised the flag. Staff working the moderation queue read a flag differently
+    /// depending on whether the owner raised it on their own report or a staff member did.
+    /// </summary>
+    public Guid? FlaggedByUserId { get; set; }
+    public AppUser? FlaggedByUser { get; set; }
 
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
@@ -49,4 +67,6 @@ public class LostReport : BaseEntity, ISoftDeletable
     public ICollection<LostReportStatusHistory> StatusHistory { get; set; } = new List<LostReportStatusHistory>();
     public ICollection<MatchSuggestion> MatchSuggestions { get; set; } = new List<MatchSuggestion>();
     public ICollection<Claim> Claims { get; set; } = new List<Claim>();
+    public ICollection<LostReportMessage> Messages { get; set; } = new List<LostReportMessage>();
+    public ICollection<LostReportFoundClaim> FoundClaims { get; set; } = new List<LostReportFoundClaim>();
 }

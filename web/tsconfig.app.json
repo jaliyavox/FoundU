@@ -1,6 +1,11 @@
 {
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    // Matches the '@' alias in vite.config.ts. No baseUrl needed: TypeScript 6 resolves
+    // paths relative to this file. (The shadcn CLI reads the root tsconfig.json instead.)
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",

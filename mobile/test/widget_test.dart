@@ -1,9 +1,15 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foundu/main.dart';
+import 'package:foundu/app/app.dart';
 
 void main() {
-  testWidgets('App renders skeleton home', (WidgetTester tester) async {
-    await tester.pumpWidget(const FoundUApp());
-    expect(find.text('FoundU mobile — skeleton'), findsOneWidget);
+  testWidgets('App smoke test renders FoundUApp', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: FoundUApp(),
+      ),
+    );
+
+    expect(find.byType(FoundUApp), findsOneWidget);
   });
 }

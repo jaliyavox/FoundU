@@ -1,0 +1,163 @@
+using FoundU.Api.Extensions;
+using FoundU.Application.Abstractions;
+using FoundU.Application.Auth;
+using FoundU.Application.Common;
+using FoundU.Application.Common.Pagination;
+using FoundU.Application.LostReports.Dtos;
+using FoundU.Application.Matching.Dtos;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace FoundU.Api.Controllers;
+
+/// <summary>
+/// Lost items reported by students. Students act on their own reports; Staff/Admin can list
+/// and read every report so they can work the desk.
+/// </summary>
+[ApiController]
+[Route("api/lost-reports")]
+[Authorize]
+public class LostReportsController : ControllerBase
+{
+    private readonly ILostReportService _lostReports;
+
+    public LostReportsController(ILostReportService lostReports)
+    {
+        _lostReports = lostReports;
+    }
+
+    [HttpPost]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<LostReportDetailDto>> Create(
+        [FromBody] CreateLostReportRequest request,
+        CancellationToken cancellationToken)
+    {
+        var created = await _lostReports.CreateAsync(request, User.GetUserId(), cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<LostReportDetailDto>> Update(
+        Guid id,
+        [FromBody] UpdateLostReportRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.UpdateAsync(id, request, User.GetUserId(), cancellationToken));
+
+    /// <summary>
+    /// Public community feed - no authentication. Returns active reports only, with a reduced
+    /// projection that carries the poster's display name but no email or student number.
+    /// </summary>
+    [HttpGet("feed")]
+    [AllowAnonymous]
+    public async Task<ActionResult<PagedResult<LostReportFeedItemDto>>> Feed(
+        [FromQuery] LostReportQuery query,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetPublicFeedAsync(query, User.GetUserIdOrNull(), cancellationToken));
+
+    /// <summary>Staff/Admin view across every student's reports.</summary>
+    [HttpGet]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<PagedResult<LostReportListItemDto>>> Search(
+        [FromQuery] LostReportQuery query,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.SearchAsync(query, cancellationToken));
+
+    /// <summary>The signed-in student's own reports.</summary>
+    [HttpGet("mine")]
+    [HttpGet("my-reports")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<PagedResult<LostReportListItemDto>>> Mine(
+        [FromQuery] LostReportQuery query,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.SearchForStudentAsync(User.GetUserId(), query, cancellationToken));
+
+    /// <summary>Students may read only their own; staff may read any. Enforced in the service.</summary>
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<LostReportDetailDto>> GetById(Guid id, CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetByIdAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
+
+    /// <summary>
+    /// Attaches up to two photos to the caller's own report. Multipart form data; the field
+    /// name is "photos". Limits are enforced here, not just in the browser.
+    /// </summary>
+    [HttpPost("{id:guid}/photos")]
+    [RequestSizeLimit(PhotoRules.MaxPhotosPerReport * PhotoRules.MaxBytes + 1024 * 1024)]
+    public async Task<ActionResult<IReadOnlyList<LostReportPhotoDto>>> AddPhotos(
+        Guid id,
+        [FromForm] IFormFileCollection photos,
+        CancellationToken cancellationToken)
+    {
+        var uploads = photos
+            .Select(f => new PhotoUpload(f.FileName, f.ContentType, f.Length, f.OpenReadStream()))
+            .ToList();
+
+        return Ok(await _lostReports.AddPhotosAsync(id, User.GetUserId(), uploads, cancellationToken));
+    }
+
+    /// <summary>
+    /// Records "I found this" against the report, which is what the author's card shows as
+    /// the "someone found it" checkpoint. Any signed-in user except the author, and pressing
+    /// it twice records one claim, not two.
+    /// </summary>
+    [HttpPost("{id:guid}/found-claims")]
+    public async Task<ActionResult<LostReportFoundClaimDto>> RegisterFoundClaim(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.RegisterFoundClaimAsync(id, User.GetUserId(), cancellationToken));
+
+    /// <summary>
+    /// Message the report's author - typically "I have found this and handed it in".
+    /// Any signed-in user except the author. Nothing here exposes either side's contact details.
+    /// </summary>
+    [HttpPost("{id:guid}/messages")]
+    public async Task<ActionResult<LostReportMessageDto>> SendMessage(
+        Guid id,
+        [FromBody] SendLostReportMessageRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.SendMessageAsync(id, User.GetUserId(), request.Body, request.RecipientId, cancellationToken));
+
+    /// <summary>The reader's threads on this report: every thread for the author, their own for a finder. Staff read all.</summary>
+    [HttpGet("{id:guid}/messages")]
+    public async Task<ActionResult<IReadOnlyList<LostReportMessageDto>>> GetMessages(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetMessagesAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
+
+    [HttpPost("{id:guid}/withdraw")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<LostReportDetailDto>> Withdraw(
+        Guid id,
+        [FromBody] WithdrawLostReportRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.WithdrawAsync(id, User.GetUserId(), request.Reason, cancellationToken));
+
+    [HttpGet("{id:guid}/possible-matches")]
+    public async Task<ActionResult<IReadOnlyList<MatchSuggestionDto>>> GetPossibleMatches(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetPossibleMatchesAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
+
+    /// <summary>
+    /// Raise a flag for staff attention. Owners may flag their own report; Staff/Admin may
+    /// flag any. Enforced in the service, which also refuses a second flag on the same report.
+    /// </summary>
+    [HttpPost("{id:guid}/flag")]
+    public async Task<IActionResult> FlagReport(
+        Guid id,
+        [FromBody] FlagLostReportRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _lostReports.FlagAsync(id, request, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Staff clearing a flag once it has been looked at.</summary>
+    [HttpPost("{id:guid}/unflag")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<IActionResult> ClearFlag(Guid id, CancellationToken cancellationToken)
+    {
+        await _lostReports.ClearFlagAsync(id, User.GetUserId(), cancellationToken);
+        return NoContent();
+    }
+}
