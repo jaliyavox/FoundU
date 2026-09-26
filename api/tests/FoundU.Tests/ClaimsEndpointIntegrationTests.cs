@@ -161,6 +161,31 @@ public sealed class ClaimsEndpointIntegrationTests
         Assert.Empty(page!.Items);
     }
 
+    [Fact]
+    public async Task DeviceRegistration_IsAuthenticatedAndOwnerScoped()
+    {
+        await using var app = await ClaimsHttpApp.CreateAsync("likely_match");
+        const string token = "fcm-token-abcdefghijklmnopqrstuvwxyz-0123456789";
+        using var student = app.ClientFor(app.Student);
+        using var otherStudent = app.ClientFor(app.OtherStudent);
+
+        var unauthenticated = await app.Factory.CreateClient().PostAsJsonAsync("/api/device-registrations",
+            new { token, platform = "android" });
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
+
+        var registered = await student.PostAsJsonAsync("/api/device-registrations", new { token, platform = "android" });
+        Assert.Equal(HttpStatusCode.NoContent, registered.StatusCode);
+        var otherUnregister = await otherStudent.PostAsJsonAsync("/api/device-registrations/unregister", new { token });
+        Assert.Equal(HttpStatusCode.NoContent, otherUnregister.StatusCode);
+
+        await using var scope = app.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<FoundUDbContext>();
+        var registration = await db.DeviceRegistrations.SingleAsync();
+        Assert.Equal(app.Student.Id, registration.UserId);
+        Assert.True(registration.IsActive);
+        Assert.DoesNotContain(token, await registered.Content.ReadAsStringAsync());
+    }
+
     private static void AssertTrustedEvidence(IReadOnlyDictionary<string, string>? details)
     {
         Assert.NotNull(details);

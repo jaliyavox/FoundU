@@ -306,6 +306,58 @@ namespace FoundU.Infrastructure.Migrations
                     b.ToTable("ApprovalDecisions", (string)null);
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.DeviceRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<DateTime?>("DeactivatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("FcmToken")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FcmToken")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "IsActive");
+
+                    b.ToTable("DeviceRegistrations", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.DeviceRegistration", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "User")
+                        .WithMany("DeviceRegistrations")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2579,6 +2631,8 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("AuditLogs");
 
                     b.Navigation("Claims");
+
+                    b.Navigation("DeviceRegistrations");
 
                     b.Navigation("FoundReports");
 

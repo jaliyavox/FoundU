@@ -43,4 +43,5 @@ public class AppUser : IdentityUser<Guid>, ISoftDeletable
     public ICollection<StorageTransfer> StorageTransfers { get; set; } = new List<StorageTransfer>();
     public ICollection<ApprovalDecision> ApprovalDecisions { get; set; } = new List<ApprovalDecision>();
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<DeviceRegistration> DeviceRegistrations { get; set; } = new List<DeviceRegistration>();
 }

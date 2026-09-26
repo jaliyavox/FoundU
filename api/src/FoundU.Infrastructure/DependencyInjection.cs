@@ -32,8 +32,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddFoundUInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<FoundUDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("FoundUDatabase")));
+        services.AddScoped<NotificationPushSaveChangesInterceptor>();
+        services.AddScoped<NotificationPushDispatcher>();
+        services.AddDbContext<FoundUDbContext>((serviceProvider, options) =>
+            options.UseNpgsql(configuration.GetConnectionString("FoundUDatabase"))
+                .AddInterceptors(serviceProvider.GetRequiredService<NotificationPushSaveChangesInterceptor>()));
 
         services.AddIdentityCore<AppUser>(options =>
             {
@@ -108,6 +111,10 @@ public static class DependencyInjection
         services.AddScoped<IClaimService, ClaimService>();
         services.AddScoped<IMatchSuggestionService, MatchSuggestionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
+        services.AddOptions<FirebaseOptions>()
+            .Bind(configuration.GetSection(FirebaseOptions.SectionName));
+        services.AddSingleton<IPushNotificationService, FirebasePushNotificationService>();
         services.AddOptions<AiServiceOptions>()
             .Bind(configuration.GetSection(AiServiceOptions.SectionName));
         services.AddHttpClient<IVerificationAgentClient, VerificationAgentClient>((serviceProvider, client) =>

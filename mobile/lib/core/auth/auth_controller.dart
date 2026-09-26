@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/data/auth_models.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/notifications/data/push_notification_manager.dart';
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
 import 'auth_session.dart';
@@ -27,7 +28,9 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     if (!await _repository.hasStoredSession()) return null;
 
     try {
-      return await _repository.getCurrentUser();
+      final user = await _repository.getCurrentUser();
+      unawaited(ref.read(pushNotificationManagerProvider).start());
+      return user;
     } on ApiException catch (error) {
       if (error.statusCode != 401) rethrow;
       await _repository.clearSession();
@@ -44,10 +47,12 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     state = await AsyncValue.guard(
       () => _repository.login(email: email.trim(), password: password),
     );
+    if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
   }
 
   Future<void> logout() async {
     state = const AsyncLoading();
+    await ref.read(pushNotificationManagerProvider).unregister();
     try {
       await _repository.logout();
     } on Object {
