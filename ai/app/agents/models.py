@@ -392,6 +392,9 @@ class AgentRunRequest(BaseModel):
     agent: AgentName
     payload: dict[str, Any] = Field(default_factory=dict)
     correlation_id: str | None = None
+    # ASP.NET may provide this on a retry/resume. When omitted FastAPI allocates it and returns
+    # it as ``agent_run_id``; that UUID is the durable LangGraph thread/workflow identity.
+    workflow_id: UUID | None = None
 
 
 class AgentRunResponse(BaseModel):
@@ -400,3 +403,20 @@ class AgentRunResponse(BaseModel):
     status: Literal["completed"]
     output: dict[str, Any]
     trace: list[str]
+
+
+class WorkflowStateResponse(BaseModel):
+    """Safe, service-to-service durable workflow summary; never a raw checkpoint export."""
+
+    agent_run_id: UUID
+    agent: AgentName
+    status: Literal[
+        "created", "planning", "executing", "completed", "waiting_for_approval", "failed"
+    ]
+    plan: AgentPlan | None = None
+    completed_step_ids: list[PlanStepIdentifier]
+    output: dict[str, Any]
+    validation_status: Literal["passed", "failed"]
+    approval_required: bool
+    approval_status: Literal["not_required", "pending"]
+    error: str | None = None

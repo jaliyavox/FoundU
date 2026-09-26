@@ -1,5 +1,7 @@
 """Tests for safe in-memory LangGraph checkpoint continuity."""
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from uuid import uuid4
 
@@ -7,14 +9,19 @@ import pytest
 
 from app.agents.checkpoint import (
     CheckpointStateError,
+    InMemoryWorkflowStateStore,
+    PostgresWorkflowStateStore,
+    WorkflowStateConfigurationError,
     checkpoint_config,
     create_checkpointer,
+    create_workflow_state_store,
     load_checkpointed_state,
 )
 from app.agents.description_parser import description_parser_node
 from app.agents.graph import build_agent_graph
 from app.agents.matching import matching_node
 from app.agents.models import AGENT_PERMISSIONS, AgentName, AgentRunRequest, PlanActionType
+from app.agents.plans import build_description_parser_plan
 from app.agents.state import create_initial_state
 from app.tools.default_registry import create_default_tool_registry
 
@@ -39,6 +46,22 @@ def test_graph_is_compiled_with_application_owned_in_memory_checkpointer():
     graph, saver = _graph_with_checkpointer()
 
     assert graph.checkpointer is saver
+
+
+def test_postgres_mode_requires_a_database_url_without_exposing_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.delenv("WORKFLOW_STATE_STORE", raising=False)
+    monkeypatch.delenv("WORKFLOW_DATABASE_URL", raising=False)
+
+    with pytest.raises(WorkflowStateConfigurationError, match="not configured") as error:
+        create_workflow_state_store(store_type="postgres")
+
+    assert "postgresql://" not in str(error.value)
+
+
+def test_memory_store_requires_explicit_selection():
+    assert isinstance(create_workflow_state_store(store_type="memory"), InMemoryWorkflowStateStore)
 
 
 def test_first_run_checkpoints_safe_state_and_same_thread_loads_its_checkpointed_plan():
@@ -193,3 +216,142 @@ def test_loading_checkpointed_state_does_not_replay_a_completed_graph_node():
 
     assert loaded_state["output"] == {"safe": True}
     assert calls == 1
+
+
+def test_stable_workflow_id_can_be_reloaded_by_a_recreated_graph_without_replaying_steps():
+    workflow_id = uuid4()
+    saver = create_checkpointer()
+    first_graph = build_agent_graph(
+        partial(description_parser_node, llm_client=None), checkpointer=saver
+    )
+    state = create_initial_state(
+        AgentRunRequest(
+            agent=AgentName.DESCRIPTION_PARSER,
+            workflow_id=workflow_id,
+            payload={"description": "blue backpack"},
+        )
+    )
+    first_graph.invoke(state, checkpoint_config(workflow_id))
+
+    # Simulates a graph reconstruction. Durable process-restart recovery is exercised through the
+    # repository reconstruction test below; this in-memory saver is intentionally test-only.
+    recreated_graph = build_agent_graph(
+        partial(description_parser_node, llm_client=None), checkpointer=saver
+    )
+    restored = load_checkpointed_state(
+        recreated_graph, workflow_id, AgentName.DESCRIPTION_PARSER
+    )
+
+    assert restored["agent_run_id"] == workflow_id
+    assert restored["plan"].agent is AgentName.DESCRIPTION_PARSER
+    assert restored["output"]
+
+
+def test_durable_workflow_record_survives_repository_reconstruction_without_private_input():
+    workflow_id = uuid4()
+    shared_records: dict[str, dict[str, object]] = {}
+    first_store = InMemoryWorkflowStateStore(shared_records)
+    secret = "PRIVATE-OWNERSHIP-EVIDENCE-DO-NOT-PERSIST"
+    state = {
+        "agent_run_id": workflow_id,
+        "requested_agent": AgentName.DESCRIPTION_PARSER,
+        "payload": {"description": secret, "prompt": secret},
+        "plan": build_description_parser_plan(),
+        "trace": ["request_received", "executed:description_parser"],
+        "tool_results": [{"tool": "safe_tool", "status": "completed"}],
+        "validation_results": {"status": "passed"},
+        "approval_required": True,
+        "approval_status": "pending",
+        "output": {"item_type": "Backpack"},
+        "final_outcome": {"item_type": "Backpack"},
+        "error": "safe_failure_code",
+    }
+
+    assert first_store.create(workflow_id, AgentName.DESCRIPTION_PARSER, state)
+    first_store.update(workflow_id, AgentName.DESCRIPTION_PARSER, "waiting_for_approval", state)
+
+    recreated_store = InMemoryWorkflowStateStore(shared_records)
+    restored = recreated_store.load(workflow_id, AgentName.DESCRIPTION_PARSER)
+
+    assert restored["status"] == "waiting_for_approval"
+    assert restored["state"]["plan"].agent is AgentName.DESCRIPTION_PARSER
+    assert restored["state"]["tool_results"] == [{"tool": "safe_tool", "status": "completed"}]
+    assert restored["state"]["validation_results"] == {"status": "passed"}
+    assert restored["state"]["approval_required"] is True
+    assert restored["state"]["approval_status"] == "pending"
+    assert restored["state"]["error"] == "safe_failure_code"
+    assert restored["state"]["final_outcome"] == {"item_type": "Backpack"}
+    assert "payload" not in restored["state"]
+    assert secret not in str(shared_records)
+
+
+@pytest.mark.skipif(
+    not os.getenv("TEST_WORKFLOW_DATABASE_URL"),
+    reason="Set TEST_WORKFLOW_DATABASE_URL to run PostgreSQL workflow recovery coverage.",
+)
+def test_postgres_workflow_recovery_survives_repository_reconstruction_and_blocks_duplicates():
+    database_url = os.environ["TEST_WORKFLOW_DATABASE_URL"]
+    workflow_id = uuid4()
+    concurrent_workflow_id = uuid4()
+    state = {
+        "agent_run_id": workflow_id,
+        "requested_agent": AgentName.DESCRIPTION_PARSER,
+        "objective": "description_parser:execute_request",
+        "plan": build_description_parser_plan(),
+        "completed_step_ids": ["inspect-input"],
+        "trace": ["request_received", "executed:description_parser"],
+        "tool_results": [{"tool": "safe_tool", "status": "completed"}],
+        "validation_results": {"status": "passed"},
+        "approval_required": True,
+        "approval_status": "pending",
+        "output": {"item_type": "Backpack"},
+    }
+    try:
+        first_store = PostgresWorkflowStateStore(database_url)
+        assert first_store.create(workflow_id, AgentName.DESCRIPTION_PARSER, state)
+        first_store.update(
+            workflow_id, AgentName.DESCRIPTION_PARSER, "waiting_for_approval", state
+        )
+
+        del first_store
+        restored = PostgresWorkflowStateStore(database_url).load(
+            workflow_id, AgentName.DESCRIPTION_PARSER
+        )
+        assert restored["status"] == "waiting_for_approval"
+        assert restored["state"]["objective"] == "description_parser:execute_request"
+        assert restored["state"]["plan"].agent is AgentName.DESCRIPTION_PARSER
+        assert restored["state"]["completed_step_ids"] == ["inspect-input"]
+        assert restored["state"]["tool_results"] == [{"tool": "safe_tool", "status": "completed"}]
+        assert restored["state"]["validation_results"] == {"status": "passed"}
+        assert restored["state"]["approval_status"] == "pending"
+
+        concurrent_state = {**state, "agent_run_id": concurrent_workflow_id}
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            duplicate_creates = list(
+                executor.map(
+                    lambda _: PostgresWorkflowStateStore(database_url).create(
+                        concurrent_workflow_id, AgentName.DESCRIPTION_PARSER, concurrent_state
+                    ),
+                    range(2),
+                )
+            )
+        assert duplicate_creates.count(True) == 1
+        assert duplicate_creates.count(False) == 1
+
+        final_state = {**state, "approval_required": False, "approval_status": "not_required"}
+        final_store = PostgresWorkflowStateStore(database_url)
+        final_store.update(workflow_id, AgentName.DESCRIPTION_PARSER, "completed", final_state)
+
+        final_record = PostgresWorkflowStateStore(database_url).load(
+            workflow_id, AgentName.DESCRIPTION_PARSER
+        )
+        assert final_record["status"] == "completed"
+        assert final_record["state"]["approval_status"] == "not_required"
+    finally:
+        import psycopg
+
+        with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM ai_workflow_states WHERE workflow_id IN (%s, %s)",
+                (workflow_id, concurrent_workflow_id),
+            )
