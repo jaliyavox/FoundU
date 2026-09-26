@@ -12,6 +12,7 @@ using FoundU.Infrastructure.Notifications;
 using FoundU.Infrastructure.Identity;
 using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Storage;
+using FoundU.Infrastructure.Support;
 using FoundU.Infrastructure.Reporting;
 using FoundU.Infrastructure.Verification;
 using FoundU.Application.Intake;
@@ -130,6 +131,8 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IHonorService, HonorService>();
         services.AddScoped<IHelpToFindService, HelpToFindService>();
+        services.AddScoped<ISupportService, SupportService>();
+        services.AddScoped<IAdminOverviewService, AdminOverviewService>();
         services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
         services.AddOptions<FirebaseOptions>()
             .Bind(configuration.GetSection(FirebaseOptions.SectionName));

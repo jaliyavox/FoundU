@@ -7,6 +7,8 @@ import {
   FlagIcon,
   HandHeartIcon,
   GavelIcon,
+  LayoutDashboardIcon,
+  LifeBuoyIcon,
   LogOutIcon,
   MoonIcon,
   PackageSearchIcon,
@@ -65,10 +67,13 @@ const isActivePath = (item: NavItem, pathname: string) =>
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/ask-foundu', label: 'Ask FoundU', icon: BotIcon, allow: ['Student'] },
+  { to: '/admin/overview', label: 'Overview', icon: LayoutDashboardIcon, allow: ['Staff', 'Admin'], exact: true },
   { to: '/items', label: 'Found items', icon: PackageSearchIcon, allow: ['Staff', 'Admin'] },
   { to: '/claims', label: 'Claims', icon: GavelIcon, allow: ['Staff', 'Admin'] },
+  { to: '/admin/support', label: 'Support queue', icon: LifeBuoyIcon, allow: ['Staff', 'Admin'] },
   { to: '/my-reports', label: 'My reports', icon: FileTextIcon, allow: ['Student'] },
   { to: '/help-to-find', label: 'Help to find', icon: HandHeartIcon, allow: ['Student'] },
+  { to: '/support', label: 'Help & support', icon: LifeBuoyIcon, allow: ['Student', 'Staff', 'Admin'] },
   { to: '/my-claims', label: 'My claims', icon: ShieldQuestionIcon, allow: ['Student'] },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3Icon, allow: ['Admin'] },
   { to: '/admin/moderation', label: 'Moderation', icon: FlagIcon, allow: ['Admin'] },

@@ -22,5 +22,11 @@ public enum NotificationType
     FoundPostRecognised,
 
     /// <summary>An item a finder helped with reached its owner.</summary>
-    ItemReturnedToOwner
+    ItemReturnedToOwner,
+
+    /// <summary>The desk answered a support ticket.</summary>
+    SupportTicketReply,
+
+    /// <summary>A support ticket was resolved or closed.</summary>
+    SupportTicketUpdated
 }

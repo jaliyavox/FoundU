@@ -22,6 +22,9 @@ import { NotFoundPage } from '@/pages/not-found-page'
 import { AskFoundUPage } from '@/features/intake/ask-foundu-page'
 import { FoundBoardPage } from '@/features/feed/found-board-page'
 import { HelpToFindPage } from '@/features/help/help-to-find-page'
+import { SupportPage } from '@/features/support/support-page'
+import { AdminSupportPage } from '@/features/support/admin-support-page'
+import { AdminOverviewPage } from '@/features/admin/admin-overview-page'
 import { AccountPage } from '@/features/account/account-page'
 
 export const router = createBrowserRouter([
@@ -46,6 +49,8 @@ export const router = createBrowserRouter([
               { path: 'items/new', element: <LogItemPage /> },
               { path: 'items/:id', element: <ItemDetailPage /> },
               { path: 'claims', element: <ClaimQueuePage /> },
+              { path: 'admin/support', element: <AdminSupportPage /> },
+              { path: 'admin/overview', element: <AdminOverviewPage /> },
             ],
           },
           {
@@ -62,6 +67,7 @@ export const router = createBrowserRouter([
           // Both sides read the same claim from opposite ends, and the API decides who may
           // see which - so this route is open to any signed-in user rather than duplicated.
           { path: 'account', element: <AccountPage /> },
+          { path: 'support', element: <SupportPage /> },
           { path: 'claims/:id', element: <ClaimDetailPage /> },
 
           // Anyone signed in can post something they found - a staff member walking across
