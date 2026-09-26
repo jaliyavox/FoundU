@@ -36,7 +36,7 @@ export function MessageAuthor({ reportId, authorName }: { reportId: string; auth
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm font-medium text-neutral-900">Tell {authorName.split(' ')[0]} where it went</p>
-      <MessageThread reportId={reportId} isAuthor={false} />
+      <MessageThread reportId={reportId} isAuthor={false} tone="light" />
     </div>
   )
 }

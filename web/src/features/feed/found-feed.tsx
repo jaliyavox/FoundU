@@ -237,7 +237,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
             {item.isMine && (
               <div className="flex flex-col gap-3 border-t border-neutral-900/8 pt-5">
                 <p className="text-sm font-medium">People asking about this</p>
-                <MessageThread reportId={item.id} isAuthor source="found" />
+                <MessageThread reportId={item.id} isAuthor source="found" tone="light" />
               </div>
             )}
 
@@ -268,7 +268,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
                   </p>
                 </div>
 
-                <MessageThread reportId={item.id} isAuthor={false} source="found" />
+                <MessageThread reportId={item.id} isAuthor={false} source="found" tone="light" />
 
                 {done ? (
                   <p className="rounded-xl border border-brand-green/30 bg-brand-green/10 p-4 text-sm text-neutral-700">

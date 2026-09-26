@@ -28,7 +28,7 @@ export function MessageThread({
   reportId,
   isAuthor,
   source = 'lost',
-  tone = 'light',
+  tone = 'app',
   className,
 }: {
   reportId: string
@@ -40,7 +40,12 @@ export function MessageThread({
    * it is theirs does.
    */
   source?: 'lost' | 'found'
-  tone?: 'light' | 'dark'
+  /**
+   * Which surface this is sitting on. "app" follows the theme and is what the dashboard
+   * needs; "light" and "dark" are for the public sheets, which are the same colour whatever
+   * the theme is set to.
+   */
+  tone?: 'app' | 'light' | 'dark'
   className?: string
 }) {
   const isFound = source === 'found'
@@ -86,7 +91,8 @@ export function MessageThread({
   }
 
   const dark = tone === 'dark'
-  const muted = dark ? 'text-white/55' : 'text-neutral-500'
+  const themed = tone === 'app'
+  const muted = themed ? 'text-muted-foreground' : dark ? 'text-white/55' : 'text-neutral-500'
 
   if (isPending) return <p className={cn('text-sm', muted)}>Loading messages…</p>
 
@@ -118,8 +124,10 @@ export function MessageThread({
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                 id === activeThread
-                  ? dark ? 'bg-white text-brand-forest' : 'bg-neutral-900 text-white'
-                  : dark ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-neutral-900/6 text-neutral-700 hover:bg-neutral-900/10',
+                  ? themed ? 'bg-foreground text-background' : dark ? 'bg-white text-brand-forest' : 'bg-neutral-900 text-white'
+                  : themed
+                    ? 'bg-foreground/8 text-foreground/80 hover:bg-foreground/12'
+                    : dark ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-neutral-900/6 text-neutral-700 hover:bg-neutral-900/10',
               )}
             >
               {thread.name}
@@ -137,7 +145,11 @@ export function MessageThread({
                   'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed text-pretty',
                   message.isMine
                     ? 'rounded-br-md bg-brand-forest text-white'
-                    : dark ? 'rounded-bl-md bg-white/10 text-white' : 'rounded-bl-md bg-neutral-900/6 text-neutral-900',
+                    // The incoming bubble has to flip with the theme. Pinned to light-mode
+                    // colours it was dark text on a dark panel - present, and unreadable.
+                    : themed
+                      ? 'rounded-bl-md bg-muted text-foreground'
+                      : dark ? 'rounded-bl-md bg-white/10 text-white' : 'rounded-bl-md bg-neutral-900/6 text-neutral-900',
                 )}
               >
                 {message.body}
