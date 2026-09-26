@@ -11,7 +11,10 @@ import '../../features/claims/presentation/claim_detail_page.dart';
 import '../../features/claims/presentation/claim_submission_page.dart';
 import '../../features/claims/presentation/my_claims_page.dart';
 import '../../features/notifications/data/push_notification_manager.dart';
+import '../../features/notifications/presentation/notifications_page.dart';
 import '../../features/feed/presentation/feed_page.dart';
+import '../../features/feed/presentation/found_board_page.dart';
+import '../../features/help/presentation/help_to_find_page.dart';
 import '../../features/feed/presentation/post_found_page.dart';
 import '../../features/reports/presentation/my_reports_page.dart';
 import '../../features/reports/presentation/possible_matches_page.dart';
@@ -42,6 +45,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashPage()),
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
+      GoRoute(path: '/notifications', builder: (_, __) => const NotificationsPage()),
 
       // The signed-in app: four tabs under one floating nav, each with its own stack so
       // going back to a tab lands where you left it.
@@ -54,6 +58,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               builder: (_, __) => const FeedPage(),
               routes: [
                 GoRoute(path: 'found/new', parentNavigatorKey: _rootKey, builder: (_, __) => const PostFoundPage()),
+                // The board behind the "Fresh finds" strip.
+                GoRoute(path: 'found', parentNavigatorKey: _rootKey, builder: (_, __) => const FoundBoardPage()),
               ],
             ),
           ]),
@@ -102,7 +108,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+            GoRoute(
+              path: '/profile',
+              builder: (_, __) => const ProfilePage(),
+              routes: [
+                GoRoute(path: 'help-to-find', parentNavigatorKey: _rootKey, builder: (_, __) => const HelpToFindPage()),
+              ],
+            ),
           ]),
         ],
       ),

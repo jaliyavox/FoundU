@@ -106,6 +106,25 @@ class ReportControllerNotifier extends AsyncNotifier<void> {
     }
   }
 
+  /// "I found this": the owner has it back, so the report closes and everyone who offered
+  /// to help is thanked and credited.
+  Future<void> resolveReport({
+    required String reportId,
+    String? note,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final repo = ref.read(reportRepositoryProvider);
+      await repo.resolveReport(reportId, note);
+      ref.invalidate(myReportsProvider);
+      ref.invalidate(reportDetailProvider(reportId));
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
   Future<void> withdrawReport({
     required String reportId,
     String? reason,

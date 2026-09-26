@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/theme/brand.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../../notifications/presentation/notification_button.dart';
 
 /// Who is signed in, and the way out. Deliberately small - the app's work happens on the
 /// other tabs.
@@ -22,7 +24,10 @@ class ProfilePage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
           children: [
-            Text('Profile', style: text.headlineSmall),
+            Row(children: [
+              Expanded(child: Text('Profile', style: text.headlineSmall)),
+              const NotificationButton(),
+            ]),
             const SizedBox(height: 18),
             Panel(
               color: Brand.ink,
@@ -52,6 +57,19 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   StatusChip(user?.role ?? '', tone: ChipTone.good),
                 ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            // Where a finder goes back for the codes they still need, and what they earned.
+            Panel(
+              padding: EdgeInsets.zero,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                leading: const Icon(Icons.volunteer_activism_outlined, color: Brand.forest),
+                title: const Text('Help to find'),
+                subtitle: const Text('Your finding activity, desk codes and honor points'),
+                trailing: const Icon(Icons.chevron_right_rounded, color: Brand.faint),
+                onTap: () => context.push('/profile/help-to-find'),
               ),
             ),
             const SizedBox(height: 14),

@@ -72,6 +72,19 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     }
   }
 
+  /// Swaps in the tokens a password change handed back, keeping this device signed in.
+  Future<void> adoptSession(AuthResponse auth) async {
+    state = AsyncData(await _repository.adoptSession(auth));
+  }
+
+  /// Reflects a profile edit straight away: the access token still carries the old name until
+  /// it is next refreshed, so what is on screen comes from here.
+  void applyProfile({String? fullName, String? email}) {
+    final user = state.value;
+    if (user == null) return;
+    state = AsyncData(user.copyWith(fullName: fullName, email: email));
+  }
+
   Future<void> logout() async {
     state = const AsyncLoading();
     await ref.read(pushNotificationManagerProvider).unregister();

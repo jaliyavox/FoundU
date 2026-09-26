@@ -12,11 +12,25 @@ import 'feed_controller.dart';
 /// Used on both sides. A finder sees their own thread with the author; the author sees every
 /// thread and picks which finder to reply to. The API refuses a reply to anyone who has not
 /// written first, so the author can never open contact with a stranger.
+/// Which board a thread belongs to. On a lost report the finder writes first; on a found post
+/// the person who thinks it is theirs does.
+enum MessageSource { lostReport, foundPost }
+
 class MessageThread extends ConsumerStatefulWidget {
-  const MessageThread({super.key, required this.reportId, required this.isAuthor});
+  const MessageThread({
+    super.key,
+    required this.reportId,
+    required this.isAuthor,
+    this.source = MessageSource.lostReport,
+  });
 
   final String reportId;
+
+  /// The hub of the conversation: the author of a lost report, or the finder of a found post.
   final bool isAuthor;
+
+  /// The same conversation with the roles swapped - see [MessageSource].
+  final MessageSource source;
 
   @override
   ConsumerState<MessageThread> createState() => _MessageThreadState();
@@ -43,7 +57,10 @@ class _MessageThreadState extends ConsumerState<MessageThread> {
 
   Future<void> _load() async {
     try {
-      final messages = await ref.read(feedRepositoryProvider).getMessages(widget.reportId);
+      final repository = ref.read(feedRepositoryProvider);
+      final messages = widget.source == MessageSource.foundPost
+          ? await repository.getFoundPostMessages(widget.reportId)
+          : await repository.getMessages(widget.reportId);
       if (!mounted) return;
       setState(() {
         _messages = messages;
@@ -74,7 +91,13 @@ class _MessageThreadState extends ConsumerState<MessageThread> {
     if (text.isEmpty) return;
     setState(() => _sending = true);
     try {
-      await ref.read(feedRepositoryProvider).sendMessage(widget.reportId, text, recipientId: widget.isAuthor ? _active : null);
+      final repository = ref.read(feedRepositoryProvider);
+      final recipientId = widget.isAuthor ? _active : null;
+      if (widget.source == MessageSource.foundPost) {
+        await repository.sendFoundPostMessage(widget.reportId, text, recipientId: recipientId);
+      } else {
+        await repository.sendMessage(widget.reportId, text, recipientId: recipientId);
+      }
       _body.clear();
       await _load();
     } on ApiException catch (error) {
@@ -99,7 +122,10 @@ class _MessageThreadState extends ConsumerState<MessageThread> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.isAuthor && threads.isEmpty)
-          Text('Nobody has written about this yet. When a finder does, you can reply here.',
+          Text(
+              widget.source == MessageSource.foundPost
+                  ? 'Nobody has asked about this yet. When someone does, you can answer here.'
+                  : 'Nobody has written about this yet. When a finder does, you can reply here.',
               style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4)),
         if (widget.isAuthor && threads.length > 1) ...[
           Wrap(

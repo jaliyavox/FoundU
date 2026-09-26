@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../data/report_models.dart';
 import 'providers/report_providers.dart';
+import '../../../core/theme/brand.dart';
 
 class MyReportsPage extends ConsumerStatefulWidget {
   const MyReportsPage({super.key});
@@ -97,6 +98,81 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
           ],
         );
       },
+    );
+  }
+
+  /// The good ending, and the opposite of withdrawing: the item is home.
+  void _showGotItBackDialog(BuildContext context, LostReportListItemModel item) {
+    final noteController = TextEditingController();
+    final name = item.itemTypeName.isNotEmpty ? item.itemTypeName : item.categoryName;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.volunteer_activism_rounded, color: Brand.forest, size: 24),
+            const SizedBox(width: 8),
+            Expanded(child: Text('You have your ${name.toLowerCase()} back?')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This closes the report and takes it off the lost feed. Anyone who said they '
+              'found it is told it got home and earns honor points for helping.',
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: noteController,
+              decoration: InputDecoration(
+                labelText: 'Where did it turn up? (Optional)',
+                hintText: 'e.g. Handed in at the library desk',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogCtx).pop(), child: const Text('Not yet')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Brand.forest,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              Navigator.of(dialogCtx).pop();
+              try {
+                await ref.read(reportControllerProvider.notifier).resolveReport(
+                      reportId: item.id,
+                      note: noteController.text.trim(),
+                    );
+                ref.invalidate(myReportsProvider);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Closed. Everyone who helped has been told it got home.'),
+                    backgroundColor: Colors.black87,
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not close the report: $e')),
+                );
+              }
+            },
+            child: const Text('Yes, close it'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -286,6 +362,7 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
                       return _ReportCard(
                         item: item,
                         onWithdraw: () => _showWithdrawDialog(context, item),
+                        onGotItBack: () => _showGotItBackDialog(context, item),
                       );
                     },
                   ),
@@ -302,10 +379,12 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
 class _ReportCard extends StatelessWidget {
   final LostReportListItemModel item;
   final VoidCallback onWithdraw;
+  final VoidCallback onGotItBack;
 
   const _ReportCard({
     required this.item,
     required this.onWithdraw,
+    required this.onGotItBack,
   });
 
   Color _getStatusColor(String status) {
@@ -580,8 +659,29 @@ class _ReportCard extends StatelessWidget {
                     ),
                   ),
 
-                  if (isActive) ...[
+                  if (item.status.toLowerCase() == 'active' || item.status.toLowerCase() == 'matched') ...[
                     const SizedBox(width: 8),
+                    // "I found this" - the owner has it back, so the report closes.
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Brand.forest,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: const Size(0, 34),
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: onGotItBack,
+                      icon: const Icon(Icons.volunteer_activism_rounded, size: 15),
+                      label: const Text(
+                        'I found this',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+
+                  if (isActive) ...[
+                    const SizedBox(width: 6),
                     // Edit Button
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(

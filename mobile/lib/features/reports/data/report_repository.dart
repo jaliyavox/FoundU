@@ -116,6 +116,20 @@ class LostReportRepository {
     }
   }
 
+  /// "I found this" from the owner's side: the item is home, so the report closes and the
+  /// people who helped are credited.
+  Future<LostReportDetailModel> resolveReport(String id, String? note) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/lost-reports/$id/resolve',
+        data: {'note': note},
+      );
+      return LostReportDetailModel.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   Future<LostReportDetailModel> withdrawReport(
     String id,
     String? reason,

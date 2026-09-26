@@ -126,6 +126,13 @@ class AuthRepository {
         (refreshToken != null && refreshToken.isNotEmpty);
   }
 
+  /// Stores a token pair the app was handed outside login - a password change returns one,
+  /// because the change ends every other session and would otherwise end this one too.
+  Future<AuthUser> adoptSession(AuthResponse auth) async {
+    await _saveTokens(auth);
+    return auth.user;
+  }
+
   Future<void> _saveTokens(AuthResponse auth) {
     return _tokenStorage.save(
       AuthTokens(

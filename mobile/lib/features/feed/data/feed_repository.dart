@@ -128,6 +128,30 @@ class FeedRepository {
       throw ApiException.fromDio(error);
     }
   }
+
+  /// Asking the finder about a post. An enquirer leaves [recipientId] empty; the finder names
+  /// the enquirer they are answering. No lost report is needed to ask.
+  Future<void> sendFoundPostMessage(String postId, String body, {String? recipientId}) async {
+    try {
+      await _dio.post<Map<String, dynamic>>('/api/found-posts/$postId/messages', data: {
+        'body': body,
+        if (recipientId != null) 'recipientId': recipientId,
+      });
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Someone who has never asked is 403 - an empty thread, not a failure.
+  Future<List<ReportMessage>> getFoundPostMessages(String postId) async {
+    try {
+      final response = await _dio.get<List<dynamic>>('/api/found-posts/$postId/messages');
+      return (response.data ?? const []).map((e) => ReportMessage.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 403) return const [];
+      throw ApiException.fromDio(error);
+    }
+  }
 }
 
 final feedRepositoryProvider = Provider<FeedRepository>((ref) => FeedRepository(ref.watch(apiClientProvider)));

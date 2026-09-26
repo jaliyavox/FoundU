@@ -16,6 +16,15 @@ flutter run --dart-define=FOUND_U_API_BASE_URL=http://10.0.2.2:5292
 `10.0.2.2` is the Android emulator's route to the API running on the development machine. The
 app calls ASP.NET only; it never receives the internal FastAPI service key.
 
+## Notification inbox
+
+Open the bell on Feed or Profile to read paginated updates, mark individual notifications or
+all notifications as read, and open the related claim or reports. The unread count refreshes
+every minute while a bell/inbox is mounted. Pull down or use Refresh to check immediately.
+Account changes clear notification state; failed requests offer a retry without marking data
+read locally. This inbox works without Firebase configuration. Device push delivery requires
+the Firebase setup described in the root README.
+
 ## Running on macOS without Android Studio
 
 What worked on a Mac with only the SDK folder (`~/Library/Android/sdk`), no Android Studio,

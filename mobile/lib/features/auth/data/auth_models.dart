@@ -15,6 +15,17 @@ class AuthUser {
   final String? studentNumber;
   final bool? isSuspended;
 
+  /// Used after someone edits their own profile: the access token still carries the old name
+  /// until it is next refreshed, so what the app shows comes from here.
+  AuthUser copyWith({String? fullName, String? email}) => AuthUser(
+        id: id,
+        name: fullName ?? name,
+        email: email ?? this.email,
+        role: role,
+        studentNumber: studentNumber,
+        isSuspended: isSuspended,
+      );
+
   factory AuthUser.fromAuthResponseJson(Map<String, dynamic> json) {
     return AuthUser(
       id: json['id'] as String,
