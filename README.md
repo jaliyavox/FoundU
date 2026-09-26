@@ -51,6 +51,8 @@ $env:LLM_PROVIDER = "ollama"
 $env:LLM_MODEL = "<installed-model-name>"
 $env:OLLAMA_BASE_URL = "http://localhost:11434"
 $env:LLM_TIMEOUT_SECONDS = "30"
+$env:WORKFLOW_STATE_STORE = "postgres"
+$env:WORKFLOW_DATABASE_URL = "postgresql://foundu:<local-db-password>@localhost:5434/foundu"
 uvicorn app.main:app --reload --port 8000
 
 # Terminal 2 — ASP.NET Core API
@@ -144,6 +146,21 @@ It is not yet wired into the ASP.NET workflow and has no authority to mutate bus
 - Call `POST /agents/run` without `X-FoundU-Service-Key`: FastAPI returns `401 Unauthorized`.
 - The Verification tests demonstrate that unsafe drafted wording is rejected for deterministic
   safe templates.
+
+## Local integration smoke test
+
+With PostgreSQL, FastAPI and ASP.NET running, set `FOUNDU_SMOKE_ADMIN_PASSWORD` to a local
+development admin password and run `ai/.venv/bin/python scripts/smoke_full_stack.py` from the
+repository root (Windows: `ai\.venv\Scripts\python.exe scripts\smoke_full_stack.py`). The
+script uses the AI environment's `httpx` dependency. Optional `FOUNDU_SMOKE_ADMIN_EMAIL` and
+`FOUNDU_SMOKE_API_URL` override `admin@foundu.com` and `http://localhost:5292/api`.
+
+This opt-in test **creates** a uniquely labelled test student, report, item and claim. It checks
+AI matching and verification, staff approval, collection, used-code rejection, private evidence
+and agent-history authorization, and notification read counts against real PostgreSQL. Records
+remain in the local database, with the test item returned and report resolved on success. Use
+the deterministic AI provider for a repeatable baseline; this does not validate real Ollama
+quality or Firebase delivery. Do not point it at a production environment.
 
 ## Working agreements
 

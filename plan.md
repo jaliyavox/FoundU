@@ -88,11 +88,11 @@ We can build the web dashboard's structure now and wire it to the API as the API
 
 ### A3 · Feature screens (built as API endpoints come online)
 - [x] Found-item log form + items table (staff sees private fields) — DONE 2026-09-09
-- [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
+- [x] Student: report-lost form + my-reports list with edit and withdraw
 - [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
 - [x] Notification bell + list (both roles) — DONE 2026-09-09
 - [x] Admin: users table, analytics (Recharts), dispute review — DONE 2026-09-15
-- [ ] Agent-run panel on claim detail — the AgentRun trail is written by the API but nothing reads it
+- [x] Staff agent-run panel on claim detail — verified against the live API; refresh and retry controls added 2026-09-26
 
 ### A4 · Web polish
 - [ ] Loading / empty / error states on every list, form, detail view
@@ -112,7 +112,9 @@ We can build the web dashboard's structure now and wire it to the API as the API
 ### B2 · Feature screens
 - [x] Report-lost form — Parami, PR #13
 - [x] Claim, answer-question screen, claim status — Braveena, PR #16
-- [ ] FCM setup, inbox with unread badges + deep links (Step 8)
+- [x] Mobile inbox with unread badges, paging, mark-read actions and navigation — 2026-09-26
+- [x] FCM client/server integration — PR #36
+- [ ] Configure Firebase credentials and verify foreground/background/closed-app delivery on a device
 
 ### B3 · Mobile polish
 - [ ] Loading/empty/error states, 48dp touch targets, semantic labels, offline retry
@@ -157,6 +159,30 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-26 — local startup, notification inbox and regression checks
+
+- Fixed a production DI cycle: database options resolved the push interceptor, which resolved
+  the dispatcher, which requested the same database context. Push dispatcher resolution now
+  occurs after the context is constructed. Added a test using real production registrations;
+  the older HTTP tests replace the database registration and did not cover this failure.
+- Mobile notifications now have Feed/Profile entry points, unread counts polled every minute,
+  paginated inbox, mark-one/mark-all, retry and pull-to-refresh. Navigation allows only known
+  entity routes; session changes invalidate cached data and suppress stale navigation.
+- Staff agent history already existed. Added retry/manual refresh and invalidate its query
+  after staff question generation. Checked admin login and claim history in headless Chrome.
+- Live PostgreSQL/FastAPI smoke: report, AI match, claim, generated questions, answers, approval,
+  collection, reused-code rejection and notifications. AI used the deterministic provider;
+  Ollama is running but has no model installed. The smoke exposed a mark-all response that
+  returned rows changed as `unread`; it now returns the actual remaining count.
+- Automated checks: API 99, web 34, mobile 43, AI 285 tests. The AI PostgreSQL recovery test
+  ran against local PostgreSQL rather than being skipped. Web build and Flutter analysis pass.
+- Still needed: owner-facing intake API/UI, Coordinator application integration, real Ollama
+  and Firebase device checks, broader browser/mobile journey coverage, accessibility/polish,
+  diagrams and deployment work. This is a completed first slice, not full project sign-off.
+- Timestamp follow-up: a smoke request using a `+00:00` offset was rejected as future on this
+  machine; the same request in the clients' `Z` UTC format passed. Verify offset normalization
+  in report validation before claiming support for arbitrary ISO timestamp offsets.
 
 ### 2026-09-22 - the product model: codes, finder posts, two-way threads (steps 1-4 of 5)
 
