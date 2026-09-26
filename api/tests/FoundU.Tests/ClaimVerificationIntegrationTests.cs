@@ -85,14 +85,35 @@ public sealed class ClaimVerificationIntegrationTests
         Assert.Empty(fixture.Db.ApprovalDecisions);
     }
 
+    [Fact]
+    public async Task Evaluate_StartsOneClaimLinkedCoordinatorWorkflowWithOpaqueStableId()
+    {
+        await using var fixture = await ClaimFixture.CreateAsync(withCoordinator: true);
+        fixture.Agent.GenerateResult = VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Success(
+            new(fixture.Claim.Id, [new("verification-1", "What identifying detail do you remember?")], "manual_review", "remote-generation"));
+        fixture.Agent.EvaluateResult = VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Success(
+            new(fixture.Claim.Id, "likely_match", "remote-evaluation"));
+
+        var generated = await fixture.Service.GenerateQuestionsAsync(fixture.Claim.Id, fixture.Staff.Id);
+        await fixture.Service.SubmitAnswersAsync(fixture.Claim.Id, fixture.Student.Id,
+            new SubmitClaimAnswersRequest([new(generated.Questions.Single().Id, "blue keychain")]));
+
+        var coordinator = fixture.Db.AgentRuns.Single(run => run.Objective.Contains("Coordinator"));
+        Assert.Equal(AgentRunStatus.PausedForApproval, coordinator.Status);
+        Assert.Contains(fixture.Workflow!.WorkflowId.ToString(), coordinator.FinalOutcomeJson!);
+        Assert.DoesNotContain(fixture.Secret, coordinator.FinalOutcomeJson!);
+        Assert.Single(fixture.Db.AgentSteps.Where(step => step.AgentRunId == coordinator.Id && step.Task == "Waiting for human approval"));
+    }
+
     private sealed class ClaimFixture : IAsyncDisposable
     {
-        private ClaimFixture(FoundUDbContext db, ClaimService service, FakeVerificationAgentClient agent,
+        private ClaimFixture(FoundUDbContext db, ClaimService service, FakeVerificationAgentClient agent, FakeWorkflowClient? workflow,
             Claim claim, AppUser student, AppUser staff, FoundReport foundReport, string secret)
         {
             Db = db;
             Service = service;
             Agent = agent;
+            Workflow = workflow;
             Claim = claim;
             Student = student;
             Staff = staff;
@@ -103,13 +124,14 @@ public sealed class ClaimVerificationIntegrationTests
         public FoundUDbContext Db { get; }
         public ClaimService Service { get; }
         public FakeVerificationAgentClient Agent { get; }
+        public FakeWorkflowClient? Workflow { get; }
         public Claim Claim { get; }
         public AppUser Student { get; }
         public AppUser Staff { get; }
         public FoundReport FoundReport { get; }
         public string Secret { get; }
 
-        public static async Task<ClaimFixture> CreateAsync()
+        public static async Task<ClaimFixture> CreateAsync(bool withCoordinator = false)
         {
             var db = new FoundUDbContext(new DbContextOptionsBuilder<FoundUDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -138,11 +160,25 @@ public sealed class ClaimVerificationIntegrationTests
             await db.SaveChangesAsync();
 
             var agent = new FakeVerificationAgentClient();
-            return new ClaimFixture(db, new ClaimService(db, new NotificationService(db), agent), agent,
+            var workflow = withCoordinator ? new FakeWorkflowClient() : null;
+            return new ClaimFixture(db, new ClaimService(db, new NotificationService(db), agent, workflow), agent, workflow,
                 claim, student, staff, found, secret);
         }
 
         public ValueTask DisposeAsync() => Db.DisposeAsync();
+    }
+
+    private sealed class FakeWorkflowClient : IAgentWorkflowClient
+    {
+        public Guid WorkflowId { get; private set; }
+        public Task<AgentWorkflowStateDto?> StartCoordinatorAsync(Guid workflowId, string claimStatus, string verificationRecommendation, CancellationToken cancellationToken = default)
+        {
+            WorkflowId = workflowId;
+            return Task.FromResult<AgentWorkflowStateDto?>(new(workflowId, "waiting_for_approval", true, "pending", "staff_claim_decision", "A staff member must make the claim decision.", null, null, null));
+        }
+        public Task<AgentWorkflowStateDto?> GetAsync(Guid workflowId, CancellationToken cancellationToken = default) => Task.FromResult<AgentWorkflowStateDto?>(null);
+        public Task<AgentWorkflowStateDto?> DecideAsync(Guid workflowId, string decision, Guid decisionMakerId, CancellationToken cancellationToken = default) => Task.FromResult<AgentWorkflowStateDto?>(null);
+        public Task<AgentWorkflowStateDto?> ResumeAsync(Guid workflowId, CancellationToken cancellationToken = default) => Task.FromResult<AgentWorkflowStateDto?>(null);
     }
 
     private sealed class FakeVerificationAgentClient : IVerificationAgentClient

@@ -308,6 +308,7 @@ public class MatchSuggestionService : IMatchSuggestionService
             Objective = "Recommend a possible item match.",
             PlanJson = JsonSerializer.Serialize(new { steps = new[] { "lookup_reports", "score_reports" } }),
             Status = result.IsSuccess ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            RetryCount = result.RetryCount,
             ErrorMessage = result.IsSuccess ? null : "Matching agent was unavailable.",
             FinalOutcomeJson = outcome,
             CompletedAt = DateTime.UtcNow,

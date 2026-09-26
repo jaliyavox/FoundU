@@ -133,8 +133,32 @@ live delivery; automated tests use fakes and never contact Firebase.
 6. Staff alone approves or rejects the claim; AI never decides ownership, transfers custody, or
    resolves an item.
 
-The Coordinator is a real deterministic workflow-recommendation agent callable through FastAPI.
-It is not yet wired into the ASP.NET workflow and has no authority to mutate business state.
+The Coordinator is a deterministic workflow-recommendation agent invoked by ASP.NET after a
+verification recommendation. ASP.NET creates a claim-linked audit run with the stable opaque
+workflow ID before calling FastAPI; staff discover its durable pause state through ASP.NET only.
+It has no authority to mutate business state.
+
+### AI observability and bounded resilience
+
+Each AI operation has an opaque server-generated correlation ID. It travels from the ASP.NET
+AgentRun/client request to FastAPI and its workflow logs. Coordinator durable workflows use their
+stable workflow ID as the correlation identifier. `AgentRun` records the safe outcome, timestamps,
+and `RetryCount`; Coordinator runs also record real plan, human-wait, and terminal audit steps.
+No prompts, raw model responses, ownership evidence, answers, service keys, or reasoning are
+recorded.
+
+Recommendation-only Description Parser, Matching, Verification, and Coordinator-start calls make
+at most two short retries after a transient network failure, timeout, or HTTP 408/429/502/503/504.
+Validation, malformed responses, 400/401/403/404/409 responses, and business failures are never
+retried. Approval and resume are deliberately single-shot because their durable transition status
+is the idempotency boundary; staff can safely check state and explicitly retry through ASP.NET.
+Timeouts remain configured by `AiService:TimeoutSeconds` (bounded to 1–30 seconds). Exhaustion
+uses the existing safe manual-review/fallback behavior and preserves the underlying business work.
+
+Demo evidence: submit a verification answer, open the staff claim’s Agent trail to show the
+Coordinator run/workflow ID and retry count, simulate a transient AI 503, then show the bounded
+retry or manual fallback. A waiting workflow shows the staff approval panel; approving resumes
+safe coordination only—the existing ASP.NET claim decision remains authoritative.
 
 ## Safe fallback demonstrations
 

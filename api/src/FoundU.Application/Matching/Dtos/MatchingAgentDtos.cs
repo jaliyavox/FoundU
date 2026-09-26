@@ -15,9 +15,9 @@ public record MatchingAgentRecommendation(string Recommendation, decimal Score, 
 /// A generic, safe client failure. It never carries a raw FastAPI response, request payload, or
 /// private verification data and can therefore be used in a bounded audit outcome.
 /// </summary>
-public record MatchingAgentCallResult<T>(bool IsSuccess, T? Value, string? FailureReason)
+public record MatchingAgentCallResult<T>(bool IsSuccess, T? Value, string? FailureReason, int RetryCount = 0)
 {
-    public static MatchingAgentCallResult<T> Success(T value) => new(true, value, null);
+    public static MatchingAgentCallResult<T> Success(T value, int retryCount = 0) => new(true, value, null, retryCount);
 
-    public static MatchingAgentCallResult<T> Failure(string reason) => new(false, default, reason);
+    public static MatchingAgentCallResult<T> Failure(string reason, int retryCount = 0) => new(false, default, reason, retryCount);
 }

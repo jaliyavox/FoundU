@@ -107,6 +107,7 @@ def run_agent(
 ) -> AgentRunResponse:
     initial_state = create_initial_state(request)
     workflow_id = initial_state["agent_run_id"]
+    correlation_id = initial_state.get("correlation_id") or str(workflow_id)
     state_store = getattr(app.state, "workflow_state_store", None)
     if state_store is not None:
         try:
@@ -123,12 +124,25 @@ def run_agent(
                     )
                 raise HTTPException(status_code=409, detail="Workflow is already in progress.")
             logger.info(
-                "workflow_created workflow_id=%s agent=%s", workflow_id, request.agent.value
+                "workflow_created workflow_id=%s agent=%s correlation_id=%s",
+                workflow_id,
+                request.agent.value,
+                correlation_id,
             )
             state_store.update(workflow_id, request.agent, "planning", initial_state)
-            logger.info("workflow_planning workflow_id=%s", workflow_id)
+            logger.info(
+                "workflow_planning workflow_id=%s agent=%s correlation_id=%s",
+                workflow_id,
+                request.agent.value,
+                correlation_id,
+            )
             state_store.update(workflow_id, request.agent, "executing", initial_state)
-            logger.info("workflow_executing workflow_id=%s", workflow_id)
+            logger.info(
+                "workflow_executing workflow_id=%s agent=%s correlation_id=%s",
+                workflow_id,
+                request.agent.value,
+                correlation_id,
+            )
         except WorkflowStateStoreError:
             raise HTTPException(
                 status_code=503, detail="Workflow persistence is unavailable."
@@ -173,7 +187,12 @@ def run_agent(
                     raise HTTPException(
                         status_code=409, detail="Workflow state changed before pause."
                     )
-                logger.info("workflow_paused_for_approval workflow_id=%s", workflow_id)
+                logger.info(
+                    "workflow_paused_for_approval workflow_id=%s agent=%s correlation_id=%s",
+                    workflow_id,
+                    request.agent.value,
+                    correlation_id,
+                )
                 return AgentRunResponse(
                     agent_run_id=workflow_id,
                     agent=request.agent,
@@ -198,7 +217,13 @@ def run_agent(
                 else "completed"
             )
             state_store.update(workflow_id, request.agent, workflow_status, persisted_result)
-            logger.info("workflow_%s workflow_id=%s", workflow_status, workflow_id)
+            logger.info(
+                "workflow_%s workflow_id=%s agent=%s correlation_id=%s",
+                workflow_status,
+                workflow_id,
+                request.agent.value,
+                correlation_id,
+            )
         except WorkflowStateStoreError:
             raise HTTPException(
                 status_code=503, detail="Workflow persistence is unavailable."

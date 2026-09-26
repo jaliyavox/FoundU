@@ -782,6 +782,7 @@ public class LostReportService : ILostReportService
             Objective = "Enrich a lost report with parsed attributes.",
             PlanJson = JsonSerializer.Serialize(new { steps = new[] { "parse_description", "validate_attributes" } }),
             Status = parse.IsSuccess ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            RetryCount = parse.RetryCount,
             ErrorMessage = parse.IsSuccess ? null : "Description parser was unavailable.",
             // Never duplicate student description text or raw provider content in the audit.
             FinalOutcomeJson = parse.IsSuccess && parse.Value is not null
