@@ -169,3 +169,17 @@ export const withdrawFoundPost = (id: string, reason?: string) =>
 
 export const getMyFoundPosts = (page = 1, pageSize = 20) =>
   api.get<PagedResult<FoundPostItem>>(`/api/found-posts/mine?page=${page}&pageSize=${pageSize}`)
+
+/**
+ * Messages about a found post - the same shape as a lost-report thread, with the roles the
+ * other way round: the finder is the one being written to.
+ */
+export type FoundPostMessage = LostReportMessage
+
+/** An enquirer leaves recipientId empty; the finder names the enquirer they are answering. */
+export const sendFoundPostMessage = (postId: string, body: string, recipientId?: string) =>
+  api.post<FoundPostMessage>(`/api/found-posts/${postId}/messages`, { body, recipientId })
+
+/** 403 for somebody who is in none of the threads - that is an empty thread, not a failure. */
+export const getFoundPostMessages = (postId: string) =>
+  api.get<FoundPostMessage[]>(`/api/found-posts/${postId}/messages`)

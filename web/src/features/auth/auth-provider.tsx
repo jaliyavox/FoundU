@@ -4,7 +4,8 @@ import { AuthContext, type AuthContextValue, type RegisterInput } from './auth-c
 import * as authApi from './auth-api'
 import { clearSession, getSessionVersion, setOnSessionChanged, startSession } from '@/lib/api/client'
 import { tokenStore } from '@/lib/api/tokens'
-import type { AuthUser, MeResponse } from '@/lib/api/types'
+import * as accountApi from '@/features/account/account-api'
+import type { AuthResponse, AuthUser, MeResponse } from '@/lib/api/types'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
@@ -78,6 +79,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return auth.user
   }, [])
 
+  const signInWithGoogle = useCallback(async (idToken: string) => {
+    clearSession()
+    const version = getSessionVersion()
+    const auth = await accountApi.googleSignIn(idToken)
+    startSession(auth, version)
+    return auth.user
+  }, [])
+
+  /**
+   * A password change ends every other session and hands this one a fresh pair, so the tokens
+   * are swapped in place - no sign-out, no re-login.
+   */
+  const applySession = useCallback((auth: AuthResponse) => {
+    startSession(auth, getSessionVersion())
+    return auth.user
+  }, [])
+
+  const updateLocalUser = useCallback((patch: Partial<AuthUser>) => {
+    setUser((current) => (current ? { ...current, ...patch } : current))
+  }, [])
+
   const logout = useCallback(async () => {
     const refreshToken = tokenStore.getRefreshToken()
     // Invalidate older requests and clear React/storage/cache before a network wait.
@@ -94,8 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isInitializing, isAuthenticated: user !== null && !isInitializing, login, register, logout }),
-    [user, isInitializing, login, register, logout],
+    () => ({
+      user,
+      isInitializing,
+      isAuthenticated: user !== null && !isInitializing,
+      login,
+      register,
+      logout,
+      signInWithGoogle,
+      applySession,
+      updateLocalUser,
+    }),
+    [user, isInitializing, login, register, logout, signInWithGoogle, applySession, updateLocalUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

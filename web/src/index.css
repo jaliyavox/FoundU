@@ -244,6 +244,27 @@
   70%, 100% { transform: scale(2.6); opacity: 0; }
 }
 
+/* The "Fresh finds" flame. Two bodies on different cycles so the light never repeats
+   visibly: the outer one breathes, the inner core flickers faster and shorter. */
+@keyframes fu-flame-body {
+  0%, 100% { transform: scale(1) translateY(0);        opacity: 1; }
+  28%      { transform: scale(1.06, 0.96) translateY(0.4px); opacity: 0.94; }
+  55%      { transform: scale(0.95, 1.08) translateY(-0.6px); opacity: 1; }
+  78%      { transform: scale(1.04, 0.98) translateY(0.2px); opacity: 0.97; }
+}
+
+@keyframes fu-flame-core {
+  0%, 100% { transform: scale(1) translateY(0);         opacity: 0.95; }
+  22%      { transform: scale(0.88, 1.12) translateY(-0.5px); opacity: 0.75; }
+  48%      { transform: scale(1.12, 0.92) translateY(0.4px);  opacity: 1; }
+  70%      { transform: scale(0.94, 1.06) translateY(-0.3px); opacity: 0.85; }
+}
+
+@keyframes fu-flame-glow {
+  0%, 100% { transform: scale(1);    opacity: 0.35; }
+  50%      { transform: scale(1.18); opacity: 0.6; }
+}
+
 @keyframes fu-node-in {
   from { opacity: 0; transform: translateY(10px) scale(0.96); }
   to   { opacity: 1; transform: none; }
@@ -259,6 +280,9 @@
 .fu-aurora-c { animation: fu-aurora-c 19s ease-in-out infinite; }
 .fu-flow     { stroke-dasharray: 5 11; animation: fu-flow 5s linear infinite; }
 .fu-ping     { animation: fu-ping 2.6s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.fu-flame-body { transform-origin: 50% 88%; animation: fu-flame-body 2.4s ease-in-out infinite; }
+.fu-flame-core { transform-origin: 50% 88%; animation: fu-flame-core 1.5s ease-in-out infinite; }
+.fu-flame-glow { transform-origin: 50% 60%; animation: fu-flame-glow 2.4s ease-in-out infinite; }
 .fu-node-in  { animation: fu-node-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .fu-swap-in  { animation: fu-swap-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
@@ -269,7 +293,10 @@
   .fu-flow,
   .fu-ping,
   .fu-node-in,
-  .fu-swap-in {
+  .fu-swap-in,
+  .fu-flame-body,
+  .fu-flame-core,
+  .fu-flame-glow {
     animation: none;
   }
 

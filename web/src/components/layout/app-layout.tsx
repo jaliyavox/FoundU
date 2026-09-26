@@ -1,14 +1,17 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3Icon,
+  BotIcon,
   ChevronsUpDownIcon,
   FileTextIcon,
   FlagIcon,
+  HandHeartIcon,
   GavelIcon,
   LogOutIcon,
   MoonIcon,
   PackageSearchIcon,
   ShieldQuestionIcon,
+  UserRoundCogIcon,
   UsersIcon,
   SunIcon,
 } from 'lucide-react'
@@ -61,9 +64,11 @@ const isActivePath = (item: NavItem, pathname: string) =>
   item.exact ? pathname === item.to : pathname.startsWith(item.to)
 
 const NAV_ITEMS: NavItem[] = [
+  { to: '/ask-foundu', label: 'Ask FoundU', icon: BotIcon, allow: ['Student'] },
   { to: '/items', label: 'Found items', icon: PackageSearchIcon, allow: ['Staff', 'Admin'] },
   { to: '/claims', label: 'Claims', icon: GavelIcon, allow: ['Staff', 'Admin'] },
   { to: '/my-reports', label: 'My reports', icon: FileTextIcon, allow: ['Student'] },
+  { to: '/help-to-find', label: 'Help to find', icon: HandHeartIcon, allow: ['Student'] },
   { to: '/my-claims', label: 'My claims', icon: ShieldQuestionIcon, allow: ['Student'] },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3Icon, allow: ['Admin'] },
   { to: '/admin/moderation', label: 'Moderation', icon: FlagIcon, allow: ['Admin'] },
@@ -202,6 +207,14 @@ export function AppLayout() {
                       </div>
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    render={<Link to="/account" />}
+                    nativeButton={false}
+                  >
+                    <UserRoundCogIcon aria-hidden="true" />
+                    Account settings
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOutIcon aria-hidden="true" />

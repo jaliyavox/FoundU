@@ -13,6 +13,9 @@ import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { displayCode, getFoundFeed, recogniseFoundPost, timeAgo, withdrawFoundPost, type FoundPostItem } from './feed-api'
 import { ItemIllustration } from './item-illustration'
+import { MessageThread } from './message-thread'
+import { CardConnector } from './card-connector'
+import { FoundSpotlight } from './found-spotlight'
 
 const PAGE_SIZE = 12
 
@@ -98,7 +101,7 @@ export function FoundFeed({ search }: { search: string }) {
   )
 }
 
-function FoundPostCard({ item, onOpen }: { item: FoundPostItem; onOpen: () => void }) {
+export function FoundPostCard({ item, onOpen }: { item: FoundPostItem; onOpen: () => void }) {
   const meta = [item.primaryColor, item.foundLocationName].filter(Boolean).join(' · ')
 
   return (
@@ -136,7 +139,7 @@ function FoundPostCard({ item, onOpen }: { item: FoundPostItem; onOpen: () => vo
 }
 
 /** Detail, and the two things a person can do: recognise it as theirs, or take down their own post. */
-function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; onClose: () => void }) {
+export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; onClose: () => void }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [reportId, setReportId] = useState('')
@@ -171,7 +174,12 @@ function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; onClose
   })
 
   return (
-    <Sheet
+    <>
+      {/* Same lift-and-chain as the lost board: card out of the grid, dashed line, panel. */}
+      <FoundSpotlight item={item} />
+      <CardConnector cardId={item?.id ?? null} viaMiddle={false} />
+
+      <Sheet
       open={item !== null}
       onOpenChange={(open) => {
         if (!open) {
@@ -226,6 +234,13 @@ function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; onClose
               </div>
             )}
 
+            {item.isMine && (
+              <div className="flex flex-col gap-3 border-t border-neutral-900/8 pt-5">
+                <p className="text-sm font-medium">People asking about this</p>
+                <MessageThread reportId={item.id} isAuthor source="found" />
+              </div>
+            )}
+
             {item.isMine ? (
               <Button
                 variant="outline"
@@ -241,52 +256,72 @@ function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; onClose
                 Sign in if this is yours
               </Button>
             ) : canRecognise ? (
-              done ? (
-                <p className="rounded-xl border border-brand-green/30 bg-brand-green/10 p-4 text-sm text-neutral-700">
-                  Done. {item.postedByName.split(' ')[0]} has been asked to hand it in, and it now shows on your report.
-                  You will be able to claim it once it reaches a desk.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-3 border-t border-neutral-900/8 pt-5">
-                  <div>
-                    <p className="text-sm font-medium">Is this yours?</p>
-                    <p className="text-xs text-neutral-500">
-                      Pick the report it matches. The finder is asked to hand it in; the desk will still check it is
-                      yours.
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="recognise-report" className="text-sm text-neutral-900">Your report</Label>
-                    <FormSelect
-                      id="recognise-report"
-                      value={reportId}
-                      onValueChange={setReportId}
-                      options={(myReports.data?.items ?? []).map((r) => ({ value: r.id, label: `${r.itemTypeName} · ${r.lastSeenLocationName}` }))}
-                      placeholder={myReports.isPending ? 'Loading your reports' : 'Choose a report'}
-                    />
-                  </div>
-                  <Button
-                    className="bg-brand-forest text-white hover:bg-brand-forest/90"
-                    disabled={!reportId || recognise.isPending}
-                    onClick={() => recognise.mutate()}
-                  >
-                    {recognise.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
-                    That is mine
-                  </Button>
-                  {myReports.data && myReports.data.items.length === 0 && (
-                    <p className="text-xs text-neutral-500">
-                      You have no open report to match it to.{' '}
-                      <Link to="/my-reports/new" className="font-medium text-brand-forest underline underline-offset-4">Post one first</Link>.
-                    </p>
-                  )}
+              <div className="flex flex-col gap-4 border-t border-neutral-900/8 pt-5">
+                {/* Asking comes first and needs no report: a question is not a claim, and
+                    making someone post a lost report before they can ask "does it have a
+                    dent in the lid?" is a wall in front of the obvious first step. */}
+                <div>
+                  <p className="text-sm font-medium">Think it is yours?</p>
+                  <p className="text-xs text-neutral-500">
+                    Ask {item.postedByName.split(' ')[0]} about it - a detail only the owner
+                    would know is the quickest way to be sure. Nothing is claimed by asking.
+                  </p>
                 </div>
-              )
+
+                <MessageThread reportId={item.id} isAuthor={false} source="found" />
+
+                {done ? (
+                  <p className="rounded-xl border border-brand-green/30 bg-brand-green/10 p-4 text-sm text-neutral-700">
+                    Done. {item.postedByName.split(' ')[0]} has been asked to hand it in, and it now shows on your
+                    report. You will be able to claim it once it reaches a desk.
+                  </p>
+                ) : (myReports.data?.items.length ?? 0) > 0 ? (
+                  <details className="rounded-xl border border-neutral-900/8 bg-white/70 p-4">
+                    <summary className="cursor-pointer text-sm font-medium">
+                      Sure it is yours? Link it to one of your reports
+                    </summary>
+                    <div className="flex flex-col gap-3 pt-3">
+                      <p className="text-xs text-neutral-500">
+                        The finder is asked to hand it in with your report's code. The desk will still check it is
+                        yours.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="recognise-report" className="text-sm text-neutral-900">Your report</Label>
+                        <FormSelect
+                          id="recognise-report"
+                          value={reportId}
+                          onValueChange={setReportId}
+                          options={(myReports.data?.items ?? []).map((r) => ({ value: r.id, label: `${r.itemTypeName} · ${r.lastSeenLocationName}` }))}
+                          placeholder={myReports.isPending ? 'Loading your reports' : 'Choose a report'}
+                        />
+                      </div>
+                      <Button
+                        className="bg-brand-forest text-white hover:bg-brand-forest/90"
+                        disabled={!reportId || recognise.isPending}
+                        onClick={() => recognise.mutate()}
+                      >
+                        {recognise.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+                        That is mine
+                      </Button>
+                    </div>
+                  </details>
+                ) : (
+                  <p className="text-xs text-neutral-500">
+                    Once you are sure, {' '}
+                    <Link to="/my-reports/new" className="font-medium text-brand-forest underline underline-offset-4">
+                      post a lost report
+                    </Link>{' '}
+                    - that is what gives the finder a code to hand it in with.
+                  </p>
+                )}
+              </div>
             ) : (
               <p className="text-sm text-neutral-500">Staff can pull this post up at the desk by the finder's code.</p>
             )}
           </div>
         )}
       </SheetContent>
-    </Sheet>
+      </Sheet>
+    </>
   )
 }

@@ -188,6 +188,10 @@ export const getPossibleMatches = (id: string) =>
 export const flagLostReport = (id: string, reason: string, flagType?: string) =>
   api.post<unknown>(`/api/lost-reports/${id}/flag`, { reason, flagType })
 
+/** "I got it back." Closes the report and credits whoever helped. Owner only. */
+export const resolveLostReport = (id: string, note?: string) =>
+  api.post<LostReportDetail>(`/api/lost-reports/${id}/resolve`, { note })
+
 export const withdrawLostReport = (id: string, reason?: string) =>
   api.post<unknown>(`/api/lost-reports/${id}/withdraw`, { reason })
 

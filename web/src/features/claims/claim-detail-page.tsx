@@ -488,6 +488,7 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['claim', claim.id] })
     queryClient.invalidateQueries({ queryKey: ['claim-queue'] })
+    queryClient.invalidateQueries({ queryKey: ['claim-agent-runs', claim.id] })
   }
 
   const ask = useMutation({

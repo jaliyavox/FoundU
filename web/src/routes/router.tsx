@@ -19,6 +19,10 @@ import { MyReportsPage } from '@/features/reports/my-reports-page'
 import { ReportLostPage } from '@/features/reports/report-lost-page'
 import { ForbiddenPage } from '@/pages/forbidden-page'
 import { NotFoundPage } from '@/pages/not-found-page'
+import { AskFoundUPage } from '@/features/intake/ask-foundu-page'
+import { FoundBoardPage } from '@/features/feed/found-board-page'
+import { HelpToFindPage } from '@/features/help/help-to-find-page'
+import { AccountPage } from '@/features/account/account-page'
 
 export const router = createBrowserRouter([
   // Public. Signed-in visitors are redirected to their role's home from inside the page.
@@ -26,6 +30,8 @@ export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/feed', element: <FeedPage /> },
+  // The board behind the "Fresh finds" strip. Public, like the lost feed.
+  { path: '/found', element: <FoundBoardPage /> },
 
   {
     element: <ProtectedRoute />,
@@ -48,11 +54,14 @@ export const router = createBrowserRouter([
               { path: 'my-reports', element: <MyReportsPage /> },
               { path: 'my-reports/new', element: <ReportLostPage /> },
               { path: 'my-claims', element: <MyClaimsPage /> },
+              { path: 'ask-foundu', element: <AskFoundUPage /> },
+              { path: 'help-to-find', element: <HelpToFindPage /> },
             ],
           },
 
           // Both sides read the same claim from opposite ends, and the API decides who may
           // see which - so this route is open to any signed-in user rather than duplicated.
+          { path: 'account', element: <AccountPage /> },
           { path: 'claims/:id', element: <ClaimDetailPage /> },
 
           // Anyone signed in can post something they found - a staff member walking across

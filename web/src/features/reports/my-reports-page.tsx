@@ -7,11 +7,13 @@ import {
   MessageSquareIcon,
   ChevronRightIcon,
   FileTextIcon,
+  HandHeartIcon,
   Loader2Icon,
   PencilIcon,
   PlusIcon,
   RotateCwIcon,
   SearchIcon,
+  XIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -25,6 +27,7 @@ import {
   getCategories,
   getLocations,
   getMyLostReports,
+  resolveLostReport,
   withdrawLostReport,
   type LostReportListItem,
   type LostReportQuery,
@@ -37,6 +40,7 @@ import { MessageThread } from '@/features/feed/message-thread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
+import { GotItBackDialog } from './got-it-back-dialog'
 import { EditLostReportDialog } from './edit-lost-report-dialog'
 import { LostReportDetailDialog } from './lost-report-detail-dialog'
 import { ApiError } from '@/lib/api/client'
@@ -54,6 +58,7 @@ export function MyReportsPage() {
   const [sortDirection, setSortDirection] = useState<string>('desc')
 
   const [withdrawTarget, setWithdrawTarget] = useState<LostReportListItem | null>(null)
+  const [gotItBackTarget, setGotItBackTarget] = useState<LostReportListItem | null>(null)
   const [messagesFor, setMessagesFor] = useState<LostReportListItem | null>(null)
   const [editTarget, setEditTarget] = useState<LostReportListItem | null>(null)
   const [detailTargetId, setDetailTargetId] = useState<string | null>(null)
@@ -84,6 +89,22 @@ export function MyReportsPage() {
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['my-lost-reports', query],
     queryFn: () => getMyLostReports(query),
+  })
+
+  const resolve = useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) => resolveLostReport(id, note || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-lost-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['lost-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['help-to-find'] })
+      toast.success('Closed. Everyone who helped has been told it got home.')
+      setGotItBackTarget(null)
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : 'Could not close the report.',
+      )
+    },
   })
 
   const withdraw = useMutation({
@@ -148,8 +169,21 @@ export function MyReportsPage() {
                 setPage(1)
               }}
               placeholder="Search description..."
-              className="pl-9"
+              className="pr-9 pl-9"
             />
+            {search && (
+              <button
+                type="button"
+                aria-label="Clear the search"
+                onClick={() => {
+                  setSearch('')
+                  setPage(1)
+                }}
+                className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <XIcon className="size-4" aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           <Select
@@ -305,6 +339,8 @@ export function MyReportsPage() {
                   onMessages={() => setMessagesFor(report)}
                   onWithdraw={() => setWithdrawTarget(report)}
                   isWithdrawing={withdraw.isPending && withdraw.variables === report.id}
+                  onGotItBack={() => setGotItBackTarget(report)}
+                  isResolving={resolve.isPending && resolve.variables?.id === report.id}
                 />
               </li>
             ))}
@@ -360,6 +396,13 @@ export function MyReportsPage() {
         </SheetContent>
       </Sheet>
 
+      <GotItBackDialog
+        report={gotItBackTarget}
+        onConfirm={note => gotItBackTarget && resolve.mutate({ id: gotItBackTarget.id, note })}
+        onClose={() => setGotItBackTarget(null)}
+        isResolving={resolve.isPending}
+      />
+
       <WithdrawDialog
         report={withdrawTarget}
         onConfirm={() => withdrawTarget && withdraw.mutate(withdrawTarget.id)}
@@ -406,6 +449,8 @@ function ReportCard({
   onMessages,
   onWithdraw,
   isWithdrawing,
+  onGotItBack,
+  isResolving,
 }: {
   report: LostReportListItem
   onViewDetails: () => void
@@ -413,6 +458,8 @@ function ReportCard({
   onMessages: () => void
   onWithdraw: () => void
   isWithdrawing: boolean
+  onGotItBack: () => void
+  isResolving: boolean
 }) {
   const isWithdrawn = report.status === 'Withdrawn'
   const stage = stageOf(report)
@@ -483,6 +530,22 @@ function ReportCard({
               >
                 <MessageSquareIcon className="size-3.5" aria-hidden="true" />
                 Messages{report.messageCount > 0 && ` (${report.messageCount})`}
+              </Button>
+            )}
+
+            {(report.status === 'Active' || report.status === 'Matched') && (
+              <Button
+                size="sm"
+                onClick={onGotItBack}
+                disabled={isResolving}
+                className="shrink-0 bg-brand-forest text-white hover:bg-brand-forest/90"
+              >
+                {isResolving ? (
+                  <Loader2Icon className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <HandHeartIcon className="size-3.5" aria-hidden="true" />
+                )}
+                I found this
               </Button>
             )}
 

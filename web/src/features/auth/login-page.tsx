@@ -10,6 +10,7 @@ import { AuthLoading } from './auth-loading'
 import { useAuth } from './use-auth'
 import { ApiError } from '@/lib/api/client'
 import { homeRouteForRole } from '@/routes/role-home'
+import { GoogleButton } from '@/features/account/google-button'
 
 export function LoginPage() {
   const { user, isInitializing, login } = useAuth()
@@ -74,6 +75,8 @@ export function LoginPage() {
         </>
       }
     >
+      <GoogleButton label="signin_with" />
+
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email address</Label>
