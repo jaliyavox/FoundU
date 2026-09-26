@@ -38,16 +38,18 @@ public sealed class VerificationAgentClientTests
     [InlineData("replace-with-strong-random-secret")]
     [InlineData("distinctive-control-secret-0123456789\r")]
     [InlineData("distinctive-control-secret-0123456789\n")]
-    public void InvalidServiceKey_FailsBeforeSendingUnauthenticatedRequest(string serviceKey)
+    public async Task InvalidServiceKey_FailsBeforeSendingUnauthenticatedRequest(string serviceKey)
     {
         var handler = new NoRequestHandler();
-        var exception = Assert.Throws<InvalidOperationException>(() => new VerificationAgentClient(
+        var client = new VerificationAgentClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://ai.test/") },
-            ServiceOptions(serviceKey)));
+            ServiceOptions(serviceKey));
+        var result = await client.GenerateQuestionsAsync(
+            ClaimId, new Dictionary<string, string> { ["detail"] = "private detail" }, "correlation-1");
 
-        Assert.Equal("AI service configuration is invalid.", exception.Message);
+        Assert.False(result.IsSuccess);
         if (serviceKey.Length > 0)
-            Assert.DoesNotContain(serviceKey, exception.Message);
+            Assert.DoesNotContain(serviceKey, result.FailureReason ?? string.Empty);
         Assert.False(handler.WasCalled);
     }
 

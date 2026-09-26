@@ -29,6 +29,9 @@ class AuthRepository {
 
   Future<AuthUser> login(
       {required String email, required String password}) async {
+    // A successful login replaces both tokens. Clearing first also ensures an in-flight
+    // role switch cannot keep attaching the previous account's bearer token.
+    await _tokenStorage.clear();
     try {
       final response = await _authDio.post<Map<String, dynamic>>(
         '/api/auth/login',

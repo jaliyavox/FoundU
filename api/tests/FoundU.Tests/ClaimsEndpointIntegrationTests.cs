@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FoundU.Application.Abstractions;
 using FoundU.Application.Claims.Dtos;
+using FoundU.Application.Common.Pagination;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Persistence;
@@ -95,6 +96,69 @@ public sealed class ClaimsEndpointIntegrationTests
         Assert.True(await app.HasClaimHistoryAsync(claim.Id, ClaimStatus.Approved));
         Assert.True(await app.HasLostHistoryAsync(app.LostReport.Id, LostReportStatus.Resolved));
         Assert.DoesNotContain(Secret, await app.AgentAuditAsync(claim.Id));
+    }
+
+    [Fact]
+    public async Task StudentMineEndpoints_ReturnOwnEmptyAndExistingData_WhileAdminIsForbidden()
+    {
+        await using var app = await ClaimsHttpApp.CreateAsync("likely_match");
+        using var student = app.ClientFor(app.Student);
+        using var admin = app.ClientFor(app.Admin);
+
+        var emptyClaims = await student.GetAsync("/api/claims/mine?page=1&pageSize=20");
+        Assert.Equal(HttpStatusCode.OK, emptyClaims.StatusCode);
+        var emptyPage = await emptyClaims.Content.ReadFromJsonAsync<PagedResult<ClaimListItemDto>>();
+        Assert.NotNull(emptyPage);
+        Assert.Empty(emptyPage!.Items);
+        Assert.Equal(0, emptyPage.TotalCount);
+
+        var adminClaims = await admin.GetAsync("/api/claims/mine?page=1&pageSize=20");
+        Assert.Equal(HttpStatusCode.Forbidden, adminClaims.StatusCode);
+
+        var ownReports = await student.GetAsync("/api/lost-reports/mine?page=1&pageSize=20");
+        Assert.Equal(HttpStatusCode.OK, ownReports.StatusCode);
+        var adminReports = await admin.GetAsync("/api/lost-reports/mine?page=1&pageSize=20");
+        Assert.Equal(HttpStatusCode.Forbidden, adminReports.StatusCode);
+
+        var created = await student.PostAsJsonAsync("/api/claims",
+            new CreateClaimRequest(app.LostReport.Id, app.FoundReport.Id));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var existingClaims = await student.GetAsync("/api/claims/mine?page=1&pageSize=20");
+        Assert.Equal(HttpStatusCode.OK, existingClaims.StatusCode);
+        var existingPage = await existingClaims.Content.ReadFromJsonAsync<PagedResult<ClaimListItemDto>>();
+        Assert.NotNull(existingPage);
+        Assert.Single(existingPage!.Items);
+        Assert.Equal(app.Student.Id, (await created.Content.ReadFromJsonAsync<ClaimDetailDto>())!.StudentId);
+    }
+
+    [Fact]
+    public async Task StudentMine_ReturnsOkWhenTheVerificationServiceKeyIsMissing()
+    {
+        await using var factory = new MissingAiKeyWebApplicationFactory();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<FoundUDbContext>();
+        var student = new AppUser
+        {
+            FullName = "No Key Student",
+            UserName = "no-key.student@test",
+            Email = "no-key.student@test",
+            Role = UserRole.Student,
+        };
+        db.Users.Add(student);
+        await db.SaveChangesAsync();
+
+        using var client = factory.CreateClient();
+        var tokens = scope.ServiceProvider.GetRequiredService<ITokenService>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens.GenerateAccessToken(student).Value);
+
+        var response = await client.GetAsync("/api/claims/mine?page=1&pageSize=20");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<PagedResult<ClaimListItemDto>>();
+        Assert.NotNull(page);
+        Assert.Empty(page!.Items);
     }
 
     private static void AssertTrustedEvidence(IReadOnlyDictionary<string, string>? details)
@@ -199,15 +263,16 @@ public sealed class ClaimsEndpointIntegrationTests
     private sealed class ClaimsHttpApp : IAsyncDisposable
     {
         private ClaimsHttpApp(ClaimsWebApplicationFactory factory, TestVerificationAgent agent,
-            AppUser student, AppUser otherStudent, AppUser staff, LostReport lostReport, FoundReport foundReport)
-            => (Factory, Agent, Student, OtherStudent, Staff, LostReport, FoundReport) =
-                (factory, agent, student, otherStudent, staff, lostReport, foundReport);
+            AppUser student, AppUser otherStudent, AppUser staff, AppUser admin, LostReport lostReport, FoundReport foundReport)
+            => (Factory, Agent, Student, OtherStudent, Staff, Admin, LostReport, FoundReport) =
+                (factory, agent, student, otherStudent, staff, admin, lostReport, foundReport);
 
         public ClaimsWebApplicationFactory Factory { get; }
         public TestVerificationAgent Agent { get; }
         public AppUser Student { get; }
         public AppUser OtherStudent { get; }
         public AppUser Staff { get; }
+        public AppUser Admin { get; }
         public LostReport LostReport { get; }
         public FoundReport FoundReport { get; }
 
@@ -220,6 +285,7 @@ public sealed class ClaimsEndpointIntegrationTests
             var student = new AppUser { FullName = "Claim Student", UserName = "claim.student@test", Email = "claim.student@test", Role = UserRole.Student };
             var other = new AppUser { FullName = "Other Student", UserName = "other.student@test", Email = "other.student@test", Role = UserRole.Student };
             var staff = new AppUser { FullName = "Claim Staff", UserName = "claim.staff@test", Email = "claim.staff@test", Role = UserRole.Staff };
+            var admin = new AppUser { FullName = "Claim Admin", UserName = "claim.admin@test", Email = "claim.admin@test", Role = UserRole.Admin };
             var category = new Category { Name = "Bags" };
             var itemType = new ItemType { Name = "Backpack", Category = category };
             var location = new CampusLocation { Name = "Library" };
@@ -228,9 +294,9 @@ public sealed class ClaimsEndpointIntegrationTests
                 Description = "Blue backpack", EstimatedLostFromAt = DateTime.UtcNow.AddHours(-2), EstimatedLostToAt = DateTime.UtcNow.AddHours(-1) };
             var found = new FoundReport { Staff = staff, Category = category, ItemType = itemType, FoundLocation = location,
                 StorageLocation = storage, GeneralDescription = "Blue backpack", PrivateVerificationDetails = Secret, FoundAt = DateTime.UtcNow };
-            db.AddRange(student, other, staff, lost, found);
+            db.AddRange(student, other, staff, admin, lost, found);
             await db.SaveChangesAsync();
-            return new ClaimsHttpApp(factory, agent, student, other, staff, lost, found);
+            return new ClaimsHttpApp(factory, agent, student, other, staff, admin, lost, found);
         }
 
         public HttpClient ClientFor(AppUser user)
@@ -276,6 +342,18 @@ public sealed class ClaimsEndpointIntegrationTests
                 services.RemoveAll<IVerificationAgentClient>();
                 services.AddSingleton<IVerificationAgentClient>(agent);
             });
+        }
+    }
+
+    private sealed class MissingAiKeyWebApplicationFactory : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.UseEnvironment("Production");
+            foreach (var setting in AuthTestApp.Settings) builder.UseSetting(setting.Key, setting.Value);
+            builder.UseSetting("AiService:ServiceKey", string.Empty);
+            builder.ConfigureServices(services =>
+                AuthTestApp.ReplaceDatabase(services, $"foundu-missing-ai-key-{Guid.NewGuid():N}"));
         }
     }
 

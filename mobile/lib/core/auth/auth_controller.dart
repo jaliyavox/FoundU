@@ -6,6 +6,7 @@ import '../../features/auth/data/auth_models.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
+import 'auth_session.dart';
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthUser?>(AuthController.new);
@@ -18,6 +19,7 @@ class AuthController extends AsyncNotifier<AuthUser?> {
   @override
   Future<AuthUser?> build() async {
     _invalidationSubscription = _repository.sessionInvalidated.listen((_) {
+      ref.read(authSessionEpochProvider.notifier).advance();
       state = const AsyncData(null);
     });
     ref.onDispose(() => _invalidationSubscription?.cancel());
@@ -34,6 +36,10 @@ class AuthController extends AsyncNotifier<AuthUser?> {
   }
 
   Future<void> login({required String email, required String password}) async {
+    // The login screen is a new identity boundary. Clear credentials before any new
+    // authenticated list work can run, then invalidate account-scoped provider state.
+    await _repository.clearSession();
+    ref.read(authSessionEpochProvider.notifier).advance();
     state = const AsyncLoading();
     state = await AsyncValue.guard(
       () => _repository.login(email: email.trim(), password: password),
@@ -47,6 +53,7 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     } on Object {
       // The repository clears local credentials in a finally block.
     }
+    ref.read(authSessionEpochProvider.notifier).advance();
     state = const AsyncData(null);
   }
 }

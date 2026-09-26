@@ -18,12 +18,12 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
     private static readonly HashSet<string> AllowedRecommendations =
         ["likely_match", "manual_review", "unlikely_match"];
     private readonly HttpClient _httpClient;
-    private readonly string _serviceKey;
+    private readonly AiServiceOptions _options;
 
     public VerificationAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
     {
         _httpClient = httpClient;
-        _serviceKey = AiServiceOptions.RequireServiceKey(options.Value);
+        _options = options.Value;
     }
 
     public Task<VerificationAgentCallResult<GenerateVerificationQuestionsResult>> GenerateQuestionsAsync(
@@ -108,7 +108,10 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         {
             Content = JsonContent.Create(request, options: JsonOptions),
         };
-        httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, _serviceKey);
+        // Deliberately validate here rather than in the constructor. Claim/list endpoints
+        // resolve ClaimService even when they make no AI call, while an actual AI request
+        // must still never be sent without the required shared service key.
+        httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
         return httpRequest;
     }
 

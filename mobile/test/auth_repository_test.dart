@@ -41,6 +41,30 @@ void main() {
     expect(await storage.readRefreshToken(), 'refresh-2');
   });
 
+  test('a new login replaces a prior role session before storing student tokens',
+      () async {
+    final storage = MemoryTokenStorage(
+      const AuthTokens(accessToken: 'admin-access', refreshToken: 'admin-refresh'),
+    );
+    final authDio = Dio()
+      ..httpClientAdapter = CallbackAdapter((options) {
+        expect(options.path, '/api/auth/login');
+        expect(options.headers.containsKey('Authorization'), isFalse);
+        return jsonResponse(200, authResponseJson());
+      });
+    final repository = AuthRepository(
+      authDio: authDio,
+      authenticatedDio: Dio(),
+      tokenStorage: storage,
+    );
+
+    await repository.login(email: 'student@foundu.test', password: 'Password123');
+
+    expect(await storage.readAccessToken(), 'access-2');
+    expect(await storage.readRefreshToken(), 'refresh-2');
+    expect(storage.clearCalls, 1);
+  });
+
   test('startup refreshes one invalid access token and validates me', () async {
     final storage = MemoryTokenStorage(
       const AuthTokens(accessToken: 'expired', refreshToken: 'refresh-1'),
@@ -255,9 +279,11 @@ class MemoryTokenStorage implements TokenStorage {
 
   String? _accessToken;
   String? _refreshToken;
+  int clearCalls = 0;
 
   @override
   Future<void> clear() async {
+    clearCalls++;
     _accessToken = null;
     _refreshToken = null;
   }

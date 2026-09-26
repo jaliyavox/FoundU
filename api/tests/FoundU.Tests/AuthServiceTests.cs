@@ -163,6 +163,17 @@ public sealed class AuthServiceTests
         Assert.False((await authorization.AuthorizeAsync(principal, null, PolicyNames.Staff)).Succeeded);
         Assert.False((await authorization.AuthorizeAsync(principal, null, PolicyNames.Admin)).Succeeded);
     }
+
+    [Fact]
+    public async Task StudentAccessToken_ContainsTheStudentRoleClaim()
+    {
+        await using var app = await AuthTestApp.CreateAsync();
+        var registration = await app.RegisterAsync("role-claim@foundu.test");
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(registration.AccessToken);
+
+        var role = jwt.Claims.Single(c => c.Type == ClaimTypes.Role);
+        Assert.Equal(nameof(UserRole.Student), role.Value);
+    }
 }
 
 public sealed class AuthEndpointTests : IClassFixture<FoundUWebApplicationFactory>
