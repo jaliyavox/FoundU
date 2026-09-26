@@ -22,6 +22,13 @@ public class AppUser : IdentityUser<Guid>, ISoftDeletable
 
     public string? StudentNumber { get; set; }
 
+    /// <summary>
+    /// Google's stable subject id for this person, set when they sign in with Google. Matched
+    /// on rather than the email address, because an email can be reassigned and a subject id
+    /// cannot. Null for accounts that have never used Google.
+    /// </summary>
+    public string? GoogleSubjectId { get; set; }
+
     public bool IsSuspended { get; set; }
     public string? SuspensionReason { get; set; }
     public DateTime? SuspendedAt { get; set; }

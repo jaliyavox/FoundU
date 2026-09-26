@@ -39,6 +39,15 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .HasDatabaseName("IX_AppUsers_StudentNumber_Unique")
             .HasFilter("\"StudentNumber\" IS NOT NULL");
 
+        builder.Property(u => u.GoogleSubjectId).HasMaxLength(64);
+
+        // One Google account maps to one FoundU account. Same partial-unique shape as
+        // StudentNumber, because most accounts have never used Google.
+        builder.HasIndex(u => u.GoogleSubjectId)
+            .IsUnique()
+            .HasDatabaseName("IX_AppUsers_GoogleSubjectId_Unique")
+            .HasFilter("\"GoogleSubjectId\" IS NOT NULL");
+
         builder.HasIndex(u => u.Role);
         builder.HasIndex(u => u.IsSuspended);
 
