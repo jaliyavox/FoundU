@@ -115,9 +115,9 @@ public class LostReportsController : ControllerBase
         Guid id,
         [FromBody] SendLostReportMessageRequest request,
         CancellationToken cancellationToken)
-        => Ok(await _lostReports.SendMessageAsync(id, User.GetUserId(), request.Body, cancellationToken));
+        => Ok(await _lostReports.SendMessageAsync(id, User.GetUserId(), request.Body, request.RecipientId, cancellationToken));
 
-    /// <summary>The author's messages for this report. Staff may also read them.</summary>
+    /// <summary>The reader's threads on this report: every thread for the author, their own for a finder. Staff read all.</summary>
     [HttpGet("{id:guid}/messages")]
     public async Task<ActionResult<IReadOnlyList<LostReportMessageDto>>> GetMessages(
         Guid id,

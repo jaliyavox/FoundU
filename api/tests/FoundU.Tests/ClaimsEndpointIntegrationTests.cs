@@ -91,11 +91,33 @@ public sealed class ClaimsEndpointIntegrationTests
         Assert.Equal(nameof(ClaimStatus.Approved), final!.Status);
         Assert.Equal(nameof(ApprovalDecisionType.Approved), final.Decision);
         Assert.Equal(1, await app.DecisionCountAsync(claim.Id));
+        Assert.True(await app.HasClaimHistoryAsync(claim.Id, ClaimStatus.Approved));
+        Assert.DoesNotContain(Secret, await app.AgentAuditAsync(claim.Id));
+
+        // Approval reserves the item; it leaves the shelf when the owner collects it with
+        // their code. Until then the item is Claimed and the search is still Matched.
+        Assert.Equal(FoundReportStatus.Claimed, await app.FoundStatusAsync());
+        Assert.Equal(LostReportStatus.Matched, await app.LostStatusAsync());
+
+        // The code reaches the owner and nobody else. Staff type what the owner quotes.
+        Assert.Null(final.CollectionCode);
+        var ownerView = await student.GetFromJsonAsync<ClaimDetailDto>($"/api/claims/{claim.Id}");
+        var code = ownerView!.CollectionCode;
+        Assert.NotNull(code);
+        Assert.Matches("^[0-9]{6}$", code);
+
+        var wrongCode = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest("000000"));
+        Assert.Equal(HttpStatusCode.NotFound, wrongCode.StatusCode);
+
+        var collected = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code!));
+        collected.EnsureSuccessStatusCode();
         Assert.Equal(FoundReportStatus.Returned, await app.FoundStatusAsync());
         Assert.Equal(LostReportStatus.Resolved, await app.LostStatusAsync());
-        Assert.True(await app.HasClaimHistoryAsync(claim.Id, ClaimStatus.Approved));
         Assert.True(await app.HasLostHistoryAsync(app.LostReport.Id, LostReportStatus.Resolved));
-        Assert.DoesNotContain(Secret, await app.AgentAuditAsync(claim.Id));
+
+        // Once. The same code the second time looks like one that never existed.
+        var again = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code));
+        Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
     }
 
     [Fact]

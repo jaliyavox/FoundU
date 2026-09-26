@@ -70,6 +70,9 @@ export interface ClaimDetail {
   decidedAt: string | null
   /** True when an administrator overturned a rejection - the name shown is theirs. */
   isOverride: boolean
+  /** Present only for the owner of an approved, uncollected claim. Staff never receive it. */
+  collectionCode: string | null
+  collectedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -131,6 +134,9 @@ export const submitAnswers = (id: string, answers: { questionId: string; answerT
 export const decideClaim = (id: string, decision: string, reason?: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/decision`, { decision, reason })
 
+/** Staff: the owner quoted their collection code; this hands the item over. 404 if wrong or used. */
+export const collectClaim = (code: string) => api.post<ClaimDetail>('/api/claims/collect', { code })
+
 /** Admin only: overturn a rejection after a dispute. Recorded as an override. */
 export const overturnClaim = (id: string, reason: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/overturn`, { reason })
@@ -167,7 +173,7 @@ export const CLAIM_STATUS_COPY: Record<ClaimStatus, { label: string; student: st
   },
   Approved: {
     label: 'Approved',
-    student: 'It is yours - collect it from the desk holding it.',
+    student: 'It is yours. Take your student ID and your collection code to the desk.',
     tone: 'good',
   },
   Rejected: {
@@ -196,3 +202,23 @@ export const TONE_STYLES: Record<Tone, string> = {
   waiting: 'border-foreground/12 bg-foreground/5 text-muted-foreground',
   muted: 'border-foreground/10 bg-transparent text-muted-foreground',
 }
+
+/* --------------------------------------------------------------- agent runs */
+
+/**
+ * One recorded agent run, as staff see it. `outcome` is the safe audit object the API wrote -
+ * it never carries hidden evidence, submitted answers or model reasoning.
+ */
+export interface AgentRun {
+  id: string
+  agent: 'Matching' | 'Verification' | 'DescriptionParsing' | 'Planner'
+  objective: string
+  status: 'Running' | 'PausedForApproval' | 'Completed' | 'Failed'
+  errorMessage: string | null
+  outcome: Record<string, unknown> | null
+  triggerEntityType: string
+  startedAt: string
+  completedAt: string | null
+}
+
+export const getAgentRuns = (claimId: string) => api.get<AgentRun[]>(`/api/claims/${claimId}/agent-runs`)

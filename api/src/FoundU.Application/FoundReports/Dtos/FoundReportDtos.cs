@@ -16,7 +16,12 @@ public record CreateFoundReportRequest(
     string? PrivateVerificationDetails,
     string? PrimaryColor,
     string? SecondaryColor,
-    DateTime FoundAt);
+    DateTime FoundAt,
+    /// <summary>
+    /// The six digits the finder quoted from the lost report. When present the item is linked
+    /// to that report the moment it is logged, and the owner is told - no searching.
+    /// </summary>
+    string? HandInCode = null);
 
 /// <summary>Row in the staff items table. Keeps the payload small for list views.</summary>
 public record FoundReportListItemDto(
@@ -24,12 +29,14 @@ public record FoundReportListItemDto(
     string CategoryName,
     string ItemTypeName,
     string FoundLocationName,
-    string StorageLocationName,
+    string? StorageLocationName,
     string GeneralDescription,
     string? PrimaryColor,
     DateTime FoundAt,
     string Status,
     bool HasVerificationDetails,
+    /// <summary>Set when a student posted it. Staff read a post differently from a desk record.</summary>
+    string? FinderName,
     DateTime CreatedAt);
 
 /// <summary>Full detail, Staff/Admin only - includes the hidden ownership evidence.</summary>
@@ -41,16 +48,21 @@ public record FoundReportDetailDto(
     string ItemTypeName,
     Guid FoundLocationId,
     string FoundLocationName,
-    Guid StorageLocationId,
-    string StorageLocationName,
+    /// <summary>Null while the item is only a finder's post - nothing is in storage yet.</summary>
+    Guid? StorageLocationId,
+    string? StorageLocationName,
     string GeneralDescription,
     string? PrivateVerificationDetails,
     string? PrimaryColor,
     string? SecondaryColor,
     DateTime FoundAt,
     string Status,
-    Guid StaffId,
-    string StaffName,
+    Guid? StaffId,
+    string? StaffName,
+    /// <summary>The student who posted it, when it started as a finder's post.</summary>
+    string? FinderName,
+    /// <summary>The finder's code, for the desk to pull the post up. Staff only, and only on posts.</summary>
+    string? HandInCode,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 

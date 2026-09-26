@@ -58,7 +58,11 @@ public interface ILostReportService
         Guid finderId,
         CancellationToken cancellationToken = default);
 
-    Task<LostReportMessageDto> SendMessageAsync(Guid reportId, Guid senderId, string body, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// A finder writing to the author, or the author replying to a finder. Threads are per
+    /// finder per report; nobody but those two and staff can read one.
+    /// </summary>
+    Task<LostReportMessageDto> SendMessageAsync(Guid reportId, Guid senderId, string body, Guid? recipientId, CancellationToken cancellationToken = default);
 
     /// <summary>The report author's messages. Staff may also read them for dispute handling.</summary>
     Task<IReadOnlyList<LostReportMessageDto>> GetMessagesAsync(Guid reportId, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);

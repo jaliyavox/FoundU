@@ -40,6 +40,10 @@ public sealed class VerificationAgentClientTests
     [InlineData("distinctive-control-secret-0123456789\n")]
     public async Task InvalidServiceKey_FailsBeforeSendingUnauthenticatedRequest(string serviceKey)
     {
+        // The key is checked when a call is made, not when the client is built: a constructor
+        // throw took down every service that depends on this client, which on a machine without
+        // the key meant all of /api/claims. What must still hold: no request leaves without a
+        // valid key, and the key never appears in what comes back.
         var handler = new NoRequestHandler();
         var client = new VerificationAgentClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://ai.test/") },
@@ -48,9 +52,9 @@ public sealed class VerificationAgentClientTests
             ClaimId, new Dictionary<string, string> { ["detail"] = "private detail" }, "correlation-1");
 
         Assert.False(result.IsSuccess);
-        if (serviceKey.Length > 0)
-            Assert.DoesNotContain(serviceKey, result.FailureReason ?? string.Empty);
         Assert.False(handler.WasCalled);
+        if (serviceKey.Trim().Length > 0)
+            Assert.DoesNotContain(serviceKey, result.FailureReason ?? string.Empty);
     }
 
     [Fact]

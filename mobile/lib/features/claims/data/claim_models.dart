@@ -95,12 +95,18 @@ class ClaimDetail {
     this.decision,
     this.decisionReason,
     this.decidedAt,
+    this.collectionCode,
+    this.collectedAt,
     required this.createdAt,
     required this.updatedAt,
   });
 
   final String id;
   final String status;
+
+  /// Six digits the owner quotes at the desk. Only the owner ever receives it.
+  final String? collectionCode;
+  final DateTime? collectedAt;
   final String lostReportId;
   final String lostReportDescription;
   final FoundItemSummary foundItem;
@@ -126,6 +132,10 @@ class ClaimDetail {
         decidedAt: json['decidedAt'] == null
             ? null
             : DateTime.parse(json['decidedAt'] as String),
+        collectionCode: json['collectionCode'] as String?,
+        collectedAt: json['collectedAt'] == null
+            ? null
+            : DateTime.parse(json['collectedAt'] as String),
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );

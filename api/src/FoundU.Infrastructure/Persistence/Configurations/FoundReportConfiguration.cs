@@ -38,6 +38,15 @@ public class FoundReportConfiguration : IEntityTypeConfiguration<FoundReport>
             .HasForeignKey(r => r.StaffId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(r => r.Finder)
+            .WithMany()
+            .HasForeignKey(r => r.FinderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(r => r.HandInCode).HasMaxLength(6).IsFixedLength();
+        builder.HasIndex(r => r.HandInCode).IsUnique().HasFilter("\"HandInCode\" IS NOT NULL");
+        builder.HasIndex(r => r.FinderId);
+
         builder.HasOne(r => r.Category)
             .WithMany(c => c.FoundReports)
             .HasForeignKey(r => r.CategoryId)

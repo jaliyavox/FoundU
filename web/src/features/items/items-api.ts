@@ -14,6 +14,8 @@ export interface FoundReportListItem {
   status: FoundReportStatus
   /** Whether staff recorded a hidden detail to verify ownership with. Not the detail itself. */
   hasVerificationDetails: boolean
+  /** Set when a student posted it rather than a desk logging it. */
+  finderName: string | null
   createdAt: string
 }
 
@@ -26,21 +28,25 @@ export interface FoundReportDetail {
   itemTypeName: string
   foundLocationId: string
   foundLocationName: string
-  storageLocationId: string
-  storageLocationName: string
+  /** Null while it is only a finder's post. */
+  storageLocationId: string | null
+  storageLocationName: string | null
   generalDescription: string
   privateVerificationDetails: string | null
   primaryColor: string | null
   secondaryColor: string | null
   foundAt: string
   status: FoundReportStatus
-  staffId: string
-  staffName: string
+  staffId: string | null
+  staffName: string | null
+  finderName: string | null
+  /** The finder's code - staff only, and only while it is a post. */
+  handInCode: string | null
   createdAt: string
   updatedAt: string
 }
 
-export type FoundReportStatus = 'Unclaimed' | 'Claimed' | 'Returned' | 'Disposed'
+export type FoundReportStatus = 'Posted' | 'Unclaimed' | 'Claimed' | 'Returned' | 'Disposed'
 
 export interface CreateFoundReportInput {
   categoryId: string
@@ -52,6 +58,8 @@ export interface CreateFoundReportInput {
   primaryColor?: string
   secondaryColor?: string
   foundAt: string
+  /** The six digits the finder quoted. Links the item to that report the moment it is logged. */
+  handInCode?: string
 }
 
 export interface ItemsQuery {
@@ -103,8 +111,24 @@ export interface LostReportRow {
 
 /** How each status reads on the desk, and what it says about the item's whereabouts. */
 export const ITEM_STATUS_STYLES: Record<FoundReportStatus, string> = {
+  Posted: 'border-amber-500/40 bg-amber-500/12 text-amber-700 dark:text-amber-300',
   Unclaimed: 'border-brand-green/35 bg-brand-green/12 text-brand-forest dark:text-brand-sage',
   Claimed: 'border-amber-500/40 bg-amber-500/12 text-amber-700 dark:text-amber-300',
   Returned: 'border-foreground/12 bg-foreground/5 text-muted-foreground',
   Disposed: 'border-foreground/12 bg-transparent text-muted-foreground',
+}
+
+/** The desk turning a finder's post into a real record. */
+export const confirmFoundPost = (id: string, input: { storageLocationId: string; privateVerificationDetails?: string; generalDescription?: string }) =>
+  api.post<FoundReportDetail>(`/api/found-posts/${id}/confirm`, input)
+
+/** Staff pulling a post up by the six digits the finder quotes. 404 if none. */
+export const getFoundPostByCode = (code: string) => api.get<FoundReportDetail>(`/api/found-posts/by-code/${code}`)
+
+export const ITEM_STATUS_LABELS: Record<FoundReportStatus, string> = {
+  Posted: 'Not at a desk yet',
+  Unclaimed: 'In storage',
+  Claimed: 'Claimed',
+  Returned: 'Returned',
+  Disposed: 'Disposed',
 }

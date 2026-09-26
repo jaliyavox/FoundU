@@ -45,6 +45,32 @@ class AuthRepository {
     }
   }
 
+  /// Creates a Student account and signs it in - one round trip, the same response shape as
+  /// login, so the wizard lands straight on the feed.
+  Future<AuthUser> register({
+    required String fullName,
+    required String email,
+    required String password,
+    String? studentNumber,
+  }) async {
+    try {
+      final response = await _authDio.post<Map<String, dynamic>>(
+        '/api/auth/register',
+        data: {
+          'fullName': fullName,
+          'email': email,
+          'password': password,
+          if (studentNumber != null && studentNumber.trim().isNotEmpty) 'studentNumber': studentNumber.trim(),
+        },
+      );
+      final auth = AuthResponse.fromJson(response.data!);
+      await _saveTokens(auth);
+      return auth.user;
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<AuthUser> getCurrentUser() async {
     try {
       final response = await _authenticatedDio.get<Map<String, dynamic>>(

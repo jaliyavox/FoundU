@@ -23,6 +23,10 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
     public VerificationAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
     {
         _httpClient = httpClient;
+        // Not validated here. A throw in a constructor takes down every service that depends
+        // on this client - on a machine without the key that meant all of /api/claims - so
+        // the key is checked when a call is made, inside the try that turns any failure into
+        // "the agent is unavailable", which the callers already handle by continuing by hand.
         _options = options.Value;
     }
 

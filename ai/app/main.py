@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.agents.checkpoint import checkpoint_config, create_checkpointer
 from app.agents.description_parser import description_parser_node, parse_item_description
 from app.agents.graph import agent_graph, build_agent_graph
+from app.agents.intake import intake_node
 from app.agents.matching import matching_node
 from app.agents.models import (
     AgentRunRequest,
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
         partial(matching_node, tool_registry=app.state.tool_registry),
         app.state.checkpointer,
         verification_handler=partial(verification_node, llm_client=llm_client),
+        intake_handler=partial(intake_node, llm_client=llm_client),
     )
     try:
         yield

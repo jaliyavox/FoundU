@@ -666,6 +666,14 @@ namespace FoundU.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("CollectedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(6)
+                        .HasColumnType("character(6)")
+                        .IsFixedLength();
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
 
@@ -693,6 +701,9 @@ namespace FoundU.Infrastructure.Migrations
                         .HasColumnType("timestamptz");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CollectionCode")
+                        .HasFilter("\"CollectionCode\" IS NOT NULL");
 
                     b.HasIndex("FoundReportId")
                         .IsUnique()
@@ -844,6 +855,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<Guid?>("FinderId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("FoundAt")
                         .HasColumnType("timestamptz");
 
@@ -854,6 +868,11 @@ namespace FoundU.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("HandInCode")
+                        .HasMaxLength(6)
+                        .HasColumnType("character(6)")
+                        .IsFixedLength();
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -879,7 +898,7 @@ namespace FoundU.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<Guid>("StaffId")
+                    b.Property<Guid?>("StaffId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -887,7 +906,7 @@ namespace FoundU.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<Guid>("StorageLocationId")
+                    b.Property<Guid?>("StorageLocationId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -897,9 +916,15 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("CategoryId");
 
+                    b.HasIndex("FinderId");
+
                     b.HasIndex("FoundAt");
 
                     b.HasIndex("FoundLocationId");
+
+                    b.HasIndex("HandInCode")
+                        .IsUnique()
+                        .HasFilter("\"HandInCode\" IS NOT NULL");
 
                     b.HasIndex("ItemTypeId");
 
@@ -1520,6 +1545,12 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<Guid?>("FlaggedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("HandInCode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character(6)")
+                        .IsFixedLength();
+
                     b.Property<string>("IdentifyingFeaturesJson")
                         .HasColumnType("jsonb");
 
@@ -1569,6 +1600,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("FlaggedByUserId");
+
+                    b.HasIndex("HandInCode")
+                        .IsUnique();
 
                     b.HasIndex("ItemTypeId");
 
@@ -1649,6 +1683,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<Guid?>("RecipientId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uuid");
 
@@ -1656,6 +1693,8 @@ namespace FoundU.Infrastructure.Migrations
                         .HasColumnType("timestamptz");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RecipientId");
 
                     b.HasIndex("SenderId");
 
@@ -2297,6 +2336,11 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Finder")
+                        .WithMany()
+                        .HasForeignKey("FinderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FoundU.Domain.Entities.CampusLocation", "FoundLocation")
                         .WithMany("FoundReportsFoundHere")
                         .HasForeignKey("FoundLocationId")
@@ -2312,16 +2356,16 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasOne("FoundU.Domain.Entities.AppUser", "Staff")
                         .WithMany("FoundReports")
                         .HasForeignKey("StaffId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FoundU.Domain.Entities.StorageLocation", "StorageLocation")
                         .WithMany("FoundReports")
                         .HasForeignKey("StorageLocationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Category");
+
+                    b.Navigation("Finder");
 
                     b.Navigation("FoundLocation");
 
@@ -2441,6 +2485,11 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FoundU.Domain.Entities.AppUser", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -2448,6 +2497,8 @@ namespace FoundU.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("LostReport");
+
+                    b.Navigation("Recipient");
 
                     b.Navigation("Sender");
                 });

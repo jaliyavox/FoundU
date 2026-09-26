@@ -1,9 +1,11 @@
 using System.Text.Json;
 using FoundU.Application.Abstractions;
 using FoundU.Application.Claims.Dtos;
+using FoundU.Application.Common;
 using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Common.Pagination;
 using FoundU.Application.FoundReports.Dtos;
+using FoundU.Domain.Common;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Persistence;
@@ -69,6 +71,14 @@ public class ClaimService : IClaimService
         var foundReport = await _db.FoundReports
             .FirstOrDefaultAsync(f => f.Id == request.FoundReportId, cancellationToken)
             ?? throw new NotFoundAppException($"Found report '{request.FoundReportId}' was not found.");
+
+        // A finder's post cannot be claimed: nothing is at a desk yet, and the hidden detail
+        // that verification rests on does not exist until a desk writes it.
+        if (foundReport.Status == FoundReportStatus.Posted)
+        {
+            throw new ConflictAppException(
+                "This item has not reached a desk yet. Once the finder hands it in, you can claim it.");
+        }
 
         if (foundReport.Status != FoundReportStatus.Unclaimed)
         {
@@ -159,7 +169,11 @@ public class ClaimService : IClaimService
             throw new ForbiddenAppException("You can only read your own claims.");
         }
 
-        return await LoadDetailAsync(id, cancellationToken);
+        var detail = await LoadDetailAsync(id, cancellationToken);
+
+        // The code is the owner's to quote and the desk's to type. Staff reading it off the
+        // screen would make the quoting step theatre.
+        return studentId == requesterId ? detail : ForStaff(detail);
     }
 
     public async Task<ClaimDetailDto> AddQuestionsAsync(
@@ -198,7 +212,7 @@ public class ClaimService : IClaimService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await LoadDetailAsync(claim.Id, cancellationToken);
+        return ForStaff(await LoadDetailAsync(claim.Id, cancellationToken));
     }
 
     public async Task<ClaimDetailDto> GenerateQuestionsAsync(
@@ -478,7 +492,7 @@ public class ClaimService : IClaimService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await LoadDetailAsync(claim.Id, cancellationToken);
+        return ForStaff(await LoadDetailAsync(claim.Id, cancellationToken));
     }
 
     public async Task<ClaimDetailDto> OverturnAsync(
@@ -527,7 +541,142 @@ public class ClaimService : IClaimService
         await ApproveAsync(claim, adminId, reason, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
+        return ForStaff(await LoadDetailAsync(claim.Id, cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<AgentRunDto>> GetAgentRunsAsync(
+        Guid claimId,
+        CancellationToken cancellationToken = default)
+    {
+        var claim = await _db.Claims
+            .AsNoTracking()
+            .Where(c => c.Id == claimId)
+            .Select(c => new { c.Id, c.FoundReportId })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundAppException($"Claim '{claimId}' was not found.");
+
+        // Two kinds of run explain a claim: the verification runs on the claim itself, and the
+        // matching run on the item that suggested it - "why was this item put in front of the
+        // student" is part of the story of "why is this claim here".
+        var runs = await _db.AgentRuns
+            .AsNoTracking()
+            .Where(r => r.ClaimId == claim.Id
+                || (r.TriggerEntityType == nameof(FoundReport) && r.TriggerEntityId == claim.FoundReportId))
+            .OrderByDescending(r => r.StartedAt)
+            .ToListAsync(cancellationToken);
+
+        return runs.Select(r => new AgentRunDto(
+                r.Id,
+                AgentOf(r),
+                r.Objective,
+                r.Status.ToString(),
+                r.ErrorMessage,
+                ParseOutcome(r.FinalOutcomeJson),
+                r.TriggerEntityType,
+                r.StartedAt,
+                r.CompletedAt))
+            .ToList();
+    }
+
+    /// <summary>The run rows do not carry an agent name; the objective and outcome do.</summary>
+    private static string AgentOf(AgentRun run)
+    {
+        if (run.Objective.Contains("Verification", StringComparison.OrdinalIgnoreCase)) return "Verification";
+        if (run.Objective.Contains("match", StringComparison.OrdinalIgnoreCase)) return "Matching";
+        if (run.Objective.Contains("pars", StringComparison.OrdinalIgnoreCase)) return "DescriptionParsing";
+        return "Planner";
+    }
+
+    /// <summary>
+    /// Parsed once here rather than handed to the client as a string. A row whose JSON does
+    /// not parse still shows - with no outcome - rather than taking the panel down.
+    /// </summary>
+    private static System.Text.Json.JsonElement? ParseOutcome(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.Clone();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<ClaimDetailDto> CollectAsync(
+        string code,
+        Guid staffId,
+        CancellationToken cancellationToken = default)
+    {
+        var normalised = code.Replace(" ", "");
+
+        // Not found rather than forbidden or conflict: a wrong code must not confirm that a
+        // right one exists, and a used code looks exactly like one that never did.
+        var claim = await _db.Claims
+            .FirstOrDefaultAsync(c => c.CollectionCode == normalised && c.Status == ClaimStatus.Approved, cancellationToken)
+            ?? throw new NotFoundAppException("No approved claim has that code.");
+
+        var foundReport = await _db.FoundReports
+            .FirstOrDefaultAsync(f => f.Id == claim.FoundReportId, cancellationToken);
+
+        if (foundReport is not null)
+        {
+            _db.FoundReportStatusHistories.Add(new FoundReportStatusHistory
+            {
+                FoundReportId = foundReport.Id,
+                FromStatus = foundReport.Status,
+                ToStatus = FoundReportStatus.Returned,
+                ChangedByUserId = staffId,
+                Reason = "Collected by the owner with their code.",
+            });
+            foundReport.Status = FoundReportStatus.Returned;
+            foundReport.UpdatedAt = DateTime.UtcNow;
+        }
+
+        var lostReport = await _db.LostReports
+            .FirstOrDefaultAsync(r => r.Id == claim.LostReportId, cancellationToken);
+
+        if (lostReport is not null && lostReport.Status != LostReportStatus.Resolved)
+        {
+            MoveLostReport(lostReport, LostReportStatus.Resolved, staffId, "Collected from the desk.");
+        }
+
+        // Once. The code is gone the moment the item is.
+        claim.CollectionCode = null;
+        claim.CollectedAt = DateTime.UtcNow;
+        claim.UpdatedAt = DateTime.UtcNow;
+
+        _db.ClaimStatusHistories.Add(new ClaimStatusHistory
+        {
+            ClaimId = claim.Id,
+            FromStatus = claim.Status,
+            ToStatus = claim.Status,
+            ChangedByUserId = staffId,
+            Reason = "Collected.",
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+
         return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// The collection code is the owner's to quote and the desk's to type. Every detail a
+    /// staff member receives passes through here, so it is never on their screen.
+    /// </summary>
+    private static ClaimDetailDto ForStaff(ClaimDetailDto detail) => detail with { CollectionCode = null };
+
+    private async Task<string> NextCollectionCodeAsync(CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var code = HandoverCodes.Generate();
+            if (!await _db.Claims.AnyAsync(c => c.CollectionCode == code, cancellationToken)) return code;
+        }
+
+        throw new InvalidOperationException("Could not allocate a unique collection code.");
     }
 
     public async Task<ClaimDetailDto> CancelAsync(
@@ -717,21 +866,18 @@ public class ClaimService : IClaimService
     {
         MoveClaim(claim, ClaimStatus.Approved, staffId, reason);
 
+        // Approval reserves the item; collection returns it. Between the two the owner holds
+        // a code and the item stays on the shelf as Claimed, so the desk can tell "decided"
+        // from "gone" and the report's track does not say Returned before it is.
+        claim.CollectionCode = await NextCollectionCodeAsync(cancellationToken);
+
         var foundReport = await _db.FoundReports
             .FirstOrDefaultAsync(f => f.Id == claim.FoundReportId, cancellationToken);
 
         if (foundReport is not null)
         {
-            foundReport.Status = FoundReportStatus.Returned;
+            foundReport.Status = FoundReportStatus.Claimed;
             foundReport.UpdatedAt = DateTime.UtcNow;
-        }
-
-        var lostReport = await _db.LostReports
-            .FirstOrDefaultAsync(r => r.Id == claim.LostReportId, cancellationToken);
-
-        if (lostReport is not null && lostReport.Status != LostReportStatus.Resolved)
-        {
-            MoveLostReport(lostReport, LostReportStatus.Resolved, staffId, "The claim was approved and the item returned.");
         }
 
         _notifications.Queue(
@@ -752,18 +898,17 @@ public class ClaimService : IClaimService
                 .Select(l => new { l.Name, l.Building })
                 .FirstOrDefaultAsync(cancellationToken);
 
-        if (storage is not null)
-        {
-            _notifications.Queue(
-                claim.StudentId,
-                NotificationType.CollectionInstructions,
-                "Where to collect it",
-                storage.Building is null
-                    ? $"Bring your student ID to {storage.Name}."
-                    : $"Bring your student ID to {storage.Name}, {storage.Building}.",
-                nameof(Claim),
-                claim.Id);
-        }
+        var where = storage is null
+            ? "the desk"
+            : storage.Building is null ? storage.Name : $"{storage.Name}, {storage.Building}";
+
+        _notifications.Queue(
+            claim.StudentId,
+            NotificationType.CollectionInstructions,
+            "Where to collect it",
+            $"Go to {where} with your student ID and quote code {HandoverCodes.Display(claim.CollectionCode)}. It works once.",
+            nameof(Claim),
+            claim.Id);
 
         // Somebody else's open claim on the same item cannot succeed now. Closing it here is
         // kinder than leaving it pending forever, and it says why.
@@ -939,6 +1084,8 @@ public class ClaimService : IClaimService
                     .OrderByDescending(d => d.DecidedAt)
                     .Select(d => d.IsOverride)
                     .FirstOrDefault(),
+                c.CollectionCode,
+                c.CollectedAt,
                 c.CreatedAt,
                 c.UpdatedAt))
             .FirstOrDefaultAsync(cancellationToken)

@@ -48,6 +48,18 @@ public interface IClaimService
     /// </summary>
     Task<ClaimDetailDto> OverturnAsync(Guid claimId, Guid adminId, OverturnClaimRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The agent trail behind a claim: every recorded run on the claim, plus the matching runs on
+    /// the found item it rests on. Newest first. Staff only.
+    /// </summary>
+    Task<IReadOnlyList<AgentRunDto>> GetAgentRunsAsync(Guid claimId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The desk handing the item over. Found by collection code alone; the code is cleared
+    /// so it works once, the item becomes Returned and the report Resolved.
+    /// </summary>
+    Task<ClaimDetailDto> CollectAsync(string code, Guid staffId, CancellationToken cancellationToken = default);
+
     /// <summary>The student giving up on their own claim. Nothing is deleted - it is recorded.</summary>
     Task<ClaimDetailDto> CancelAsync(Guid claimId, Guid studentId, string? reason, CancellationToken cancellationToken = default);
 }

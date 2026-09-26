@@ -50,6 +50,28 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
   }
 
+  /// Returns the ApiException rather than putting the whole app into an error state: the
+  /// wizard shows field errors inline and keeps the person on the step they were on.
+  Future<ApiException?> register({
+    required String fullName,
+    required String email,
+    required String password,
+    String? studentNumber,
+  }) async {
+    try {
+      final user = await _repository.register(
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password: password,
+        studentNumber: studentNumber,
+      );
+      state = AsyncData(user);
+      return null;
+    } on ApiException catch (error) {
+      return error;
+    }
+  }
+
   Future<void> logout() async {
     state = const AsyncLoading();
     await ref.read(pushNotificationManagerProvider).unregister();
