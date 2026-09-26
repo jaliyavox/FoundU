@@ -25,6 +25,24 @@ public class FoundPostsController : ControllerBase
         _posts = posts;
     }
 
+    /// <summary>
+    /// Ask the finder about an item, without a lost report and without claiming anything.
+    /// A question is not a claim: the desk still decides who it goes home with.
+    /// </summary>
+    [HttpPost("{id:guid}/messages")]
+    public async Task<ActionResult<FoundPostMessageDto>> SendMessage(
+        Guid id,
+        [FromBody] SendFoundPostMessageRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _posts.SendMessageAsync(id, User.GetUserId(), request.Body, request.RecipientId, cancellationToken));
+
+    /// <summary>The reader's threads on this post: every one for the finder, their own for an enquirer.</summary>
+    [HttpGet("{id:guid}/messages")]
+    public async Task<ActionResult<IReadOnlyList<FoundPostMessageDto>>> GetMessages(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _posts.GetMessagesAsync(id, User.GetUserId(), User.IsStaffOrAdmin(), cancellationToken));
+
     /// <summary>Any signed-in user can post something they found - staff included.</summary>
     [HttpPost]
     public async Task<ActionResult<FoundPostFeedItemDto>> Post(

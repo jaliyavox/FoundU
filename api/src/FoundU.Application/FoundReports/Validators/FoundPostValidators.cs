@@ -57,3 +57,13 @@ public class RecogniseFoundPostRequestValidator : AbstractValidator<RecogniseFou
         RuleFor(x => x.LostReportId).NotEmpty();
     }
 }
+
+public class SendFoundPostMessageRequestValidator : AbstractValidator<SendFoundPostMessageRequest>
+{
+    public SendFoundPostMessageRequestValidator()
+    {
+        RuleFor(x => x.Body)
+            .NotEmpty().WithMessage("Write a message first.")
+            .MaximumLength(2000);
+    }
+}

@@ -59,3 +59,23 @@ public class FoundPostQuery : PaginationQuery
 
 /// <summary>An owner recognising their item on the found feed, naming which of their reports it matches.</summary>
 public record RecogniseFoundPostRequest(Guid LostReportId);
+
+/// <summary>
+/// A message about a found post. <c>CounterpartId</c> is the other person in this thread -
+/// what the finder passes back as <c>RecipientId</c> to answer a particular enquirer.
+/// </summary>
+public record FoundPostMessageDto(
+    Guid Id,
+    string SenderName,
+    bool IsMine,
+    Guid CounterpartId,
+    string CounterpartName,
+    string Body,
+    bool IsRead,
+    DateTime CreatedAt);
+
+/// <summary>
+/// Asking the finder about an item. An enquirer leaves <c>RecipientId</c> empty; the finder
+/// names the enquirer they are answering.
+/// </summary>
+public record SendFoundPostMessageRequest(string Body, Guid? RecipientId);
