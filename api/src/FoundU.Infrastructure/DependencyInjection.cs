@@ -16,6 +16,7 @@ using FoundU.Infrastructure.Support;
 using FoundU.Infrastructure.Reporting;
 using FoundU.Infrastructure.Verification;
 using FoundU.Application.Intake;
+using FoundU.Infrastructure.Handovers;
 using FoundU.Infrastructure.Honor;
 using FoundU.Infrastructure.Intake;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -132,6 +133,7 @@ public static class DependencyInjection
         services.AddScoped<IHonorService, HonorService>();
         services.AddScoped<IHelpToFindService, HelpToFindService>();
         services.AddScoped<ISupportService, SupportService>();
+        services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IAdminOverviewService, AdminOverviewService>();
         services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
         services.AddOptions<FirebaseOptions>()

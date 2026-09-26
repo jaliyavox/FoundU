@@ -263,9 +263,14 @@ public class LostReportService : ILostReportService
         CancellationToken cancellationToken = default)
     {
         // Active only: a withdrawn or resolved report is no longer something to look out for.
+        // Paused reports are out too - somebody is already walking that item to a desk, and a
+        // second finder setting off after it helps nobody. The pause lapses on its own, so
+        // this is a comparison against now rather than a flag somebody has to clear.
+        var now = DateTime.UtcNow;
         var reports = _db.LostReports
             .AsNoTracking()
-            .Where(r => r.Status == LostReportStatus.Active);
+            .Where(r => r.Status == LostReportStatus.Active)
+            .Where(r => r.PausedUntil == null || r.PausedUntil < now);
 
         if (query.CategoryId is { } categoryId) reports = reports.Where(r => r.CategoryId == categoryId);
         if (query.ItemTypeId is { } itemTypeId) reports = reports.Where(r => r.ItemTypeId == itemTypeId);

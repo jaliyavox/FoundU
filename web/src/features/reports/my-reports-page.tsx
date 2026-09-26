@@ -40,6 +40,7 @@ import { MessageThread } from '@/features/feed/message-thread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
+import { HandoverNotice } from './handover-notice'
 import { GotItBackDialog } from './got-it-back-dialog'
 import { EditLostReportDialog } from './edit-lost-report-dialog'
 import { LostReportDetailDialog } from './lost-report-detail-dialog'
@@ -574,6 +575,10 @@ function ReportCard({
             )}
           </div>
         </div>
+
+        {/* A handover in flight outranks the "someone found this" notice: it is the same
+            news, further along, and with the code attached. */}
+        {!isWithdrawn && <HandoverNotice reportId={report.id} />}
 
         {/* Found notice */}
         {!isWithdrawn && report.foundClaimCount > 0 && (

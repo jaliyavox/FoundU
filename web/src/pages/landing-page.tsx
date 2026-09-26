@@ -11,6 +11,7 @@ import { SiteNav } from '@/components/landing/site-nav'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/features/auth/use-auth'
 import { homeRouteForRole } from '@/routes/role-home'
+import { AskBubble } from '@/features/intake/ask-bubble'
 
 const TRUST_POINTS = [
   { icon: ClockIcon, label: 'Report in under a minute' },
@@ -150,6 +151,9 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* The way in for somebody who has just lost something and has never used FoundU. */}
+      <AskBubble />
     </div>
   )
 }

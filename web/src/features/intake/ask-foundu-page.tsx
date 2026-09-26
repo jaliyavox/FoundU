@@ -24,11 +24,16 @@ export function AskFoundUPage() {
 function IntakeConversation({ ownerId }: { ownerId: string }) {
   const location = useLocation()
   const initial = readIntakeHandoff(location.state, ownerId)?.response ?? null
+  // Arrived from the bubble on the home page or the feed - a string, nothing more, so it is
+  // treated exactly like something typed into the box here.
+  const asked = typeof (location.state as { askFoundU?: unknown } | null)?.askFoundU === 'string'
+    ? ((location.state as { askFoundU: string }).askFoundU).slice(0, 1000)
+    : null
   const [result, setResult] = useState<IntakeResponse | null>(initial)
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([
     { role: 'assistant', text: initial?.reply ?? 'What did you lose? Tell me what it is, its colour, or where you last saw it.' },
   ])
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(asked ?? '')
   const mutation = useMutation({
     mutationFn: (message: string) => askIntake(message, result?.slots),
     onSuccess: response => {

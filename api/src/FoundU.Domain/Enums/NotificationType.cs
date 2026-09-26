@@ -28,5 +28,11 @@ public enum NotificationType
     SupportTicketReply,
 
     /// <summary>A support ticket was resolved or closed.</summary>
-    SupportTicketUpdated
+    SupportTicketUpdated,
+
+    /// <summary>A finder is walking the item to a desk - carries the code the owner collects with.</summary>
+    HandoverStarted,
+
+    /// <summary>The finder changed their mind before handing it in.</summary>
+    HandoverCancelled
 }

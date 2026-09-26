@@ -23,6 +23,7 @@ import { CardConnector } from './card-connector'
 import { FeedDetailPanel } from './feed-detail-panel'
 import { FeedSpotlight } from './feed-spotlight'
 import { FoundStrip } from './found-strip'
+import { AskBubble } from '@/features/intake/ask-bubble'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { homeRouteForRole } from '@/routes/role-home'
@@ -246,6 +247,8 @@ export function FeedPage() {
           </div>
         </section>
       </main>
+
+      <AskBubble />
 
       <FeedDetailPanel
         item={selected}

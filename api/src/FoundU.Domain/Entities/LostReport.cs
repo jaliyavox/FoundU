@@ -48,6 +48,13 @@ public class LostReport : BaseEntity, ISoftDeletable
     public string? WithdrawReason { get; set; }
     public DateTime? WithdrawnAt { get; set; }
 
+    /// <summary>
+    /// While a finder is walking the item to a desk the notice comes off the feed, so nobody
+    /// else sets out after something that is already on its way home. It goes back up by
+    /// itself if the handover lapses - see LostReportFoundClaim.HandoverExpiresAt.
+    /// </summary>
+    public DateTime? PausedUntil { get; set; }
+
     public bool IsFlagged { get; set; }
     public string? FlagReason { get; set; }
     public DateTime? FlaggedAt { get; set; }

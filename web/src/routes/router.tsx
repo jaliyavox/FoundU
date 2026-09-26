@@ -25,6 +25,7 @@ import { HelpToFindPage } from '@/features/help/help-to-find-page'
 import { SupportPage } from '@/features/support/support-page'
 import { AdminSupportPage } from '@/features/support/admin-support-page'
 import { AdminOverviewPage } from '@/features/admin/admin-overview-page'
+import { HandoverDeskPage } from '@/features/items/handover-desk-page'
 import { AccountPage } from '@/features/account/account-page'
 
 export const router = createBrowserRouter([
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
               { path: 'items/new', element: <LogItemPage /> },
               { path: 'items/:id', element: <ItemDetailPage /> },
               { path: 'claims', element: <ClaimQueuePage /> },
+              { path: 'handovers', element: <HandoverDeskPage /> },
               { path: 'admin/support', element: <AdminSupportPage /> },
               { path: 'admin/overview', element: <AdminOverviewPage /> },
             ],

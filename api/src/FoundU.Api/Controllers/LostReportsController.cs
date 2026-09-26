@@ -3,6 +3,7 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.Auth;
 using FoundU.Application.Common;
 using FoundU.Application.Common.Pagination;
+using FoundU.Application.Handovers.Dtos;
 using FoundU.Application.LostReports.Dtos;
 using FoundU.Application.Matching.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -131,6 +132,35 @@ public class LostReportsController : ControllerBase
         [FromBody] WithdrawLostReportRequest request,
         CancellationToken cancellationToken)
         => Ok(await _lostReports.WithdrawAsync(id, User.GetUserId(), request.Reason, cancellationToken));
+
+    /// <summary>
+    /// "I will take it to security." Mints the code the finder and the owner both quote, and
+    /// pauses the notice while the item is on its way.
+    /// </summary>
+    [HttpPost("{id:guid}/handover")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<HandoverDto>> StartHandover(
+        Guid id,
+        [FromServices] IHandoverService handovers,
+        CancellationToken cancellationToken)
+        => Ok(await handovers.StartAsync(id, User.GetUserId(), cancellationToken));
+
+    /// <summary>The finder changing their mind, before a desk has the item.</summary>
+    [HttpPost("{id:guid}/handover/cancel")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<HandoverDto>> CancelHandover(
+        Guid id,
+        [FromServices] IHandoverService handovers,
+        CancellationToken cancellationToken)
+        => Ok(await handovers.CancelAsync(id, User.GetUserId(), cancellationToken));
+
+    /// <summary>The live handover as the finder or the owner sees it - the only place the code is returned.</summary>
+    [HttpGet("{id:guid}/handover")]
+    public async Task<ActionResult<HandoverDto?>> GetHandover(
+        Guid id,
+        [FromServices] IHandoverService handovers,
+        CancellationToken cancellationToken)
+        => Ok(await handovers.GetForUserAsync(id, User.GetUserId(), cancellationToken));
 
     /// <summary>"I found this" from the author's own dashboard - the item is home and the report closes.</summary>
     [HttpPost("{id:guid}/resolve")]

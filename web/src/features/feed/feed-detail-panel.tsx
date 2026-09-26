@@ -1,15 +1,15 @@
 import { Link } from 'react-router-dom'
-import { ActivityIcon, ArrowLeftIcon, ClockIcon, HandHeartIcon, HashIcon, MapPinIcon } from 'lucide-react'
+import { ActivityIcon, ArrowLeftIcon, ClockIcon, HandHeartIcon, MapPinIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuth } from '@/features/auth/use-auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-import { displayCode, formatWindow, timeAgo, type LostReportFeedItem } from './feed-api'
+import { formatWindow, timeAgo, type LostReportFeedItem } from './feed-api'
 import { ItemMedia } from './item-media'
 import { ZoomButton } from './photo-lightbox'
-import { MessageAuthor } from './message-author'
+import { HandoverChoice } from './handover-choice'
 
 /**
  * Post detail as a right-hand side panel. The feed stays on screen behind it, so the
@@ -168,56 +168,27 @@ export function FeedDetailPanel({
                 <Button
                   size="lg"
                   className="bg-brand-forest text-white hover:bg-brand-forest/90"
-                  onClick={() => (user ? onConfirmingChange(true) : onShowHandIn(true))}
+                  onClick={() => onConfirmingChange(true)}
                 >
                   <HandHeartIcon aria-hidden="true" />
                   I found this
                 </Button>
               ) : (
                 <div className="fu-reveal flex flex-col gap-5">
-                  {/* The code is what makes the desk step quick: staff type it and the item is
-                      linked to this report on the spot. */}
-                  <div className="flex items-center justify-between gap-4 rounded-xl border border-brand-forest/15 bg-brand-forest px-4 py-3 text-white">
-                    <div>
-                      <p className="text-xs text-white/70">Quote this code at the desk</p>
-                      <p className="font-mono text-2xl font-semibold tracking-[0.2em] tabular-nums">
-                        {displayCode(item.handInCode)}
-                      </p>
-                    </div>
-                    <HashIcon className="size-6 shrink-0 text-white/60" aria-hidden="true" />
-                  </div>
+                  <HandoverChoice
+                    reportId={item.id}
+                    authorName={item.postedByName}
+                    signedIn={user !== null}
+                  />
 
-                  <p className="text-sm text-pretty text-neutral-600">
-                    The three steps are shown with the card. Hand it in first - then tell
-                    {' '}{item.postedByName.split(' ')[0]} where it went.
-                  </p>
-
-                  {/* Messaging only opens once someone says they found it. Before that the
-                      panel is a notice board, and a message box invites contact for its own
-                      sake rather than to report a hand-in. */}
-                  <div className="border-t border-neutral-900/8 pt-5">
-                    <MessageAuthor reportId={item.id} authorName={item.postedByName} />
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      className="border-neutral-900/15 bg-white/70 text-neutral-800 hover:bg-white"
-                      onClick={() => onShowHandIn(false)}
-                    >
-                      <ArrowLeftIcon aria-hidden="true" />
-                      Back
-                    </Button>
-                    {!user && (
-                      <Button
-                        className="bg-brand-forest text-white hover:bg-brand-forest/90"
-                        nativeButton={false}
-                        render={<Link to="/register" />}
-                      >
-                        Create an account
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    variant="outline"
+                    className="self-start border-neutral-900/15 bg-white/70 text-neutral-800 hover:bg-white"
+                    onClick={() => onShowHandIn(false)}
+                  >
+                    <ArrowLeftIcon aria-hidden="true" />
+                    Back
+                  </Button>
                 </div>
               )}
             </div>

@@ -443,7 +443,12 @@ public class FoundPostService : IFoundPostService
         ConfirmFoundPostRequest request,
         CancellationToken cancellationToken = default)
     {
-        var post = await _db.FoundReports.FirstOrDefaultAsync(f => f.Id == id, cancellationToken)
+        // The item type and place are read further down for the honor award's one-line
+        // description, so they are loaded here rather than lazily - there is no lazy loading.
+        var post = await _db.FoundReports
+            .Include(f => f.ItemType)
+            .Include(f => f.FoundLocation)
+            .FirstOrDefaultAsync(f => f.Id == id, cancellationToken)
             ?? throw new NotFoundAppException($"Found post '{id}' was not found.");
 
         if (post.Status != FoundReportStatus.Posted)

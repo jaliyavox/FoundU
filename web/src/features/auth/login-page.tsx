@@ -42,6 +42,14 @@ export function LoginPage() {
       const from = (location.state as {
         from?: { pathname: string; search?: string; hash?: string }
       } | null)?.from
+      // Someone who started typing in the Ask FoundU bubble arrives with their sentence
+      // still in hand, rather than having to write it again on the other side of a form.
+      const asked = (location.state as { askFoundU?: string } | null)?.askFoundU
+      if (asked && signedIn.role === 'Student') {
+        navigate('/ask-foundu', { replace: true, state: { askFoundU: asked } })
+        return
+      }
+
       const destination = from
         ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
         : homeRouteForRole(signedIn.role)
