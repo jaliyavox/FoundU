@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using FoundU.Application.Abstractions;
 using FoundU.Application.Claims.Dtos;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace FoundU.Infrastructure.Verification;
 
@@ -19,8 +20,9 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         ["likely_match", "manual_review", "unlikely_match"];
     private readonly HttpClient _httpClient;
     private readonly AiServiceOptions _options;
+    private readonly ILogger<VerificationAgentClient>? _logger;
 
-    public VerificationAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
+    public VerificationAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options, ILogger<VerificationAgentClient>? logger = null)
     {
         _httpClient = httpClient;
         // Not validated here. A throw in a constructor takes down every service that depends
@@ -28,6 +30,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         // the key is checked when a call is made, inside the try that turns any failure into
         // "the agent is unavailable", which the callers already handle by continuing by hand.
         _options = options.Value;
+        _logger = logger;
     }
 
     public Task<VerificationAgentCallResult<GenerateVerificationQuestionsResult>> GenerateQuestionsAsync(
@@ -74,15 +77,22 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
     {
         try
         {
-            using var httpRequest = CreateAuthenticatedRequest(request);
-            using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+            _logger?.LogInformation("agent_request_started AgentName={AgentName} CorrelationId={CorrelationId}", "verification", request.CorrelationId);
+            var send = await AiRequestRetry.SendAsync(async _ =>
+            {
+                using var httpRequest = CreateAuthenticatedRequest(request);
+                return await _httpClient.SendAsync(httpRequest, cancellationToken);
+            }, _logger, "verification", request.CorrelationId, cancellationToken);
+            using var response = send.Response;
             if (!response.IsSuccessStatusCode)
-                return VerificationAgentCallResult<T>.Failure("Verification agent is unavailable.");
+                return VerificationAgentCallResult<T>.Failure("Verification agent is unavailable.", send.RetryCount);
 
             var body = await response.Content.ReadFromJsonAsync<AiAgentResponse>(JsonOptions, cancellationToken);
-            return body is null
-                ? VerificationAgentCallResult<T>.Failure("Verification agent returned an invalid response.")
-                : validate(body);
+            var result = body is null
+                ? VerificationAgentCallResult<T>.Failure("Verification agent returned an invalid response.", send.RetryCount)
+                : validate(body) with { RetryCount = send.RetryCount };
+            _logger?.LogInformation(result.IsSuccess ? "agent_request_succeeded AgentName={AgentName} CorrelationId={CorrelationId} RetryCount={RetryCount}" : "agent_request_failed AgentName={AgentName} CorrelationId={CorrelationId} RetryCount={RetryCount}", "verification", request.CorrelationId, result.RetryCount);
+            return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -90,7 +100,8 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return VerificationAgentCallResult<T>.Failure("Verification agent timed out.");
+            _logger?.LogWarning("agent_request_timed_out AgentName={AgentName} CorrelationId={CorrelationId}", "verification", request.CorrelationId);
+            return VerificationAgentCallResult<T>.Failure("Verification agent timed out.", AiRequestRetry.MaxRetries);
         }
         catch (HttpRequestException)
         {

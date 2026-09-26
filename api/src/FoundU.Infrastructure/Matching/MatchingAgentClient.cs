@@ -5,6 +5,7 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.Matching.Dtos;
 using FoundU.Infrastructure.Verification;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace FoundU.Infrastructure.Matching;
 
@@ -19,8 +20,9 @@ public sealed class MatchingAgentClient : IMatchingAgentClient
         ["match_candidate", "no_match", "manual_review"];
     private readonly HttpClient _httpClient;
     private readonly AiServiceOptions _options;
+    private readonly ILogger<MatchingAgentClient>? _logger;
 
-    public MatchingAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
+    public MatchingAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options, ILogger<MatchingAgentClient>? logger = null)
     {
         _httpClient = httpClient;
         // Not validated here. A throw in a constructor takes down every service that depends
@@ -28,6 +30,7 @@ public sealed class MatchingAgentClient : IMatchingAgentClient
         // the key is checked when a call is made, inside the try that turns any failure into
         // "the agent is unavailable", which the callers already handle by continuing by hand.
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<MatchingAgentCallResult<MatchingAgentRecommendation>> MatchReportsAsync(
@@ -42,18 +45,22 @@ public sealed class MatchingAgentClient : IMatchingAgentClient
                 "matching",
                 new MatchingPayload("match_reports", lostReport, foundReport),
                 correlationId);
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "agents/run")
+            _logger?.LogInformation("agent_request_started AgentName={AgentName} CorrelationId={CorrelationId}", "matching", correlationId);
+            var send = await AiRequestRetry.SendAsync(async _ =>
             {
-                Content = JsonContent.Create(request, options: JsonOptions),
-            };
-            httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
-
-            using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "agents/run")
+                {
+                    Content = JsonContent.Create(request, options: JsonOptions),
+                };
+                httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
+                return await _httpClient.SendAsync(httpRequest, cancellationToken);
+            }, _logger, "matching", correlationId, cancellationToken);
+            using var response = send.Response;
             if (!response.IsSuccessStatusCode)
-                return MatchingAgentCallResult<MatchingAgentRecommendation>.Failure("Matching agent is unavailable.");
+                return MatchingAgentCallResult<MatchingAgentRecommendation>.Failure("Matching agent is unavailable.", send.RetryCount);
 
             var body = await response.Content.ReadFromJsonAsync<AiAgentResponse>(JsonOptions, cancellationToken);
-            return body is null ? InvalidResponse() : Validate(body);
+            return (body is null ? InvalidResponse() : Validate(body)) with { RetryCount = send.RetryCount };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

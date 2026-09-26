@@ -324,6 +324,100 @@ def test_in_progress_workflow_id_is_rejected_without_executing_a_second_graph_ru
     assert "executed:matching" not in saved["state"].get("trace", [])
 
 
+def test_coordinator_workflow_truly_pauses_then_resumes_once_after_human_approval():
+    with TestClient(main.app) as active_client:
+        created = active_client.post(
+            "/agents/run",
+            json={
+                "agent": "coordinator",
+                "payload": {
+                    "workflow_id": "claim-1",
+                    "workflow_type": "claim_verification",
+                    "claim_status": "ManualReviewRequired",
+                    "verification_recommendation": "manual_review",
+                    "decision_status": "no_decision",
+                    "notification_state": "not_required",
+                },
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        workflow_id = created.json()["agent_run_id"]
+        pending = active_client.get(
+            f"/agents/workflows/{workflow_id}?agent=coordinator", headers=SERVICE_AUTH_HEADERS
+        )
+        approved = active_client.post(
+            f"/agents/workflows/{workflow_id}/approval",
+            json={
+                "agent": "coordinator",
+                "decision": "approved",
+                "decision_maker_id": str(uuid4()),
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        resumed = active_client.post(
+            f"/agents/workflows/{workflow_id}/resume",
+            json={"agent": "coordinator"},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        duplicate_resume = active_client.post(
+            f"/agents/workflows/{workflow_id}/resume",
+            json={"agent": "coordinator"},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+
+    assert created.status_code == 200
+    assert created.json()["status"] == "waiting_for_approval"
+    assert pending.json()["status"] == "waiting_for_approval"
+    assert pending.json()["approval_status"] == "pending"
+    assert "complete" not in pending.json()["completed_step_ids"]
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+    assert resumed.status_code == 200
+    assert resumed.json()["status"] == "completed"
+    assert resumed.json()["output"]["recommended_action"] == "await_authoritative_staff_decision"
+    assert duplicate_resume.status_code == 409
+
+
+def test_rejected_coordinator_workflow_cannot_resume_or_decide_a_claim():
+    with TestClient(main.app) as active_client:
+        created = active_client.post(
+            "/agents/run",
+            json={
+                "agent": "coordinator",
+                "payload": {
+                    "workflow_id": "claim-1",
+                    "workflow_type": "claim_verification",
+                    "claim_status": "ManualReviewRequired",
+                    "verification_recommendation": "manual_review",
+                    "decision_status": "no_decision",
+                    "notification_state": "not_required",
+                },
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        workflow_id = created.json()["agent_run_id"]
+        rejected = active_client.post(
+            f"/agents/workflows/{workflow_id}/approval",
+            json={
+                "agent": "coordinator",
+                "decision": "rejected",
+                "decision_maker_id": str(uuid4()),
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        resumed = active_client.post(
+            f"/agents/workflows/{workflow_id}/resume",
+            json={"agent": "coordinator"},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "rejected"
+    assert resumed.status_code == 409
+    assert "approve_claim" not in rejected.text
+    assert "reject_claim" not in rejected.text
+
+
 def test_workflow_state_endpoint_requires_authentication_and_hides_missing_state():
     workflow_id = "00000000-0000-0000-0000-000000000001"
 

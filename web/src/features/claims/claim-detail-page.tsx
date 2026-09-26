@@ -35,8 +35,10 @@ import {
   getClaim,
   overturnClaim,
   submitAnswers,
+  getAgentRuns,
   type ClaimDetail,
 } from './claims-api'
+import { WorkflowApprovalPanel } from './workflow-approval-panel'
 import { AgentRunsPanel } from './agent-runs-panel'
 import { ClaimStatusChip } from './claim-status-chip'
 import { displayCode } from '@/features/feed/feed-api'
@@ -163,9 +165,19 @@ export function ClaimDetailPage() {
       {user?.role === 'Admin' && claim.status === 'Rejected' && <OverturnControls claim={claim} />}
 
       {/* Staff only, and after the controls: it informs the decision, it is not the decision. */}
+      {isStaff && <StaffWorkflowApproval claimId={claim.id} />}
       {isStaff && <AgentRunsPanel claimId={claim.id} />}
     </section>
   )
+}
+
+function StaffWorkflowApproval({ claimId }: { claimId: string }) {
+  const runs = useQuery({ queryKey: ['claim-agent-runs', claimId], queryFn: () => getAgentRuns(claimId) })
+  const workflowId = runs.data
+    ?.filter((run) => run.agent === 'Planner' && run.objective.includes('Coordinator'))
+    ?.map((run) => run.outcome?.remoteAgentRunId)
+    .find((id): id is string => typeof id === 'string')
+  return workflowId ? <WorkflowApprovalPanel claimId={claimId} workflowId={workflowId} /> : null
 }
 
 /* -------------------------------------------------------------------- admin */

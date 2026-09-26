@@ -5,6 +5,7 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.LostReports.Dtos;
 using FoundU.Infrastructure.Verification;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace FoundU.Infrastructure.Reporting;
 
@@ -22,13 +23,15 @@ public sealed class DescriptionParserAgentClient : IDescriptionParserAgentClient
     private readonly HttpClient _httpClient;
     private readonly string? _serviceKey;
     private readonly bool _hasUsableConfiguration;
+    private readonly ILogger<DescriptionParserAgentClient>? _logger;
 
-    public DescriptionParserAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
+    public DescriptionParserAgentClient(HttpClient httpClient, IOptions<AiServiceOptions> options, ILogger<DescriptionParserAgentClient>? logger = null)
     {
         _httpClient = httpClient;
         _serviceKey = options.Value.ServiceKey;
         _hasUsableConfiguration = HasUsableServiceKey(_serviceKey)
             && Uri.TryCreate(options.Value.BaseUrl, UriKind.Absolute, out _);
+        _logger = logger;
     }
 
     public async Task<DescriptionParserAgentCallResult<DescriptionParserAgentResult>> ParseAsync(
@@ -41,20 +44,24 @@ public sealed class DescriptionParserAgentClient : IDescriptionParserAgentClient
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, "agents/run")
+            _logger?.LogInformation("agent_request_started AgentName={AgentName} CorrelationId={CorrelationId}", "description_parser", correlationId);
+            var send = await AiRequestRetry.SendAsync(async _ =>
             {
-                Content = JsonContent.Create(
-                    new AgentRequest("description_parser", new ParserPayload(description), correlationId),
-                    options: JsonOptions),
-            };
-            request.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, _serviceKey!);
-
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+                using var request = new HttpRequestMessage(HttpMethod.Post, "agents/run")
+                {
+                    Content = JsonContent.Create(
+                        new AgentRequest("description_parser", new ParserPayload(description), correlationId),
+                        options: JsonOptions),
+                };
+                request.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, _serviceKey!);
+                return await _httpClient.SendAsync(request, cancellationToken);
+            }, _logger, "description_parser", correlationId, cancellationToken);
+            using var response = send.Response;
             if (!response.IsSuccessStatusCode)
-                return DescriptionParserAgentCallResult<DescriptionParserAgentResult>.Failure("Description parser is unavailable.");
+                return DescriptionParserAgentCallResult<DescriptionParserAgentResult>.Failure("Description parser is unavailable.", send.RetryCount);
 
             var body = await response.Content.ReadFromJsonAsync<AgentResponse>(JsonOptions, cancellationToken);
-            return body is null ? InvalidResponse() : Validate(body);
+            return (body is null ? InvalidResponse() : Validate(body)) with { RetryCount = send.RetryCount };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

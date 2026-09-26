@@ -28,17 +28,20 @@ public class ClaimService : IClaimService
     private readonly INotificationService _notifications;
     private readonly IVerificationAgentClient _verificationAgent;
     private readonly IHonorService _honor;
+    private readonly IAgentWorkflowClient? _workflows;
 
     public ClaimService(
         FoundUDbContext db,
         INotificationService notifications,
         IVerificationAgentClient verificationAgent,
-        IHonorService honor)
+        IHonorService honor,
+        IAgentWorkflowClient? workflows = null)
     {
         _db = db;
         _notifications = notifications;
         _verificationAgent = verificationAgent;
         _honor = honor;
+        _workflows = workflows;
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
@@ -143,6 +146,87 @@ public class ClaimService : IClaimService
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
 
+    private async Task StartCoordinatorWorkflowAsync(Claim claim, string recommendation, CancellationToken cancellationToken)
+    {
+        if (_workflows is null) return;
+        var existing = await _db.AgentRuns
+            .Where(run => run.ClaimId == claim.Id
+                && run.Objective == "Coordinator claim verification workflow"
+                && (run.Status == AgentRunStatus.Running || run.Status == AgentRunStatus.PausedForApproval))
+            .OrderByDescending(run => run.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null) return;
+
+        var workflowId = Guid.NewGuid();
+        var run = new AgentRun
+        {
+            ClaimId = claim.Id,
+            TriggerEntityType = nameof(Claim),
+            TriggerEntityId = claim.Id,
+            Objective = "Coordinator claim verification workflow",
+            Status = AgentRunStatus.Running,
+            // This intentionally contains only an opaque remote workflow identifier.
+            FinalOutcomeJson = JsonSerializer.Serialize(new { remoteAgentRunId = workflowId }),
+        };
+        _db.AgentRuns.Add(run);
+        await _db.SaveChangesAsync(cancellationToken);
+        var planningStep = new AgentStep
+        {
+            AgentRunId = run.Id,
+            AgentName = AgentName.PlannerAgent,
+            StepOrder = 1,
+            Task = "Coordinator planning",
+            Status = AgentStepStatus.Running,
+            StartedAt = DateTime.UtcNow,
+        };
+        _db.AgentSteps.Add(planningStep);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var workflow = await _workflows.StartCoordinatorAsync(workflowId, claim.Status.ToString(), recommendation, cancellationToken);
+        if (workflow is null)
+        {
+            run.Status = AgentRunStatus.Failed;
+            run.ErrorMessage = "Coordinator workflow is unavailable; staff review continues.";
+            run.CompletedAt = DateTime.UtcNow;
+            CompleteCoordinatorStep(planningStep, AgentStepStatus.Failed, "Coordinator workflow start failed.");
+        }
+        else
+        {
+            run.Status = ToAgentRunStatus(workflow.Status);
+            run.RetryCount = workflow.RetryCount;
+            CompleteCoordinatorStep(planningStep, AgentStepStatus.Completed, null);
+            if (run.Status == AgentRunStatus.PausedForApproval)
+            {
+                _db.AgentSteps.Add(new AgentStep
+                {
+                    AgentRunId = run.Id,
+                    AgentName = AgentName.PlannerAgent,
+                    StepOrder = 2,
+                    Task = "Waiting for human approval",
+                    Status = AgentStepStatus.Running,
+                    StartedAt = DateTime.UtcNow,
+                });
+            }
+            if (run.Status is AgentRunStatus.Completed or AgentRunStatus.Failed) run.CompletedAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static AgentRunStatus ToAgentRunStatus(string workflowStatus) => workflowStatus switch
+    {
+        "waiting_for_approval" => AgentRunStatus.PausedForApproval,
+        "completed" => AgentRunStatus.Completed,
+        "failed" or "rejected" => AgentRunStatus.Failed,
+        _ => AgentRunStatus.Running,
+    };
+
+    private static void CompleteCoordinatorStep(AgentStep step, AgentStepStatus status, string? error)
+    {
+        step.Status = status;
+        step.ErrorMessage = error;
+        step.CompletedAt = DateTime.UtcNow;
+    }
+
     public Task<PagedResult<ClaimListItemDto>> SearchForStudentAsync(
         Guid studentId,
         ClaimQuery query,
@@ -244,7 +328,7 @@ public class ClaimService : IClaimService
         if (privateDetails.Count == 0)
         {
             return await MoveToManualReviewAfterGenerationFailureAsync(
-                claim, staffId, correlationId, "Verification evidence is unavailable.", cancellationToken);
+                claim, staffId, correlationId, "Verification evidence is unavailable.", 0, cancellationToken);
         }
 
         var agentResult = await _verificationAgent.GenerateQuestionsAsync(
@@ -256,6 +340,7 @@ public class ClaimService : IClaimService
                 staffId,
                 correlationId,
                 agentResult.FailureReason ?? "Verification question generation failed safely.",
+                agentResult.RetryCount,
                 cancellationToken);
         }
 
@@ -267,7 +352,8 @@ public class ClaimService : IClaimService
             result.AgentRunId,
             result.Recommendation,
             success: true,
-            result.Questions);
+            result.Questions,
+            retryCount: agentResult.RetryCount);
         _db.AgentRuns.Add(audit);
 
         foreach (var question in result.Questions)
@@ -404,7 +490,8 @@ public class ClaimService : IClaimService
                 claim.Id,
                 "evaluate_answers",
                 correlationId,
-                agentResult.FailureReason ?? "Verification evaluation failed safely.");
+                agentResult.FailureReason ?? "Verification evaluation failed safely.",
+                agentResult.RetryCount);
             MoveClaim(claim, ClaimStatus.ManualReviewRequired, studentId, "Verification requires staff review.");
         }
         else
@@ -417,7 +504,8 @@ public class ClaimService : IClaimService
                 result.AgentRunId,
                 result.Recommendation,
                 success: true,
-                questions: null);
+                questions: null,
+                retryCount: agentResult.RetryCount);
             _db.AgentRuns.Add(audit);
 
             // Recommendations only choose the staff-review queue. They never call DecideAsync,
@@ -429,6 +517,13 @@ public class ClaimService : IClaimService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // The Coordinator is non-authoritative. It starts only after the verification audit and
+        // review status are persisted, and its opaque workflow ID is recorded before FastAPI.
+        if (agentResult.IsSuccess && agentResult.Value is { } successfulEvaluation)
+        {
+            await StartCoordinatorWorkflowAsync(claim, successfulEvaluation.Recommendation, cancellationToken);
+        }
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
@@ -741,9 +836,10 @@ public class ClaimService : IClaimService
         Guid staffId,
         string correlationId,
         string failureReason,
+        int retryCount,
         CancellationToken cancellationToken)
     {
-        RecordVerificationAgentFailure(claim.Id, "generate_questions", correlationId, failureReason);
+        RecordVerificationAgentFailure(claim.Id, "generate_questions", correlationId, failureReason, retryCount);
         MoveClaim(claim, ClaimStatus.ManualReviewRequired, staffId, "Verification requires staff review.");
         await _db.SaveChangesAsync(cancellationToken);
         return await LoadDetailAsync(claim.Id, cancellationToken);
@@ -834,7 +930,8 @@ public class ClaimService : IClaimService
         Guid claimId,
         string operation,
         string correlationId,
-        string failureReason)
+        string failureReason,
+        int retryCount = 0)
     {
         _db.AgentRuns.Add(CreateVerificationAgentRun(
             claimId,
@@ -844,7 +941,8 @@ public class ClaimService : IClaimService
             recommendation: "manual_review",
             success: false,
             questions: null,
-            failureReason));
+            failureReason,
+            retryCount));
     }
 
     private static AgentRun CreateVerificationAgentRun(
@@ -855,7 +953,8 @@ public class ClaimService : IClaimService
         string recommendation,
         bool success,
         IReadOnlyList<VerificationAgentQuestion>? questions,
-        string? failureReason = null)
+        string? failureReason = null,
+        int retryCount = 0)
         => new()
         {
             ClaimId = claimId,
@@ -863,6 +962,7 @@ public class ClaimService : IClaimService
             TriggerEntityId = claimId,
             Objective = $"Verification Agent {operation}",
             Status = success ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            RetryCount = retryCount,
             ErrorMessage = success ? null : "Verification agent interaction requires staff review.",
             FinalOutcomeJson = JsonSerializer.Serialize(new VerificationAuditOutcome(
                 operation,

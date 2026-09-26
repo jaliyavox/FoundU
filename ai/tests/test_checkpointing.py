@@ -238,9 +238,7 @@ def test_stable_workflow_id_can_be_reloaded_by_a_recreated_graph_without_replayi
     recreated_graph = build_agent_graph(
         partial(description_parser_node, llm_client=None), checkpointer=saver
     )
-    restored = load_checkpointed_state(
-        recreated_graph, workflow_id, AgentName.DESCRIPTION_PARSER
-    )
+    restored = load_checkpointed_state(recreated_graph, workflow_id, AgentName.DESCRIPTION_PARSER)
 
     assert restored["agent_run_id"] == workflow_id
     assert restored["plan"].agent is AgentName.DESCRIPTION_PARSER
@@ -309,9 +307,7 @@ def test_postgres_workflow_recovery_survives_repository_reconstruction_and_block
     try:
         first_store = PostgresWorkflowStateStore(database_url)
         assert first_store.create(workflow_id, AgentName.DESCRIPTION_PARSER, state)
-        first_store.update(
-            workflow_id, AgentName.DESCRIPTION_PARSER, "waiting_for_approval", state
-        )
+        first_store.update(workflow_id, AgentName.DESCRIPTION_PARSER, "waiting_for_approval", state)
 
         del first_store
         restored = PostgresWorkflowStateStore(database_url).load(
