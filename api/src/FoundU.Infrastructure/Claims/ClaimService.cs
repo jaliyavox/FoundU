@@ -27,15 +27,18 @@ public class ClaimService : IClaimService
     private readonly FoundUDbContext _db;
     private readonly INotificationService _notifications;
     private readonly IVerificationAgentClient _verificationAgent;
+    private readonly IAgentWorkflowClient? _workflows;
 
     public ClaimService(
         FoundUDbContext db,
         INotificationService notifications,
-        IVerificationAgentClient verificationAgent)
+        IVerificationAgentClient verificationAgent,
+        IAgentWorkflowClient? workflows = null)
     {
         _db = db;
         _notifications = notifications;
         _verificationAgent = verificationAgent;
+        _workflows = workflows;
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
@@ -139,6 +142,54 @@ public class ClaimService : IClaimService
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
+
+    private async Task StartCoordinatorWorkflowAsync(Claim claim, string recommendation, CancellationToken cancellationToken)
+    {
+        if (_workflows is null) return;
+        var existing = await _db.AgentRuns
+            .Where(run => run.ClaimId == claim.Id
+                && run.Objective == "Coordinator claim verification workflow"
+                && (run.Status == AgentRunStatus.Running || run.Status == AgentRunStatus.PausedForApproval))
+            .OrderByDescending(run => run.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null) return;
+
+        var workflowId = Guid.NewGuid();
+        var run = new AgentRun
+        {
+            ClaimId = claim.Id,
+            TriggerEntityType = nameof(Claim),
+            TriggerEntityId = claim.Id,
+            Objective = "Coordinator claim verification workflow",
+            Status = AgentRunStatus.Running,
+            // This intentionally contains only an opaque remote workflow identifier.
+            FinalOutcomeJson = JsonSerializer.Serialize(new { remoteAgentRunId = workflowId }),
+        };
+        _db.AgentRuns.Add(run);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var workflow = await _workflows.StartCoordinatorAsync(workflowId, claim.Status.ToString(), recommendation, cancellationToken);
+        if (workflow is null)
+        {
+            run.Status = AgentRunStatus.Failed;
+            run.ErrorMessage = "Coordinator workflow is unavailable; staff review continues.";
+            run.CompletedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            run.Status = ToAgentRunStatus(workflow.Status);
+            if (run.Status is AgentRunStatus.Completed or AgentRunStatus.Failed) run.CompletedAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static AgentRunStatus ToAgentRunStatus(string workflowStatus) => workflowStatus switch
+    {
+        "waiting_for_approval" => AgentRunStatus.PausedForApproval,
+        "completed" => AgentRunStatus.Completed,
+        "failed" or "rejected" => AgentRunStatus.Failed,
+        _ => AgentRunStatus.Running,
+    };
 
     public Task<PagedResult<ClaimListItemDto>> SearchForStudentAsync(
         Guid studentId,
@@ -426,6 +477,13 @@ public class ClaimService : IClaimService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // The Coordinator is non-authoritative. It starts only after the verification audit and
+        // review status are persisted, and its opaque workflow ID is recorded before FastAPI.
+        if (agentResult.IsSuccess && agentResult.Value is { } successfulEvaluation)
+        {
+            await StartCoordinatorWorkflowAsync(claim, successfulEvaluation.Recommendation, cancellationToken);
+        }
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
