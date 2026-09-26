@@ -14,6 +14,9 @@ using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Storage;
 using FoundU.Infrastructure.Reporting;
 using FoundU.Infrastructure.Verification;
+using FoundU.Application.Intake;
+using FoundU.Infrastructure.Honor;
+using FoundU.Infrastructure.Intake;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -103,6 +106,12 @@ public static class DependencyInjection
 
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IProfileService, ProfileService>();
+        services.AddMemoryCache();
+        services.AddOptions<GoogleAuthOptions>().Bind(configuration.GetSection(GoogleAuthOptions.SectionName));
+        // Typed client: Google's key set is fetched over HTTP and cached, never bundled.
+        services.AddHttpClient<IGoogleTokenVerifier, GoogleTokenVerifier>(client =>
+            client.Timeout = TimeSpan.FromSeconds(10));
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IFoundReportService, FoundReportService>();
         services.AddScoped<IFoundPostService, FoundPostService>();
@@ -110,8 +119,17 @@ public static class DependencyInjection
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
         services.AddScoped<IClaimService, ClaimService>();
+        services.AddScoped<IIntakeService, IntakeService>();
+        services.AddHttpClient<IIntakeAgentClient, IntakeAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var address)) client.BaseAddress = address;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
         services.AddScoped<IMatchSuggestionService, MatchSuggestionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IHonorService, HonorService>();
+        services.AddScoped<IHelpToFindService, HelpToFindService>();
         services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
         services.AddOptions<FirebaseOptions>()
             .Bind(configuration.GetSection(FirebaseOptions.SectionName));
