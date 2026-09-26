@@ -39,7 +39,7 @@ export function AskBubble() {
     <>
       {open && (
         <div
-          className="fu-reveal fixed right-4 bottom-24 z-60 flex w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-white text-neutral-900 shadow-2xl shadow-black/30 ring-1 ring-black/5 sm:right-6"
+          className="fu-appear fixed right-4 bottom-24 z-60 flex w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-white text-neutral-900 shadow-2xl shadow-black/30 ring-1 ring-black/5 sm:right-6"
           role="dialog"
           aria-label="Ask FoundU"
         >

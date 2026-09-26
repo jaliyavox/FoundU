@@ -174,7 +174,7 @@ export function FeedDetailPanel({
                   I found this
                 </Button>
               ) : (
-                <div className="fu-reveal flex flex-col gap-5">
+                <div className="fu-appear flex flex-col gap-5">
                   <HandoverChoice
                     reportId={item.id}
                     authorName={item.postedByName}

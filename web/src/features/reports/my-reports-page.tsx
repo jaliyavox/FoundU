@@ -582,7 +582,7 @@ function ReportCard({
 
         {/* Found notice */}
         {!isWithdrawn && report.foundClaimCount > 0 && (
-          <p className="fu-reveal flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
+          <p className="fu-appear flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
             <BellRingIcon
               className="mt-0.5 size-4 shrink-0 text-brand-forest dark:text-brand-sage"
               aria-hidden="true"

@@ -57,7 +57,7 @@ export function HandoverChoice({
   // Not signed in: the confirmation has been read, and this is where it stops.
   if (!signedIn) {
     return (
-      <div className="fu-reveal flex flex-col gap-4">
+      <div className="fu-appear flex flex-col gap-4">
         <p className="text-sm text-pretty text-neutral-700">
           Thank you. Sign in to write to {authorName.split(' ')[0]} or to get the code for
           handing it to security - both need an account, so the desk knows who brought it in.
@@ -77,7 +77,7 @@ export function HandoverChoice({
   const live = handover && (handover.status === 'AwaitingHandIn' || handover.status === 'InCustody')
 
   return (
-    <div className="fu-reveal flex flex-col gap-5">
+    <div className="fu-appear flex flex-col gap-5">
       {live && handover.code ? (
         <>
           <div className="flex items-center justify-between gap-4 rounded-xl border border-brand-forest/15 bg-brand-forest px-4 py-3 text-white">

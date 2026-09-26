@@ -23,7 +23,7 @@ export function HandoverNotice({ reportId }: { reportId: string }) {
   const atDesk = data.status === 'InCustody'
 
   return (
-    <div className="fu-reveal flex flex-col gap-3 rounded-xl border border-brand-green/35 bg-brand-green/10 p-4">
+    <div className="fu-appear flex flex-col gap-3 rounded-xl border border-brand-green/35 bg-brand-green/10 p-4">
       <p className="flex items-start gap-2.5 text-sm">
         {atDesk ? (
           <PackageCheckIcon className="mt-0.5 size-4 shrink-0 text-brand-forest dark:text-brand-sage" aria-hidden="true" />

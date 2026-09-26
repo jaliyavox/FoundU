@@ -168,8 +168,23 @@
 }
 
 /* Scroll reveal: element starts hidden, .is-visible is added by useInView. */
+/*
+ * Scroll reveal. Hidden until something adds `is-visible` - which means it MUST be paired
+ * with useInView, or the element stays invisible for ever. For anything that appears in
+ * response to a click rather than a scroll, use .fu-appear below: it needs no JavaScript and
+ * cannot fail this way.
+ */
 .fu-reveal {
   opacity: 0;
+}
+
+/*
+ * Appears under its own steam. `both` fill mode holds the from-state before the animation
+ * starts and the to-state after it ends, so the element is correct at every moment without
+ * anyone observing it.
+ */
+.fu-appear {
+  animation: fu-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .fu-reveal.is-visible {
@@ -195,6 +210,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .fu-appear,
   .fu-reveal,
   .fu-reveal.is-visible,
   .fu-draw.is-visible path,
