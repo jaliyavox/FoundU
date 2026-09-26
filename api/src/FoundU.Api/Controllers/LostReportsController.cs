@@ -132,6 +132,15 @@ public class LostReportsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _lostReports.WithdrawAsync(id, User.GetUserId(), request.Reason, cancellationToken));
 
+    /// <summary>"I found this" from the author's own dashboard - the item is home and the report closes.</summary>
+    [HttpPost("{id:guid}/resolve")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<LostReportDetailDto>> Resolve(
+        Guid id,
+        [FromBody] ResolveLostReportRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _lostReports.ResolveAsync(id, User.GetUserId(), request.Note, cancellationToken));
+
     [HttpGet("{id:guid}/possible-matches")]
     public async Task<ActionResult<IReadOnlyList<MatchSuggestionDto>>> GetPossibleMatches(
         Guid id,

@@ -19,5 +19,8 @@ public enum NotificationType
     FoundPostConfirmed,
 
     /// <summary>An owner recognised the item a finder posted - time to walk it to a desk.</summary>
-    FoundPostRecognised
+    FoundPostRecognised,
+
+    /// <summary>An item a finder helped with reached its owner.</summary>
+    ItemReturnedToOwner
 }

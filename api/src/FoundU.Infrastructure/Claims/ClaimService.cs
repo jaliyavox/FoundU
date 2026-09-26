@@ -27,15 +27,18 @@ public class ClaimService : IClaimService
     private readonly FoundUDbContext _db;
     private readonly INotificationService _notifications;
     private readonly IVerificationAgentClient _verificationAgent;
+    private readonly IHonorService _honor;
 
     public ClaimService(
         FoundUDbContext db,
         INotificationService notifications,
-        IVerificationAgentClient verificationAgent)
+        IVerificationAgentClient verificationAgent,
+        IHonorService honor)
     {
         _db = db;
         _notifications = notifications;
         _verificationAgent = verificationAgent;
+        _honor = honor;
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
@@ -641,6 +644,32 @@ public class ClaimService : IClaimService
         if (lostReport is not null && lostReport.Status != LostReportStatus.Resolved)
         {
             MoveLostReport(lostReport, LostReportStatus.Resolved, staffId, "Collected from the desk.");
+        }
+
+        // The person who brought it in gets the credit now that it is actually home. A staff
+        // member logging an item they found themselves is not a finder for this purpose.
+        if (foundReport?.FinderId is { } finderId && finderId != claim.StudentId)
+        {
+            var itemName = await _db.ItemTypes
+                .Where(t => t.Id == foundReport.ItemTypeId)
+                .Select(t => t.Name)
+                .FirstOrDefaultAsync(cancellationToken) ?? "item";
+
+            _notifications.Queue(
+                finderId,
+                NotificationType.ItemReturnedToOwner,
+                "It got home",
+                $"The {itemName.ToLowerInvariant()} you handed in went home with its owner. Thank you.",
+                nameof(FoundReport),
+                foundReport.Id);
+
+            await _honor.QueueAwardAsync(
+                finderId,
+                HonorAwardReason.HelpedReturn,
+                claim.LostReportId,
+                foundReport.Id,
+                $"A {itemName.ToLowerInvariant()} you found reached its owner",
+                cancellationToken);
         }
 
         // Once. The code is gone the moment the item is.

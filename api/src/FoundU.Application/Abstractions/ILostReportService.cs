@@ -31,6 +31,9 @@ public interface ILostReportService
 
     Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
 
+    /// <summary>"I got it back": the author closes the report, thanks the finders and credits them.</summary>
+    Task<LostReportDetailDto> ResolveAsync(Guid id, Guid studentId, string? note, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Raises a flag for staff attention. The report's owner may flag their own; Staff/Admin
     /// may flag any. Nobody else - a flag is a request for a person's time.

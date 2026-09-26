@@ -3,6 +3,7 @@ using FoundU.Application.Claims.Dtos;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Claims;
+using FoundU.Infrastructure.Honor;
 using FoundU.Infrastructure.Notifications;
 using FoundU.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -138,7 +139,7 @@ public sealed class ClaimVerificationIntegrationTests
             await db.SaveChangesAsync();
 
             var agent = new FakeVerificationAgentClient();
-            return new ClaimFixture(db, new ClaimService(db, new NotificationService(db), agent), agent,
+            return new ClaimFixture(db, new ClaimService(db, new NotificationService(db), agent, new HonorService(db)), agent,
                 claim, student, staff, found, secret);
         }
 

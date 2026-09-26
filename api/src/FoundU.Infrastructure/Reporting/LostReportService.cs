@@ -20,17 +20,20 @@ public class LostReportService : ILostReportService
     private readonly IPhotoStorage _photoStorage;
     private readonly INotificationService _notifications;
     private readonly IDescriptionParserAgentClient _descriptionParser;
+    private readonly IHonorService _honor;
 
     public LostReportService(
         FoundUDbContext db,
         IPhotoStorage photoStorage,
         INotificationService notifications,
-        IDescriptionParserAgentClient descriptionParser)
+        IDescriptionParserAgentClient descriptionParser,
+        IHonorService honor)
     {
         _db = db;
         _photoStorage = photoStorage;
         _notifications = notifications;
         _descriptionParser = descriptionParser;
+        _honor = honor;
     }
 
     public async Task<LostReportDetailDto> CreateAsync(
@@ -363,6 +366,81 @@ public class LostReportService : ILostReportService
             ChangedByUserId = studentId,
             Reason = report.WithdrawReason ?? "Withdrawn by student",
         });
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await LoadDetailAsync(report.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// "I got it back." The author closes their own report: it leaves the feed, the finders
+    /// who offered to help are thanked, and the ones who actually helped are credited.
+    ///
+    /// Separate from withdrawing, which means the opposite - a report the author gave up on.
+    /// A report that ends here is the good ending, and the honor points follow from it.
+    /// </summary>
+    public async Task<LostReportDetailDto> ResolveAsync(
+        Guid id,
+        Guid studentId,
+        string? note,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .Include(r => r.ItemType)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{id}' was not found.");
+
+        if (report.StudentId != studentId)
+            throw new ForbiddenAppException("You can only close your own lost reports.");
+
+        if (report.Status == LostReportStatus.Resolved)
+            throw new ConflictAppException("This report is already closed.");
+
+        if (report.Status == LostReportStatus.Withdrawn)
+            throw new ConflictAppException("A withdrawn report cannot be closed - it is already off the feed.");
+
+        var previousStatus = report.Status;
+        var itemName = report.ItemType.Name.ToLowerInvariant();
+
+        report.Status = LostReportStatus.Resolved;
+        report.UpdatedAt = DateTime.UtcNow;
+
+        _db.LostReportStatusHistories.Add(new LostReportStatusHistory
+        {
+            LostReportId = report.Id,
+            FromStatus = previousStatus,
+            ToStatus = LostReportStatus.Resolved,
+            ChangedByUserId = studentId,
+            Reason = Normalize(note) ?? "The owner has the item back",
+        });
+
+        // Everyone who said they found it hears how it ended, and is credited for it. The
+        // finder who actually handed it in is in this list too - they pressed the button
+        // before walking it to the desk.
+        var finderIds = await _db.LostReportFoundClaims
+            .Where(c => c.LostReportId == report.Id)
+            .Select(c => c.FinderId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        foreach (var finderId in finderIds)
+        {
+            _notifications.Queue(
+                finderId,
+                NotificationType.ItemReturnedToOwner,
+                "It got home",
+                $"The {itemName} you helped with made it back to its owner. Thank you.",
+                nameof(LostReport),
+                report.Id);
+
+            await _honor.QueueAwardAsync(
+                finderId,
+                HonorAwardReason.HelpedReturn,
+                report.Id,
+                null,
+                $"Helped return a {itemName}",
+                cancellationToken);
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
 
