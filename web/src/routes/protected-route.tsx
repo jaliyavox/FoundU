@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/use-auth'
 import { AuthLoading } from '@/features/auth/auth-loading'
 import type { UserRole } from '@/lib/api/types'
+import { routeAccessDecision } from './route-access'
 
 interface ProtectedRouteProps {
   /** Roles allowed through. Omit to require only that the user is signed in. */
@@ -17,14 +18,15 @@ export function ProtectedRoute({ allow }: ProtectedRouteProps) {
   const { user, isInitializing } = useAuth()
   const location = useLocation()
 
-  if (isInitializing) return <AuthLoading />
+  const access = routeAccessDecision(user, isInitializing, allow)
+  if (access === 'loading') return <AuthLoading />
 
-  if (!user) {
+  if (access === 'login') {
     // Remember the attempted URL so login can send them back to it.
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (allow && !allow.includes(user.role)) {
+  if (access === 'forbidden') {
     return <Navigate to="/forbidden" replace />
   }
 
