@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'providers/report_providers.dart';
+import '../../handover/presentation/handover_notice.dart';
 
 class LostReportDetailPage extends ConsumerStatefulWidget {
   final String reportId;
@@ -272,6 +273,10 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                           ),
                     ),
                     const SizedBox(height: 16),
+
+                    // A handover in flight comes first: it is the most recent news about the
+                    // item, and it carries the code the owner needs at the desk.
+                    if (!isWithdrawn) HandoverNotice(reportId: widget.reportId, bottomGap: 16),
 
                     // Visual Stage Tracker (matching Web UI)
                     if (!isWithdrawn) ...[

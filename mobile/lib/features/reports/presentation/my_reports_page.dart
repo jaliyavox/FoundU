@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../data/report_models.dart';
 import 'providers/report_providers.dart';
 import '../../../core/theme/brand.dart';
+import '../../handover/presentation/handover_notice.dart';
 
 class MyReportsPage extends ConsumerStatefulWidget {
   const MyReportsPage({super.key});
@@ -539,6 +540,10 @@ class _ReportCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
+
+              // A handover in flight outranks the found notice - same news, further along,
+              // with the code attached. Renders nothing when there is none.
+              if (!isWithdrawn) HandoverNotice(reportId: item.id, bottomGap: 10),
 
               // Found notice banner (matching Web UI)
               if (!isWithdrawn && item.foundClaimCount > 0) ...[

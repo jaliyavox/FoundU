@@ -9,11 +9,16 @@ import 'package:intl/intl.dart';
 import '../../reference/data/reference_models.dart';
 import '../data/report_models.dart';
 import 'providers/report_providers.dart';
+import '../../intake/data/intake_repository.dart';
 
 class ReportFormPage extends ConsumerStatefulWidget {
   final String? reportId; // null for Create mode, non-null for Edit mode
 
-  const ReportFormPage({super.key, this.reportId});
+  /// A report prefilled by Ask FoundU. The person still reviews every field and posts it
+  /// themselves - nothing reaches the board from a conversation on its own.
+  final IntakeDraft? draft;
+
+  const ReportFormPage({super.key, this.reportId, this.draft});
 
   @override
   ConsumerState<ReportFormPage> createState() => _ReportFormPageState();
@@ -37,6 +42,19 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
   final ImagePicker _picker = ImagePicker();
 
   bool _isInitialDataLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = widget.draft;
+    if (draft != null && widget.reportId == null) {
+      _selectedCategoryId = draft.categoryId;
+      _selectedItemTypeId = draft.itemTypeId;
+      _selectedLocationId = draft.locationId;
+      _descriptionController.text = draft.description;
+      _primaryColorController.text = draft.primaryColor ?? '';
+    }
+  }
 
   @override
   void dispose() {

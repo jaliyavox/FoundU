@@ -10,7 +10,8 @@ import '../data/feed_models.dart';
 import '../data/feed_repository.dart';
 import 'feed_card.dart';
 import 'feed_controller.dart';
-import 'message_thread.dart';
+import '../../../core/auth/auth_controller.dart';
+import '../../handover/presentation/handover_choice.dart';
 
 /// Opens a post from the feed. A bottom sheet rather than a page: the feed stays where it
 /// was underneath, so the reading position survives.
@@ -30,7 +31,9 @@ Future<void> showFeedDetail(BuildContext context, FeedItem item) {
   );
 }
 
-enum _Stage { reading, confirming, handingIn }
+/// reading -> confirming -> (handingIn | signIn). Signed out, the check reads the same and
+/// then asks for an account: the desk has to know who brought a thing in.
+enum _Stage { reading, confirming, handingIn, signIn }
 
 class _FeedDetail extends ConsumerStatefulWidget {
   const _FeedDetail({required this.item, required this.scrollController});
@@ -46,6 +49,10 @@ class _FeedDetailState extends ConsumerState<_FeedDetail> {
   bool _busy = false;
 
   Future<void> _confirmFound() async {
+    if (ref.read(authControllerProvider).value == null) {
+      setState(() => _stage = _Stage.signIn);
+      return;
+    }
     setState(() => _busy = true);
     try {
       // Recorded before the steps appear: the author's card should update the moment a
@@ -128,12 +135,12 @@ class _FeedDetailState extends ConsumerState<_FeedDetail> {
                       onYes: _confirmFound,
                       onNo: () => setState(() => _stage = _Stage.reading),
                     ),
-                  _Stage.handingIn => _HandIn(
+                  _Stage.handingIn => HandoverChoice(
                       key: const ValueKey('handin'),
-                      firstName: firstName,
-                      handInCode: item.handInCode,
                       reportId: item.id,
+                      firstName: firstName,
                     ),
+                  _Stage.signIn => _SignInToContinue(key: const ValueKey('signin'), firstName: firstName),
                 },
         ),
       ],
@@ -238,93 +245,45 @@ class _Confirm extends StatelessWidget {
   }
 }
 
-/// The three steps, then the optional message. The item goes through a desk - never
-/// directly between two strangers - because the desk holds the detail that proves ownership.
-class _HandIn extends StatelessWidget {
-  const _HandIn({super.key, required this.firstName, required this.handInCode, required this.reportId});
+/// After the check, for someone not signed in. Both ways forward - writing to the owner and
+/// taking it to a desk - need an account, so this is where the anonymous path stops.
+class _SignInToContinue extends StatelessWidget {
+  const _SignInToContinue({super.key, required this.firstName});
   final String firstName;
-  final String handInCode;
-  final String reportId;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final steps = [
-      (Icons.pan_tool_alt_outlined, 'Hand it in', 'Take it to any security or library desk.'),
-      (Icons.inventory_2_outlined, 'Staff log it', 'They record it and keep it safe.'),
-      (Icons.verified_outlined, 'Owner proves it', '$firstName describes a detail only they would know.'),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Thank you. Three steps from here.', style: text.titleMedium),
-        const SizedBox(height: 12),
-        // The code is what makes the desk step quick: staff type it and the item is linked
-        // to this post on the spot.
-        if (handInCode.isNotEmpty) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(color: Brand.forest, borderRadius: BorderRadius.circular(Brand.radiusControl)),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Quote this code at the desk', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text(
-                        displayCode(handInCode),
-                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: 4),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.tag_rounded, color: Colors.white60),
-              ],
-            ),
+    return Panel(
+      color: Brand.mist,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Thank you', style: text.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            'Sign in to write to $firstName or to get the code for handing it to security. '
+            'Both need an account, so the desk knows who brought it in.',
+            style: text.bodyMedium?.copyWith(color: Brand.forest, height: 1.45),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          InkButton(
+            label: 'Sign in to continue',
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.go('/login');
+            },
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.go('/register');
+            },
+            child: const Text('Create an account'),
+          ),
         ],
-        for (final (i, step) in steps.indexed)
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: 320 + i * 120),
-            curve: Curves.easeOutCubic,
-            builder: (context, t, child) => Opacity(
-              opacity: t,
-              child: Transform.translate(offset: Offset(0, (1 - t) * 10), child: child),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(color: Brand.mist, shape: BoxShape.circle),
-                    child: Icon(step.$1, size: 20, color: Brand.forest),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(step.$2, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                        Text(step.$3, style: text.bodySmall?.copyWith(color: Brand.muted)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        const SizedBox(height: 8),
-        const Divider(),
-        const SizedBox(height: 14),
-        Text('Tell $firstName where it went', style: text.titleSmall),
-        const SizedBox(height: 8),
-        MessageThread(reportId: reportId, isAuthor: false),
-      ],
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/theme/brand.dart';
+import '../../../core/widgets/flame_mark.dart';
 import '../../../core/widgets/foundu_mark.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../reference/data/reference_models.dart';
@@ -109,6 +110,8 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                       const FoundUMark(size: 44),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  const _AskBanner(),
                   const SizedBox(height: 18),
                 ]),
               ),
@@ -252,6 +255,13 @@ extension on _FeedPageState {
               Text('What happened?', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 14),
               _ChooserTile(
+                icon: Icons.auto_awesome_rounded,
+                title: 'Ask FoundU first',
+                body: 'Describe it and I will check what has already been handed in.',
+                onTap: () { Navigator.of(sheet).pop(); context.push('/ask'); },
+              ),
+              const SizedBox(height: 10),
+              _ChooserTile(
                 icon: Icons.search_rounded,
                 title: 'I lost something',
                 body: 'Post it so finders and the desk know what to look out for.',
@@ -311,3 +321,54 @@ class _ChooserTile extends StatelessWidget {
 }
 
 /// Lost · Found. A pill pair rather than tabs, to match the category chips beneath it.
+
+/// The way in to Ask FoundU from the feed - the first thing someone who has just lost
+/// something should see, above the reports of what other people have lost.
+class _AskBanner extends StatelessWidget {
+  const _AskBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Brand.forest,
+      borderRadius: BorderRadius.circular(Brand.radiusCard),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/ask'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const FlameMark(size: 32),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Lost something?', style: text.titleMedium?.copyWith(color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Ask FoundU - it checks what has been handed in.',
+                      style: text.bodySmall?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_rounded, color: Colors.white70),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

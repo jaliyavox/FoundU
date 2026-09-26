@@ -60,16 +60,39 @@ class ProfilePage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 14),
-            // Where a finder goes back for the codes they still need, and what they earned.
+            // The four things a student comes to their profile for, in one panel.
             Panel(
               padding: EdgeInsets.zero,
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                leading: const Icon(Icons.volunteer_activism_outlined, color: Brand.forest),
-                title: const Text('Help to find'),
-                subtitle: const Text('Your finding activity, desk codes and honor points'),
-                trailing: const Icon(Icons.chevron_right_rounded, color: Brand.faint),
-                onTap: () => context.push('/profile/help-to-find'),
+              child: Column(
+                children: [
+                  _Link(
+                    icon: Icons.volunteer_activism_outlined,
+                    title: 'Help to find',
+                    subtitle: 'Your finding activity, desk codes and honor points',
+                    onTap: () => context.push('/profile/help-to-find'),
+                  ),
+                  const Divider(),
+                  _Link(
+                    icon: Icons.auto_awesome_outlined,
+                    title: 'Ask FoundU',
+                    subtitle: 'Describe what you lost and check what has been handed in',
+                    onTap: () => context.push('/ask'),
+                  ),
+                  const Divider(),
+                  _Link(
+                    icon: Icons.manage_accounts_outlined,
+                    title: 'Account settings',
+                    subtitle: 'Name, email and password',
+                    onTap: () => context.push('/profile/account'),
+                  ),
+                  const Divider(),
+                  _Link(
+                    icon: Icons.support_agent_outlined,
+                    title: 'Help & support',
+                    subtitle: 'Ask the desk when something is stuck',
+                    onTap: () => context.push('/profile/support'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 14),
@@ -129,6 +152,27 @@ class _Row extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Link extends StatelessWidget {
+  const _Link({required this.icon, required this.title, required this.subtitle, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      leading: Icon(icon, color: Brand.forest),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded, color: Brand.faint),
+      onTap: onTap,
     );
   }
 }

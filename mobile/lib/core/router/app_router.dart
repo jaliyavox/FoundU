@@ -14,7 +14,12 @@ import '../../features/notifications/data/push_notification_manager.dart';
 import '../../features/notifications/presentation/notifications_page.dart';
 import '../../features/feed/presentation/feed_page.dart';
 import '../../features/feed/presentation/found_board_page.dart';
+import '../../features/intake/data/intake_repository.dart';
+import '../../features/intake/presentation/ask_foundu_page.dart';
+import '../../features/account/presentation/account_page.dart';
 import '../../features/help/presentation/help_to_find_page.dart';
+import '../../features/support/presentation/support_page.dart';
+import '../../features/support/presentation/ticket_page.dart';
 import '../../features/feed/presentation/post_found_page.dart';
 import '../../features/reports/presentation/my_reports_page.dart';
 import '../../features/reports/presentation/possible_matches_page.dart';
@@ -46,6 +51,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsPage()),
+      // Full screen, over the tabs: a conversation needs the keyboard and the whole height.
+      GoRoute(
+        path: '/ask',
+        builder: (_, state) => AskFoundUPage(initialQuestion: state.extra is String ? state.extra as String : null),
+      ),
 
       // The signed-in app: four tabs under one floating nav, each with its own stack so
       // going back to a tab lands where you left it.
@@ -68,7 +78,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               path: '/reports',
               builder: (_, __) => const MyReportsPage(),
               routes: [
-                GoRoute(path: 'new', parentNavigatorKey: _rootKey, builder: (_, __) => const ReportFormPage()),
+                GoRoute(
+                  path: 'new',
+                  parentNavigatorKey: _rootKey,
+                  // Ask FoundU hands its draft over as `extra`; anywhere else opens it blank.
+                  builder: (_, state) => ReportFormPage(draft: state.extra is IntakeDraft ? state.extra as IntakeDraft : null),
+                ),
                 GoRoute(
                   path: ':id',
                   parentNavigatorKey: _rootKey,
@@ -113,6 +128,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               builder: (_, __) => const ProfilePage(),
               routes: [
                 GoRoute(path: 'help-to-find', parentNavigatorKey: _rootKey, builder: (_, __) => const HelpToFindPage()),
+                GoRoute(path: 'account', parentNavigatorKey: _rootKey, builder: (_, __) => const AccountPage()),
+                GoRoute(
+                  path: 'support',
+                  parentNavigatorKey: _rootKey,
+                  builder: (_, __) => const SupportPage(),
+                  routes: [
+                    GoRoute(
+                      path: ':ticketId',
+                      parentNavigatorKey: _rootKey,
+                      builder: (_, state) => TicketPage(ticketId: state.pathParameters['ticketId']!),
+                    ),
+                  ],
+                ),
               ],
             ),
           ]),
