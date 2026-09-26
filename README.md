@@ -160,6 +160,25 @@ Coordinator run/workflow ID and retry count, simulate a transient AI 503, then s
 retry or manual fallback. A waiting workflow shows the staff approval panel; approving resumes
 safe coordination only—the existing ASP.NET claim decision remains authoritative.
 
+### PostgreSQL integration tests
+
+The fast ASP.NET suite uses EF Core InMemory for most service-level coverage. A small, separate
+PostgreSQL category proves provider-specific migration, JSONB, foreign-key, and unique-index
+behaviour against the production provider. It is opt-in and will skip unless `TEST_DATABASE_URL`
+is configured. Its database name must contain `test` (for example `foundu_test`); the guard rejects
+all other names to avoid touching development or production data. Tests use migrations and unique
+test rows, never `EnsureCreated` or destructive database cleanup.
+
+Create an empty dedicated database in your local PostgreSQL instance, then run:
+
+```powershell
+$env:TEST_DATABASE_URL = "Host=localhost;Port=5432;Database=foundu_test;Username=<user>;Password=<password>"
+dotnet test api/FoundU.sln --filter "Category=PostgreSql"
+```
+
+No connection string is committed. CI currently leaves this category opt-in; it does not require a
+database service for normal pull-request validation.
+
 ## Safe fallback demonstrations
 
 - Stop Ollama: Description Parser and Verification question wording use their deterministic
