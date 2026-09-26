@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/auth/auth_session.dart';
 import '../../../reference/data/reference_models.dart';
 import '../../../reference/data/reference_repository.dart';
 import '../../data/report_models.dart';
@@ -39,6 +40,7 @@ final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
 );
 
 final myReportsProvider = FutureProvider<PagedResult<LostReportListItemModel>>((ref) async {
+  ref.watch(authSessionEpochProvider);
   final status = ref.watch(selectedStatusFilterProvider);
   final repo = ref.watch(reportRepositoryProvider);
   return repo.getMyReports(status: status);

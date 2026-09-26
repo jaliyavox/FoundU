@@ -112,6 +112,9 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         {
             Content = JsonContent.Create(request, options: JsonOptions),
         };
+        // Deliberately validate here rather than in the constructor. Claim/list endpoints
+        // resolve ClaimService even when they make no AI call, while an actual AI request
+        // must still never be sent without the required shared service key.
         httpRequest.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
         return httpRequest;
     }

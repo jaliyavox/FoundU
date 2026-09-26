@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foundu/core/auth/auth_session.dart';
 import 'package:foundu/features/claims/data/claim_models.dart';
 import 'package:foundu/features/claims/data/claim_repository.dart';
 import 'package:foundu/features/claims/presentation/providers/claim_providers.dart';
@@ -116,6 +117,39 @@ void main() {
     expect(container.read(myClaimsProvider).items.map((item) => item.id),
         ['fresh-claim', 'fresh-page-two']);
   });
+
+  test('a session change replaces prior account list state', () async {
+    final repository = _DeferredPagingRepository();
+    final container = ProviderContainer(
+      overrides: [claimRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+
+    container.read(myClaimsProvider);
+    await _nextTurn();
+    repository.initialPage
+        .complete(_page(['admin-era-claim'], page: 1, totalPages: 2));
+    await _nextTurn();
+
+    final staleOldAccountPage =
+        container.read(myClaimsProvider.notifier).loadMore();
+    await _nextTurn();
+
+    container.read(authSessionEpochProvider.notifier).advance();
+    expect(container.read(myClaimsProvider).items, isEmpty);
+
+    await repository.refreshedPageRequested.future;
+    expect(container.read(myClaimsProvider).items, isEmpty);
+    repository.refreshedPage.complete(_page(['student-claim'], page: 1));
+    await _nextTurn();
+    await _nextTurn();
+
+    repository.staleSecondPage.complete(_page(['admin-era-page-two'], page: 2));
+    await staleOldAccountPage;
+
+    expect(container.read(myClaimsProvider).items.map((claim) => claim.id),
+        ['student-claim']);
+  });
 }
 
 ProviderContainer _container(_PagingRepository repository) => ProviderContainer(
@@ -170,6 +204,7 @@ class _DeferredPagingRepository extends ClaimRepository {
   final staleSecondPage = Completer<PagedClaims>();
   final refreshedPage = Completer<PagedClaims>();
   final freshSecondPage = Completer<PagedClaims>();
+  final refreshedPageRequested = Completer<void>();
   var _firstPageCalls = 0;
   var _secondPageCalls = 0;
 
@@ -177,7 +212,9 @@ class _DeferredPagingRepository extends ClaimRepository {
   Future<PagedClaims> getMyClaims({int page = 1, int pageSize = 20}) {
     if (page == 1) {
       _firstPageCalls++;
-      return _firstPageCalls == 1 ? initialPage.future : refreshedPage.future;
+      if (_firstPageCalls == 1) return initialPage.future;
+      refreshedPageRequested.complete();
+      return refreshedPage.future;
     }
     _secondPageCalls++;
     return _secondPageCalls == 1

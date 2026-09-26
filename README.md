@@ -76,6 +76,49 @@ flutter run --dart-define=FOUND_U_API_BASE_URL=http://10.0.2.2:5292
 only: React and Flutter never receive it. Protected FastAPI endpoints require
 `X-FoundU-Service-Key`; browser/mobile clients call ASP.NET only.
 
+## Third-party integration: Firebase Cloud Messaging
+
+FoundU uses Firebase Cloud Messaging (FCM) to complement its persisted in-app notification
+centre. A possible match, claim verification/revision, approval/rejection, collection update, or
+message event first creates the normal PostgreSQL `Notification`; after that transaction commits,
+ASP.NET Core may send a minimal push to the recipient's registered device. This helps students
+act on recovery updates without repeatedly opening the app. A push never makes a business
+decision, and the app fetches full authorized details from FoundU after a tap.
+
+```text
+Flutter device → authenticated token registration → ASP.NET Core → PostgreSQL
+business event → persisted FoundU notification → ASP.NET Core → FCM → device
+```
+
+### Firebase setup (manual, no credentials are committed)
+
+1. Create a Firebase project and add Android package `com.example.foundu` (replace this package
+   before production if the team changes the application ID).
+2. Download `google-services.json` to `mobile/android/app/google-services.json`. It is ignored by
+   Git. For iOS, add the Firebase iOS app and place `GoogleService-Info.plist` in `ios/Runner`
+   following the Firebase Flutter documentation.
+3. In Firebase Console, create a service account JSON key and keep it outside the repository.
+   Set backend-only environment variables before starting ASP.NET Core:
+
+```powershell
+$env:Firebase__ProjectId = "your-firebase-project-id"
+$env:Firebase__CredentialsPath = "C:\secure\foundu-firebase-service-account.json"
+$env:Firebase__TimeoutSeconds = "5"
+```
+
+`CredentialsPath` and the FCM token are never returned by FoundU APIs or sent to browsers. The
+backend only sends `title`, `body`, `type`, `notificationId`, and when applicable `entityId`; it
+never sends verification evidence/answers, credentials, AI prompts, private notes, or user
+contact details. Device registration and unregistration require the caller's FoundU JWT and are
+owner-scoped.
+
+FCM is best-effort: the backend uses a bounded 5-second delivery timeout and no unbounded retry.
+Provider outage, auth/configuration errors, malformed responses, and rate limiting are logged
+safely and leave the committed FoundU operation plus its in-app notification intact. Firebase
+unregistered/invalid tokens are deactivated so delivery is not repeatedly attempted. A real
+Firebase project, service-account credentials, and platform client files remain required for
+live delivery; automated tests use fakes and never contact Firebase.
+
 ## Live AI demo flow
 
 1. A student creates a lost report. ASP.NET preserves the user's data and optionally stores

@@ -10,6 +10,7 @@ import '../../features/auth/presentation/splash_page.dart';
 import '../../features/claims/presentation/claim_detail_page.dart';
 import '../../features/claims/presentation/claim_submission_page.dart';
 import '../../features/claims/presentation/my_claims_page.dart';
+import '../../features/notifications/data/push_notification_manager.dart';
 import '../../features/feed/presentation/feed_page.dart';
 import '../../features/feed/presentation/post_found_page.dart';
 import '../../features/reports/presentation/my_reports_page.dart';
@@ -25,7 +26,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
   ref.listen(authControllerProvider, (_, __) => refresh.notify());
 
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: _rootKey,
     initialLocation: '/splash',
     refreshListenable: refresh,
@@ -107,6 +108,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  final subscription = ref.read(pushNotificationManagerProvider).navigationIntents.listen((intent) {
+    // Route only after authentication; selected data is always reloaded from FoundU API.
+    if (ref.read(authControllerProvider).value != null) router.go(intent.route);
+  });
+  ref.onDispose(subscription.cancel);
+  return router;
 });
 
 String? authRedirect({
