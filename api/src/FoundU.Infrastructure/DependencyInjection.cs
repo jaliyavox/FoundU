@@ -14,6 +14,7 @@ using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Storage;
 using FoundU.Infrastructure.Reporting;
 using FoundU.Infrastructure.Verification;
+using FoundU.Infrastructure.Workflow;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -127,6 +128,15 @@ public static class DependencyInjection
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
         });
+        services.AddHttpClient<IAgentWorkflowClient, AgentWorkflowClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress))
+                throw new InvalidOperationException("AiService:BaseUrl must be an absolute URL.");
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
+        services.AddScoped<IClaimWorkflowService, ClaimWorkflowService>();
         services.AddHttpClient<IMatchingAgentClient, MatchingAgentClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;

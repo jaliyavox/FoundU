@@ -121,6 +121,23 @@ class InMemoryWorkflowStateStore:
             raise WorkflowStateStoreError()
         existing.update({"status": status, "state": _safe_json(state)})
 
+    def transition(
+        self,
+        workflow_id: UUID,
+        agent: AgentName,
+        expected_status: str,
+        status: str,
+        state: dict[str, Any],
+    ) -> bool:
+        key = str(workflow_id)
+        existing = self.records.get(key)
+        if existing is None or existing["agent"] != agent.value:
+            raise WorkflowStateStoreError()
+        if existing["status"] != expected_status:
+            return False
+        existing.update({"status": status, "state": _safe_json(state)})
+        return True
+
     def load(self, workflow_id: UUID, agent: AgentName) -> dict[str, Any]:
         record = self.records.get(str(workflow_id))
         if record is None or record["agent"] != agent.value:
@@ -218,6 +235,33 @@ class PostgresWorkflowStateStore:
                     raise WorkflowStateStoreError()
         except WorkflowStateStoreError:
             raise
+        except Exception:
+            raise WorkflowStateStoreError() from None
+
+    def transition(
+        self,
+        workflow_id: UUID,
+        agent: AgentName,
+        expected_status: str,
+        status: str,
+        state: dict[str, Any],
+    ) -> bool:
+        """Atomically move one workflow state only when its prior lifecycle state matches."""
+        try:
+            with self._connect() as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    """UPDATE ai_workflow_states
+                       SET status = %s, state_json = %s, version = version + 1, updated_at = NOW()
+                       WHERE workflow_id = %s AND agent = %s AND status = %s""",
+                    (
+                        status,
+                        self._jsonb(_safe_json(state)),
+                        workflow_id,
+                        agent.value,
+                        expected_status,
+                    ),
+                )
+                return cursor.rowcount == 1
         except Exception:
             raise WorkflowStateStoreError() from None
 

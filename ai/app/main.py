@@ -2,6 +2,7 @@
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from functools import partial
 from uuid import UUID
 
@@ -25,6 +26,8 @@ from app.agents.models import (
     AgentRunResponse,
     DescriptionParseRequest,
     DescriptionParseResult,
+    WorkflowApprovalRequest,
+    WorkflowResumeRequest,
     WorkflowStateResponse,
 )
 from app.agents.state import create_initial_state
@@ -145,6 +148,39 @@ def run_agent(
 
     if state_store is not None:
         try:
+            if (
+                request.agent is AgentName.COORDINATOR
+                and result["output"].get("requires_human_action", False)
+            ):
+                paused_result = {
+                    **result,
+                    "completed_step_ids": _completed_before_approval(result["plan"]),
+                    "approval_required": True,
+                    "approval_status": "pending",
+                    "approval": {
+                        "pending_action_type": "staff_claim_decision",
+                        "safe_action_summary": "A staff member must make the claim decision.",
+                        "requested_at": datetime.now(UTC).isoformat(),
+                    },
+                }
+                if not state_store.transition(
+                    workflow_id,
+                    request.agent,
+                    "executing",
+                    "waiting_for_approval",
+                    paused_result,
+                ):
+                    raise HTTPException(
+                        status_code=409, detail="Workflow state changed before pause."
+                    )
+                logger.info("workflow_paused_for_approval workflow_id=%s", workflow_id)
+                return AgentRunResponse(
+                    agent_run_id=workflow_id,
+                    agent=request.agent,
+                    status="waiting_for_approval",
+                    output=result["output"],
+                    trace=[*result["trace"], "workflow:paused_for_approval"],
+                )
             persisted_result = {
                 **result,
                 "completed_step_ids": [step.step_id for step in result["plan"].steps],
@@ -188,43 +224,149 @@ def workflow_state(
         state_store = getattr(app.state, "workflow_state_store", None)
         if state_store is None:
             raise WorkflowStateStoreError()
-        record = state_store.load(workflow_id, agent)
-        state = record["state"]
-        raw_plan = state.get("plan")
-        plan = AgentPlan.model_validate(raw_plan) if raw_plan is not None else None
-        output = state.get("output", {})
-        approval_required = bool(state.get("approval_required", False))
-        validation_failed = "plan:rejected" in state.get("trace", [])
-        workflow_status = (
-            "waiting_for_approval"
-            if approval_required
-            else record["status"]
-        )
-        if workflow_status not in {
-            "created",
-            "planning",
-            "executing",
-            "waiting_for_approval",
-            "completed",
-            "failed",
-        }:
-            raise WorkflowStateStoreError()
-        return WorkflowStateResponse(
-            agent_run_id=workflow_id,
-            agent=agent,
-            status=workflow_status,
-            plan=plan,
-            completed_step_ids=state.get("completed_step_ids", []),
-            output=output,
-            validation_status="failed" if validation_failed else "passed",
-            approval_required=approval_required,
-            approval_status=state.get("approval_status", "not_required"),
-            error=state.get("error"),
-        )
+        return _workflow_response(workflow_id, agent, state_store.load(workflow_id, agent))
     except WorkflowStateStoreError:
         raise HTTPException(status_code=404, detail="Workflow state is unavailable.") from None
     except Exception:
         raise HTTPException(status_code=500, detail="Workflow state is unavailable.") from None
+
+
+@app.post("/agents/workflows/{workflow_id}/approval", response_model=WorkflowStateResponse)
+def decide_workflow_approval(
+    workflow_id: UUID,
+    request: WorkflowApprovalRequest,
+    _: None = Depends(require_service_auth),
+) -> WorkflowStateResponse:
+    """Record the authorized ASP.NET human decision; this endpoint never decides a claim."""
+    state_store = getattr(app.state, "workflow_state_store", None)
+    if state_store is None:
+        raise HTTPException(status_code=503, detail="Workflow persistence is unavailable.")
+    try:
+        record = state_store.load(workflow_id, request.agent)
+        if record["status"] != "waiting_for_approval":
+            logger.warning("invalid_transition workflow_id=%s", workflow_id)
+            raise HTTPException(status_code=409, detail="Workflow is not awaiting approval.")
+        state = record["state"]
+        approval = dict(state.get("approval", {}))
+        approval.update(
+            {
+                "decision": request.decision,
+                "decision_maker_id": str(request.decision_maker_id),
+                "decided_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        state.update(
+            {
+                "approval": approval,
+                "approval_status": request.decision,
+                "approval_required": False,
+            }
+        )
+        if not state_store.transition(
+            workflow_id, request.agent, "waiting_for_approval", request.decision, state
+        ):
+            logger.warning("duplicate_approval_rejected workflow_id=%s", workflow_id)
+            raise HTTPException(status_code=409, detail="Workflow approval was already decided.")
+        logger.info(
+            "approval_%s workflow_id=%s actor=%s",
+            request.decision,
+            workflow_id,
+            request.decision_maker_id,
+        )
+        return _workflow_response(
+            workflow_id, request.agent, state_store.load(workflow_id, request.agent)
+        )
+    except WorkflowStateStoreError:
+        raise HTTPException(status_code=404, detail="Workflow state is unavailable.") from None
+
+
+@app.post("/agents/workflows/{workflow_id}/resume", response_model=WorkflowStateResponse)
+def resume_approved_workflow(
+    workflow_id: UUID,
+    request: WorkflowResumeRequest,
+    _: None = Depends(require_service_auth),
+) -> WorkflowStateResponse:
+    """Continue only the non-authoritative coordinator completion after human authorization."""
+    state_store = getattr(app.state, "workflow_state_store", None)
+    if state_store is None:
+        raise HTTPException(status_code=503, detail="Workflow persistence is unavailable.")
+    try:
+        record = state_store.load(workflow_id, request.agent)
+        if record["status"] != "approved" or request.agent is not AgentName.COORDINATOR:
+            raise HTTPException(status_code=409, detail="Workflow is not approved for resume.")
+        state = record["state"]
+        if not state_store.transition(workflow_id, request.agent, "approved", "executing", state):
+            raise HTTPException(status_code=409, detail="Workflow resume is already in progress.")
+        plan = AgentPlan.model_validate(state["plan"])
+        state.update(
+            {
+                "completed_step_ids": [step.step_id for step in plan.steps],
+                "output": {
+                    "recommended_action": "await_authoritative_staff_decision",
+                    "requires_human_action": False,
+                    "safe_reason_code": "human_review_recorded",
+                },
+                "final_outcome": {"status": "human_review_recorded"},
+                "trace": [*state.get("trace", []), "coordinator:resumed", "coordinator:completed"],
+            }
+        )
+        state_store.update(workflow_id, request.agent, "completed", state)
+        logger.info("workflow_resumed workflow_id=%s", workflow_id)
+        return _workflow_response(
+            workflow_id, request.agent, state_store.load(workflow_id, request.agent)
+        )
+    except WorkflowStateStoreError:
+        raise HTTPException(status_code=404, detail="Workflow state is unavailable.") from None
+
+
+def _completed_before_approval(plan: AgentPlan) -> list[str]:
+    completed: list[str] = []
+    for step in plan.steps:
+        if step.requires_human_approval:
+            break
+        completed.append(step.step_id)
+    return completed
+
+
+def _workflow_response(workflow_id: UUID, agent: AgentName, record: dict) -> WorkflowStateResponse:
+    state = record["state"]
+    raw_plan = state.get("plan")
+    plan = AgentPlan.model_validate(raw_plan) if raw_plan is not None else None
+    output = state.get("output", {})
+    approval_required = bool(state.get("approval_required", False))
+    approval = state.get("approval", {})
+    if not isinstance(approval, dict):
+        raise WorkflowStateStoreError()
+    validation_failed = "plan:rejected" in state.get("trace", [])
+    workflow_status = record["status"]
+    if workflow_status not in {
+        "created",
+        "planning",
+        "executing",
+        "waiting_for_approval",
+        "approved",
+        "rejected",
+        "completed",
+        "failed",
+    }:
+        raise WorkflowStateStoreError()
+    return WorkflowStateResponse(
+        agent_run_id=workflow_id,
+        agent=agent,
+        status=workflow_status,
+        plan=plan,
+        completed_step_ids=state.get("completed_step_ids", []),
+        output=output,
+        validation_status="failed" if validation_failed else "passed",
+        approval_required=approval_required,
+        approval_status=state.get("approval_status", "not_required"),
+        pending_action_type=approval.get("pending_action_type"),
+        safe_action_summary=approval.get("safe_action_summary"),
+        requested_at=approval.get("requested_at"),
+        decided_at=approval.get("decided_at"),
+        decision_maker_id=approval.get("decision_maker_id"),
+        error=state.get("error"),
+    )
 
 
 def _mark_workflow_failed(state_store, workflow_id: UUID, agent: AgentName) -> None:

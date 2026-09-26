@@ -400,7 +400,7 @@ class AgentRunRequest(BaseModel):
 class AgentRunResponse(BaseModel):
     agent_run_id: UUID
     agent: AgentName
-    status: Literal["completed"]
+    status: Literal["completed", "waiting_for_approval"]
     output: dict[str, Any]
     trace: list[str]
 
@@ -411,12 +411,42 @@ class WorkflowStateResponse(BaseModel):
     agent_run_id: UUID
     agent: AgentName
     status: Literal[
-        "created", "planning", "executing", "completed", "waiting_for_approval", "failed"
+        "created",
+        "planning",
+        "executing",
+        "waiting_for_approval",
+        "approved",
+        "rejected",
+        "completed",
+        "failed",
     ]
     plan: AgentPlan | None = None
     completed_step_ids: list[PlanStepIdentifier]
     output: dict[str, Any]
     validation_status: Literal["passed", "failed"]
     approval_required: bool
-    approval_status: Literal["not_required", "pending"]
+    approval_status: Literal["not_required", "pending", "approved", "rejected"]
+    pending_action_type: Literal["staff_claim_decision"] | None = None
+    safe_action_summary: str | None = Field(default=None, max_length=160)
+    requested_at: str | None = None
+    decided_at: str | None = None
+    decision_maker_id: UUID | None = None
     error: str | None = None
+
+
+class WorkflowApprovalRequest(BaseModel):
+    """Trusted ASP.NET-to-AI approval command; it never carries business evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent: AgentName
+    decision: Literal["approved", "rejected"]
+    decision_maker_id: UUID
+
+
+class WorkflowResumeRequest(BaseModel):
+    """Trusted request to continue an already-approved coordinator workflow."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    agent: AgentName

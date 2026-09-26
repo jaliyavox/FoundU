@@ -252,6 +252,40 @@ pause/resume API: the current graph has no pause point and each run is already c
 state is retrieved. Durable checkpoint recovery does not move the ASP.NET human approval boundary
 or grant AI claim-decision authority.
 
+### Coordinator human-in-the-loop pause and resume
+
+The Coordinator is the Planner-facing agent for safe claim workflow recommendations. When it
+recommends `await_staff_review`, FastAPI executes only the pre-approval Coordinator steps and
+durably changes the workflow to `waiting_for_approval`. Its safe approval record contains the
+pending action type, a fixed safe summary, requested/decided timestamps, the decision, and the
+trusted ASP.NET decision-maker ID. It never contains claim evidence, answers, prompts, or model
+reasoning.
+
+```text
+Coordinator plan → pre-review steps → WaitingForApproval
+                                      ↓
+                         ASP.NET Staff/Admin decision
+                                      ↓
+                            approved → resume same workflow ID → complete recommendation
+                            rejected → terminate recommendation path
+```
+
+The AI service exposes service-to-service approval and resume routes only; React and Flutter must
+continue to use ASP.NET. ASP.NET remains responsible for authenticating Staff/Admin and for the
+actual claim approval, rejection, custody, or collection transaction. A completed Coordinator
+workflow records only `await_authoritative_staff_decision`; it cannot approve or reject a claim.
+Conditional durable transitions prevent duplicate approval and resume: only
+`waiting_for_approval → approved/rejected` and `approved → executing → completed` are accepted.
+After restart, the same workflow ID reloads its plan, completed pre-approval steps, and approval
+record from PostgreSQL without replaying them.
+
+For a local restart acceptance check, start FastAPI with `WORKFLOW_STATE_STORE=postgres`, create a
+Coordinator workflow with `ManualReviewRequired`, confirm `waiting_for_approval`, restart FastAPI,
+then use the protected ASP.NET service integration to record the staff decision and call resume
+with the same workflow ID. Confirm the final state is `completed` and its pre-approval step IDs
+were not duplicated. The opt-in `TEST_WORKFLOW_DATABASE_URL` recovery test verifies the PostgreSQL
+repository reconstruction; normal pytest deliberately does not require a database.
+
 ### Optional local Ollama smoke test
 
 This is not part of pytest or CI. Install/run Ollama separately, then pull the model selected by
@@ -322,6 +356,24 @@ test claim instead. A successful wording draft may add `verification:llm_attempt
 `verification:fallback`; no prompt, raw response, or evidence values are traced.
 
 ## Local setup
+
+## Staff approval hand-off
+
+Coordinator workflows that reach a claim-decision boundary stop in durable
+`waiting_for_approval` state. The React staff screen calls ASP.NET only; ASP.NET checks the
+Staff policy and the claim's recorded AgentRun link before it forwards the staff identity and
+an approved/rejected decision to the authenticated AI service. Approval resumes the same
+workflow ID for safe coordination. It never approves or rejects the FoundU claim: the existing
+ASP.NET claim decision endpoint remains the only business transaction path. Rejection never
+resumes the workflow. The PostgreSQL-backed AI state means a staff member can reload the pending
+workflow after either service restarts; no prompts, hidden evidence, or model reasoning is in
+the status response.
+
+Live linkage is claim-scoped: after a successful deterministic verification evaluation, ASP.NET
+persists a Coordinator `AgentRun` containing one generated opaque workflow ID before it starts
+the Python coordinator. The returned/persisted ID is subsequently used for status, approval,
+rejection, and resume. Staff claim detail discovers that Coordinator run through the normal
+agent-run API; no workflow ID is entered in the browser.
 
 Python 3.11 or newer is required.
 

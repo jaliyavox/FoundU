@@ -222,3 +222,23 @@ export interface AgentRun {
 }
 
 export const getAgentRuns = (claimId: string) => api.get<AgentRun[]>(`/api/claims/${claimId}/agent-runs`)
+
+/** Safe, staff-only status for a durable Coordinator workflow linked to this claim. */
+export interface AgentWorkflowState {
+  workflowId: string
+  status: 'waiting_for_approval' | 'approved' | 'rejected' | 'completed' | 'failed'
+  approvalRequired: boolean
+  approvalStatus: 'not_required' | 'pending' | 'approved' | 'rejected'
+  pendingActionType: string | null
+  safeActionSummary: string | null
+  requestedAt: string | null
+  decidedAt: string | null
+  decisionMakerId: string | null
+}
+
+/** Browser calls ASP.NET only; it never receives the AI service key. */
+export const getAgentWorkflow = (claimId: string, workflowId: string) =>
+  api.get<AgentWorkflowState>(`/api/claims/${claimId}/agent-workflows/${workflowId}`)
+
+export const decideAgentWorkflow = (claimId: string, workflowId: string, decision: 'approved' | 'rejected') =>
+  api.post<AgentWorkflowState>(`/api/claims/${claimId}/agent-workflows/${workflowId}/approval`, { decision })
