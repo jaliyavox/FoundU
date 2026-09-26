@@ -21,9 +21,15 @@ export const startHandover = (reportId: string) =>
 export const cancelHandover = (reportId: string) =>
   api.post<Handover>(`/api/lost-reports/${reportId}/handover/cancel`)
 
-/** Null when there is nothing in flight for this reader. */
+/**
+ * Null when there is nothing in flight for this reader - which is the common case, since
+ * most reports have no handover.
+ *
+ * The `?? null` matters: the API answers a bare `null` body, which arrives here as undefined,
+ * and TanStack Query treats an undefined result as a bug and puts the query into error.
+ */
 export const getHandover = (reportId: string) =>
-  api.get<Handover | null>(`/api/lost-reports/${reportId}/handover`)
+  api.get<Handover | null>(`/api/lost-reports/${reportId}/handover`).then(value => value ?? null)
 
 /* --------------------------------------------------------------- the desk */
 
