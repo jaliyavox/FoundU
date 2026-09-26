@@ -198,9 +198,9 @@ A plan records intended, permitted execution metadata, not a guarantee that ever
 For example, Description Parser's plan contains `call_model`, but deterministic preconditions skip
 the real LLM request for unusable input; its existing fallback and trace behavior remain unchanged.
 
-## Safe LangGraph checkpoints (Phase 7)
+## Durable LangGraph workflow checkpoints
 
-FastAPI composition creates one LangGraph `InMemorySaver`-based checkpointer and compiles the
+FastAPI composition creates one sanitized LangGraph checkpointer and compiles the
 agent graph with it. Each `/agents/run` execution uses its server-generated `agent_run_id` as the
 trusted LangGraph thread ID:
 
@@ -211,11 +211,11 @@ server-generated agent_run_id / thread_id
         ↓
 LangGraph execution
         ↓
-SafeInMemorySaver
+sanitized workflow state
         ↓
-sanitized checkpoint
+PostgreSQL `ai_workflow_states` (when configured)
         ↓
-trusted internal checkpoint retrieval
+trusted service-to-service state retrieval
 ```
 
 The in-memory saver is wrapped with a checkpoint sanitization boundary. Checkpoints retain only
@@ -225,12 +225,32 @@ verification evidence, reasoning, scratchpads, and model-response-like fields ar
 serialization. An internal snapshot-load path can safely retrieve completed state without
 replaying model or tool calls, and it rejects unknown or cross-agent thread requests.
 
-This demonstrates checkpointed agent state and thread-isolated continuity within one FastAPI
-process only; it does not survive process restart. It is not interrupted-workflow execution resume,
-human-approval pause/resume, or durable restart persistence: the current graph has no pause point
-and each run is already complete when its state is retrieved. A durable production backend can
-replace the in-memory saver later without moving the ASP.NET human approval boundary or granting AI
-claim-decision authority.
+Set `WORKFLOW_STATE_STORE=postgres` and `WORKFLOW_DATABASE_URL` to the PostgreSQL connection
+string used for FoundU workflow state. PostgreSQL is the startup default: if the URL is absent or
+the schema is incompatible, FastAPI fails clearly rather than silently switching to memory. Set
+`WORKFLOW_STATE_STORE=memory` only for intentionally non-durable local development or isolated
+tests. With PostgreSQL selected, FastAPI creates (but never drops or recreates) its idempotent
+`ai_workflow_states` table and index, then verifies its required columns before accepting work.
+It persists the sanitized record under the same `agent_run_id` used by LangGraph. A recreated
+FastAPI process can load this state without
+replaying completed nodes. The persisted state contains workflow ID, fixed objective, requested
+agent, structured plan, bounded trace/step labels, safe tool/validation results when a node
+produces them, final outcome/output, error status, and approval-safe coordinator metadata. Raw
+request payloads, private
+verification details, prompts, model responses/reasoning, JWTs, service keys, and credentials are
+excluded before every write.
+
+The in-memory workflow store is available only through explicit `WORKFLOW_STATE_STORE=memory` for
+isolated unit tests and local non-durable development. It is not a production durability
+configuration.
+ASP.NET remains the authoritative business and approval layer: its PostgreSQL `AgentRuns`/`AgentSteps`
+records retain the corresponding safe audit plan and final outcome, while FastAPI's PostgreSQL
+workflow-state record retains graph continuity under the same returned workflow ID.
+
+This does not yet introduce interrupted-workflow execution resume or a human-approval
+pause/resume API: the current graph has no pause point and each run is already complete when its
+state is retrieved. Durable checkpoint recovery does not move the ASP.NET human approval boundary
+or grant AI claim-decision authority.
 
 ### Optional local Ollama smoke test
 
