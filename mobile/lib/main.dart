@@ -17,9 +17,11 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  } on FirebaseException {
+  } on Object {
     // Firebase configuration is optional for local development; FoundU's in-app notifications
-    // continue to work while push registration remains unavailable.
+    // continue to work while push registration remains unavailable. Caught broadly: with no
+    // google-services.json the native side can fail with a PlatformException rather than a
+    // FirebaseException, and either one here would otherwise stop the app at launch.
   }
   runApp(const ProviderScope(child: FoundUApp()));
 }
