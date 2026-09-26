@@ -3,6 +3,7 @@ using System;
 using FoundU.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FoundU.Infrastructure.Migrations
 {
     [DbContext(typeof(FoundUDbContext))]
-    partial class FoundUDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260926173801_AddGoogleSubjectId")]
+    partial class AddGoogleSubjectId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -935,48 +938,6 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("Status", "CategoryId", "ItemTypeId", "FoundLocationId");
 
                     b.ToTable("FoundReports", (string)null);
-                });
-
-            modelBuilder.Entity("FoundU.Domain.Entities.FoundReportMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamptz");
-
-                    b.Property<Guid>("FoundReportId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid>("RecipientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("SenderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamptz");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RecipientId");
-
-                    b.HasIndex("SenderId");
-
-                    b.HasIndex("FoundReportId", "CreatedAt");
-
-                    b.HasIndex("FoundReportId", "SenderId");
-
-                    b.ToTable("FoundReportMessages", (string)null);
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.FoundReportStatusHistory", b =>
@@ -2478,33 +2439,6 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("Staff");
 
                     b.Navigation("StorageLocation");
-                });
-
-            modelBuilder.Entity("FoundU.Domain.Entities.FoundReportMessage", b =>
-                {
-                    b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
-                        .WithMany()
-                        .HasForeignKey("FoundReportId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("FoundU.Domain.Entities.AppUser", "Recipient")
-                        .WithMany()
-                        .HasForeignKey("RecipientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("FoundU.Domain.Entities.AppUser", "Sender")
-                        .WithMany()
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("FoundReport");
-
-                    b.Navigation("Recipient");
-
-                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.FoundReportStatusHistory", b =>

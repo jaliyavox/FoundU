@@ -45,6 +45,8 @@ public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<HonorAward> HonorAwards => Set<HonorAward>();
+    public DbSet<FoundReportMessage> FoundReportMessages => Set<FoundReportMessage>();
 
     public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
     public DbSet<AgentStep> AgentSteps => Set<AgentStep>();

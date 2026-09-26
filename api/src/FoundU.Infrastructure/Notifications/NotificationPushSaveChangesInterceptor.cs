@@ -2,21 +2,22 @@ using FoundU.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FoundU.Infrastructure.Notifications;
 
 /// <summary>Captures newly persisted internal notifications and delivers push only after commit.</summary>
 public class NotificationPushSaveChangesInterceptor : SaveChangesInterceptor
 {
-    private readonly NotificationPushDispatcher _dispatcher;
+    private readonly IServiceProvider _services;
     private readonly ILogger<NotificationPushSaveChangesInterceptor> _logger;
     private readonly List<Notification> _pending = [];
 
     public NotificationPushSaveChangesInterceptor(
-        NotificationPushDispatcher dispatcher,
+        IServiceProvider services,
         ILogger<NotificationPushSaveChangesInterceptor> logger)
     {
-        _dispatcher = dispatcher;
+        _services = services;
         _logger = logger;
     }
 
@@ -83,7 +84,11 @@ public class NotificationPushSaveChangesInterceptor : SaveChangesInterceptor
     {
         try
         {
-            await _dispatcher.DispatchAsync(notification, cancellationToken);
+            // Resolve only after the context has been constructed and the save has completed.
+            // Constructor injection creates a cycle: DbContext options -> interceptor ->
+            // dispatcher -> DbContext options, preventing the real API from starting.
+            await _services.GetRequiredService<NotificationPushDispatcher>()
+                .DispatchAsync(notification, cancellationToken);
         }
         catch (Exception ex)
         {

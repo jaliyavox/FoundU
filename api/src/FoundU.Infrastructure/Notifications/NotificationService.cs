@@ -127,7 +127,7 @@ public class NotificationService : INotificationService
         var now = DateTime.UtcNow;
 
         // One statement rather than loading every row to flip a flag on it.
-        var cleared = await _db.Notifications
+        await _db.Notifications
             .Where(n => n.UserId == userId && !n.IsRead)
             .ExecuteUpdateAsync(
                 setters => setters
@@ -136,6 +136,8 @@ public class NotificationService : INotificationService
                     .SetProperty(n => n.UpdatedAt, now),
                 cancellationToken);
 
-        return new UnreadCountDto(cleared);
+        // The response contract is the remaining unread count, not rows affected. Re-read
+        // so a notification arriving concurrently is not incorrectly reported as read.
+        return await GetUnreadCountAsync(userId, cancellationToken);
     }
 }

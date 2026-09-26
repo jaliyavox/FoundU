@@ -7,11 +7,34 @@ using FoundU.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using FoundU.Infrastructure;
 
 namespace FoundU.Tests;
 
 public sealed class PushNotificationTests
 {
+    [Fact]
+    public void ProductionDatabaseRegistration_ResolvesWithPushInterceptor()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:FoundUDatabase"] = "Host=localhost;Database=foundu;Username=foundu;Password=test-only",
+            ["Jwt:SigningKey"] = "test-only-signing-key-at-least-thirty-two-bytes",
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFoundUInfrastructure(configuration);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        // Existing endpoint tests replace DbContext options and bypass this production path.
+        var db = scope.ServiceProvider.GetRequiredService<FoundUDbContext>();
+        Assert.Equal("Npgsql.EntityFrameworkCore.PostgreSQL", db.Database.ProviderName);
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<NotificationPushDispatcher>());
+    }
+
     [Fact]
     public async Task Registration_UpdatesOwnTokenWithoutDuplicatingIt_AndUnregistersOnlyOwner()
     {
