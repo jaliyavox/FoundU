@@ -23,6 +23,10 @@ _EXCLUDED_CHECKPOINT_KEYS = frozenset(
         "model_response",
         "reasoning",
         "scratchpad",
+        # Intake returns conversational content to its caller, not to the audit store.
+        "reply",
+        "slots",
+        "history",
     }
 )
 WORKFLOW_STATE_STORE_ENVIRONMENT_VARIABLE = "WORKFLOW_STATE_STORE"

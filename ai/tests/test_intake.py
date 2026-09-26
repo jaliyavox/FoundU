@@ -133,7 +133,7 @@ def test_weak_candidates_are_an_honest_no_match():
         }
     )
     assert out["phase"] == "no_match"
-    assert "drafted a lost report" in out["reply"]
+    assert "lost report draft" in out["reply"]
 
 
 def test_model_values_are_accepted_only_when_grounded():

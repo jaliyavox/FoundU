@@ -21,6 +21,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.agents.models import AgentName
+from app.agents.plans import build_intake_plan, validate_agent_plan
 from app.agents.state import AgentState
 from app.llm.client import LlmClient
 from app.llm.errors import LlmError
@@ -84,7 +86,7 @@ class IntakeRequest(BaseModel):
     history: list[IntakeTurn] = Field(min_length=1, max_length=40)
     slots: IntakeSlots = Field(default_factory=IntakeSlots)
     vocabulary: IntakeVocabulary = Field(default_factory=IntakeVocabulary)
-    candidates: list[IntakeCandidate] | None = None
+    candidates: list[IntakeCandidate] | None = Field(default=None, max_length=20)
 
 
 class IntakeResult(BaseModel):
@@ -221,10 +223,10 @@ def _keyword_extract(text: str, vocabulary: IntakeVocabulary) -> SlotExtraction:
 
 
 def _merge(slots: IntakeSlots, extracted: SlotExtraction) -> IntakeSlots:
-    """Newer words fill gaps; they do not overwrite what was already said."""
+    """Keep earlier details unless the person supplies a correction in their latest message."""
     data = slots.model_dump()
     for key, value in extracted.model_dump().items():
-        if data.get(key) is None and value:
+        if value:
             data[key] = value
     return IntakeSlots(**data)
 
@@ -271,12 +273,18 @@ def _score(candidate: IntakeCandidate, slots: IntakeSlots) -> float:
 
 
 def intake_node(state: AgentState, llm_client: LlmClient | None = None) -> AgentState:
+    plan = build_intake_plan()
+    validate_agent_plan(plan, state.get("requested_agent", AgentName.INTAKE))
+    return {**_run_intake(state, llm_client), "plan": plan}
+
+
+def _run_intake(state: AgentState, llm_client: LlmClient | None = None) -> AgentState:
     trace = [*state["trace"], "executed:intake"]
 
     try:
         request = IntakeRequest.model_validate(state["payload"])
-    except ValidationError as error:
-        return {"output": {"error": "invalid_request"}, "error": str(error), "trace": trace}
+    except ValidationError:
+        return {"output": {"error": "invalid_request"}, "error": "invalid_request", "trace": trace}
 
     latest = request.history[-1]
     slots = request.slots
@@ -320,7 +328,7 @@ def intake_node(state: AgentState, llm_client: LlmClient | None = None) -> Agent
         best = ranked[0] if ranked else None
         confidence = _score(best, slots) if best else 0.0
 
-        if best is not None and confidence >= 0.55:
+        if best is not None and confidence >= 0.70:
             where = (
                 "at a desk"
                 if best.kind == "desk"
@@ -331,8 +339,8 @@ def intake_node(state: AgentState, llm_client: LlmClient | None = None) -> Agent
                 f"This might be it: a {colour_word}{best.item_type.lower()} "
                 f'{where}, found at {best.location}. "{best.description}" '
                 + (
-                    "If it's yours, I can open a claim - the desk will ask you one question "
-                    "only the owner could answer."
+                    "If it looks like yours, confirm it against your lost report to open a "
+                    "claim. Staff will verify ownership before approving it."
                     if best.kind == "desk"
                     else "If it's yours, say so and the finder will be asked to hand it in."
                 )
@@ -349,9 +357,8 @@ def intake_node(state: AgentState, llm_client: LlmClient | None = None) -> Agent
             }
 
         reply = (
-            f"Nothing like your {_describe(slots)} has been handed in or posted yet. "
-            "I've drafted a lost report from what you told me - check it and post it, "
-            "and you'll be told the moment something matching turns up."
+            f"I couldn't find a close match for your {_describe(slots)} in the available items. "
+            "Review a lost report draft from what you told me. You can check it before posting."
         )
         return {
             "output": IntakeResult(reply=reply, slots=slots, phase="no_match").model_dump(),
