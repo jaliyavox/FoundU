@@ -59,11 +59,61 @@ public sealed class MatchingAgentClientTests
     [Fact]
     public async Task MatchReports_UnavailableResponse_FailsSafely()
     {
-        var result = await CreateClient(new StubHandler(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable))).MatchReportsAsync(
+        var result = await CreateClient(new SequenceHandler(
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable))).MatchReportsAsync(
             new("lost-1", "Backpack", "Blue"), new("found-1", "Backpack", "Blue"), "correlation-1");
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Matching agent is unavailable.", result.FailureReason);
+    }
+
+    [Fact]
+    public async Task MatchReports_TransientServiceUnavailable_RetriesWithSameCorrelationAndServiceKey()
+    {
+        var handler = new SequenceHandler(
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            JsonResponse("{\"agent_run_id\":\"run\",\"agent\":\"matching\",\"status\":\"completed\",\"output\":{\"recommendation\":\"match_candidate\",\"score\":1}}"));
+
+        var result = await CreateClient(handler).MatchReportsAsync(
+            new("lost-1", "Backpack", "Blue"), new("found-1", "Backpack", "Blue"), "correlation-stable");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.RetryCount);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.All(handler.Requests, request =>
+        {
+            Assert.Equal(ServiceKey, request.ServiceKey);
+            Assert.Contains("correlation-stable", request.Body);
+        });
+    }
+
+    [Fact]
+    public async Task MatchReports_BadRequest_IsNotRetried()
+    {
+        var handler = new SequenceHandler(new HttpResponseMessage(HttpStatusCode.BadRequest));
+        var result = await CreateClient(handler).MatchReportsAsync(
+            new("lost-1", "Backpack", "Blue"), new("found-1", "Backpack", "Blue"), "correlation-1");
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, result.RetryCount);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task MatchReports_RateLimited_RetriesOnlyTwice()
+    {
+        var handler = new SequenceHandler(
+            new HttpResponseMessage((HttpStatusCode)429),
+            new HttpResponseMessage((HttpStatusCode)429),
+            new HttpResponseMessage((HttpStatusCode)429));
+        var result = await CreateClient(handler).MatchReportsAsync(
+            new("lost-1", "Backpack", "Blue"), new("found-1", "Backpack", "Blue"), "correlation-1");
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(2, result.RetryCount);
+        Assert.Equal(3, handler.Requests.Count);
     }
 
     private static MatchingAgentClient CreateClient(HttpMessageHandler handler)
@@ -77,6 +127,20 @@ public sealed class MatchingAgentClientTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(response);
+    }
+
+    private sealed class SequenceHandler(params HttpResponseMessage[] responses) : HttpMessageHandler
+    {
+        private readonly Queue<HttpResponseMessage> _responses = new(responses);
+        public List<(string Body, string? ServiceKey)> Requests { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add((
+                request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken),
+                request.Headers.TryGetValues(AiServiceOptions.ServiceKeyHeaderName, out var values) ? values.SingleOrDefault() : null));
+            return _responses.Dequeue();
+        }
     }
 
     private sealed class CapturingHandler(HttpResponseMessage response) : HttpMessageHandler

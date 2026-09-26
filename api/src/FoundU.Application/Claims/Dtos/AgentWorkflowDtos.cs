@@ -10,7 +10,8 @@ public record AgentWorkflowStateDto(
     string? SafeActionSummary,
     DateTimeOffset? RequestedAt,
     DateTimeOffset? DecidedAt,
-    string? DecisionMakerId);
+    string? DecisionMakerId,
+    int RetryCount = 0);
 
 /// <summary>Only the decision is client supplied; the actor always comes from the staff JWT.</summary>
 public record AgentWorkflowDecisionRequest(string Decision);

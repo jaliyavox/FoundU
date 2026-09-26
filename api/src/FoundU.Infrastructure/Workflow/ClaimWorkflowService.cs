@@ -3,6 +3,7 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.Claims.Dtos;
 using FoundU.Application.Common.Exceptions;
 using FoundU.Domain.Enums;
+using FoundU.Domain.Entities;
 using FoundU.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -68,7 +69,7 @@ public sealed class ClaimWorkflowService : IClaimWorkflowService
 
     private async Task SynchronizeRunAsync(Guid claimId, Guid workflowId, string status, CancellationToken cancellationToken)
     {
-        var run = await _db.AgentRuns.FirstOrDefaultAsync(item => item.ClaimId == claimId && item.Objective == "Coordinator claim verification workflow", cancellationToken);
+        var run = await _db.AgentRuns.Include(item => item.Steps).FirstOrDefaultAsync(item => item.ClaimId == claimId && item.Objective == "Coordinator claim verification workflow", cancellationToken);
         if (run is null || !ContainsWorkflowId(run.FinalOutcomeJson, workflowId)) return;
         run.Status = status switch
         {
@@ -78,6 +79,23 @@ public sealed class ClaimWorkflowService : IClaimWorkflowService
             _ => AgentRunStatus.Running,
         };
         if (run.Status is AgentRunStatus.Completed or AgentRunStatus.Failed) run.CompletedAt = DateTime.UtcNow;
+        var waitingStep = run.Steps.SingleOrDefault(step => step.StepOrder == 2);
+        if (waitingStep is not null && status is "completed" or "rejected")
+        {
+            waitingStep.Status = status == "completed" ? AgentStepStatus.Completed : AgentStepStatus.Failed;
+            waitingStep.ErrorMessage = status == "rejected" ? "Human approval rejected." : null;
+            waitingStep.CompletedAt = DateTime.UtcNow;
+            run.Steps.Add(new AgentStep
+            {
+                AgentName = AgentName.PlannerAgent,
+                StepOrder = 3,
+                Task = status == "completed" ? "Coordinator resumed and completed" : "Human approval rejected",
+                Status = status == "completed" ? AgentStepStatus.Completed : AgentStepStatus.Failed,
+                ErrorMessage = status == "rejected" ? "Human approval rejected." : null,
+                StartedAt = DateTime.UtcNow,
+                CompletedAt = DateTime.UtcNow,
+            });
+        }
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

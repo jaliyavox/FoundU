@@ -6,6 +6,7 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.Claims.Dtos;
 using FoundU.Infrastructure.Verification;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace FoundU.Infrastructure.Workflow;
 
@@ -15,11 +16,13 @@ public sealed class AgentWorkflowClient : IAgentWorkflowClient
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly HttpClient _httpClient;
     private readonly AiServiceOptions _options;
+    private readonly ILogger<AgentWorkflowClient>? _logger;
 
-    public AgentWorkflowClient(HttpClient httpClient, IOptions<AiServiceOptions> options)
+    public AgentWorkflowClient(HttpClient httpClient, IOptions<AiServiceOptions> options, ILogger<AgentWorkflowClient>? logger = null)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<AgentWorkflowStateDto?> StartCoordinatorAsync(Guid workflowId, string claimStatus, string verificationRecommendation, CancellationToken cancellationToken = default)
@@ -40,16 +43,21 @@ public sealed class AgentWorkflowClient : IAgentWorkflowClient
                     notification_state = "not_required",
                 },
             };
-            using var request = new HttpRequestMessage(HttpMethod.Post, "agents/run")
+            _logger?.LogInformation("workflow_started WorkflowId={WorkflowId} AgentName={AgentName}", workflowId, "coordinator");
+            var send = await AiRequestRetry.SendAsync(async _ =>
             {
-                Content = JsonContent.Create(body, options: JsonOptions),
-            };
-            request.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+                using var request = new HttpRequestMessage(HttpMethod.Post, "agents/run")
+                {
+                    Content = JsonContent.Create(body, options: JsonOptions),
+                };
+                request.Headers.Add(AiServiceOptions.ServiceKeyHeaderName, AiServiceOptions.RequireServiceKey(_options));
+                return await _httpClient.SendAsync(request, cancellationToken);
+            }, _logger, "coordinator", workflowId.ToString("N"), cancellationToken);
+            using var response = send.Response;
             if (!response.IsSuccessStatusCode) return null;
             var wire = await response.Content.ReadFromJsonAsync<WorkflowWire>(JsonOptions, cancellationToken);
             return wire is null || wire.AgentRunId != workflowId || wire.Agent != "coordinator" || !AllowedStatus(wire.Status)
-                ? null : wire.ToDto();
+                ? null : wire.ToDto() with { RetryCount = send.RetryCount };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception) { return null; }
@@ -62,6 +70,8 @@ public sealed class AgentWorkflowClient : IAgentWorkflowClient
         => SendAsync(HttpMethod.Post, workflowId, new { agent = "coordinator", decision, decision_maker_id = decisionMakerId }, cancellationToken, "approval");
 
     public Task<AgentWorkflowStateDto?> ResumeAsync(Guid workflowId, CancellationToken cancellationToken = default)
+        // Resume and approval transitions are deliberately not automatically retried: a caller
+        // can safely query the durable workflow state and explicitly retry a conflict-aware call.
         => SendAsync(HttpMethod.Post, workflowId, new { agent = "coordinator" }, cancellationToken, "resume");
 
     private async Task<AgentWorkflowStateDto?> SendAsync(HttpMethod method, Guid workflowId, object? body, CancellationToken cancellationToken, string? operation = null)
