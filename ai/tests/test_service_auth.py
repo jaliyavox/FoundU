@@ -98,3 +98,16 @@ def test_invalid_server_configuration_fails_closed(
     assert response.json() == {"detail": "Service authentication is unavailable."}
     if configured_key:
         assert configured_key not in response.text
+
+
+def test_non_ascii_service_key_is_rejected_not_a_server_error(monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.service_auth import SERVICE_KEY_ENVIRONMENT_VARIABLE
+
+    monkeypatch.setenv(SERVICE_KEY_ENVIRONMENT_VARIABLE, "k" * 40)
+    response = TestClient(app).post(
+        "/agents/run", headers={"X-FoundU-Service-Key": "café".encode("latin-1")}, json={}
+    )
+    assert response.status_code == 401

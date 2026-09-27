@@ -47,11 +47,10 @@ def _score_reports(lost: ReportLookupOutput, found: ReportLookupOutput) -> float
         return 0.0
     same_type = lost.report.item_type.casefold() == found.report.item_type.casefold()
     same_color = lost.report.primary_color.casefold() == found.report.primary_color.casefold()
-    if same_type and same_color:
-        return 1.0
-    if same_type or same_color:
-        return 0.5
-    return 0.0
+    # A colour alone is not a match: a black umbrella is not a lead for a black wallet.
+    if not same_type:
+        return 0.0
+    return 1.0 if same_color else 0.5
 
 
 def _report_summary(report: SuppliedReportContext) -> ReportSummary:

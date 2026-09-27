@@ -239,3 +239,19 @@ def test_matching_cannot_call_verification_only_tool() -> None:
             ToolExecutionContext(agent=AgentName.MATCHING, agent_run_id=uuid4()),
             {"claim_id": "claim-1", "question_ids": ["question-1"]},
         )
+
+
+def test_colour_alone_is_not_a_match_candidate() -> None:
+    from app.agents.matching import _score_reports
+    from app.tools.models import ReportLookupOutput, ReportSummary
+
+    def lookup(item_type: str, colour: str) -> ReportLookupOutput:
+        return ReportLookupOutput(
+            report_id="r",
+            found=True,
+            report=ReportSummary(report_id="r", item_type=item_type, primary_color=colour),
+        )
+
+    assert _score_reports(lookup("Wallet", "Black"), lookup("Umbrella", "Black")) == 0.0
+    assert _score_reports(lookup("Wallet", "Black"), lookup("wallet", "Brown")) == 0.5
+    assert _score_reports(lookup("Wallet", "Black"), lookup("Wallet", "black")) == 1.0

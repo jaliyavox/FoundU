@@ -265,3 +265,17 @@ def test_a_finder_with_no_owner_yet_is_told_to_post_it_or_hand_it_in():
     assert out["phase"] == "no_match"
     assert "found item" in out["reply"]
     assert "security desk" in out["reply"]
+
+
+def test_the_first_colour_named_is_the_items_and_gray_is_grey():
+    def colour_of(text):
+        return run(
+            {
+                "history": [{"role": "user", "text": text}],
+                "slots": dict.fromkeys(("item_type", "colour", "location", "when", "distinctive")),
+                "vocabulary": VOCAB,
+            }
+        )["slots"]["colour"]
+
+    assert colour_of("a blue water bottle with black stickers") == "blue"
+    assert colour_of("a gray water bottle") == "grey"
