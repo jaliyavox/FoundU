@@ -14,6 +14,7 @@ import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-pane
 import { Skeleton } from '@/components/ui/skeleton'
 import { timeAgo } from '@/features/feed/feed-api'
 import { api } from '@/lib/api/client'
+import { useAuth } from '@/features/auth/use-auth'
 
 /** Mirrors FoundU.Application.Admin.Dtos.AdminOverviewDto. */
 interface AdminOverview {
@@ -40,6 +41,9 @@ const getOverview = () => api.get<AdminOverview>('/api/admin/overview')
  * that describe the past belong on analytics, which is one click away.
  */
 export function AdminOverviewPage() {
+  // Staff share this page, but moderation, users and analytics are Admin-only routes: they
+  // see the figures without a link that would land on Forbidden.
+  const isAdmin = useAuth().user?.role === 'Admin'
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['admin-overview'],
     queryFn: getOverview,
@@ -97,21 +101,21 @@ export function AdminOverviewPage() {
               note={`${data.queues.itemsPostedAwaitingHandIn} posted but not handed in`}
             />
             <QueueCard
-              to="/admin/moderation"
+              to={isAdmin ? '/admin/moderation' : undefined}
               icon={<FlagIcon className="size-4" aria-hidden="true" />}
               value={data.queues.flaggedReports}
               label="flagged reports"
               note={data.queues.flaggedReports === 0 ? 'Nothing flagged' : 'Needs a look'}
             />
             <QueueCard
-              to="/admin"
+              to={isAdmin ? '/admin' : undefined}
               icon={<UsersIcon className="size-4" aria-hidden="true" />}
               value={data.people.students + data.people.staff + data.people.admins}
               label="accounts"
               note={`${data.people.newThisWeek} new this week · ${data.people.suspended} suspended`}
             />
             <QueueCard
-              to="/admin/analytics"
+              to={isAdmin ? '/admin/analytics' : undefined}
               icon={<BarChart3Icon className="size-4" aria-hidden="true" />}
               value={data.people.staff + data.people.admins}
               label="people on the desk"
@@ -151,7 +155,7 @@ function QueueCard({
   label,
   note,
 }: {
-  to: string
+  to?: string
   icon: React.ReactNode
   value: number
   label: string
@@ -163,7 +167,7 @@ function QueueCard({
       <p className="text-4xl font-semibold tracking-tight tabular-nums">{value}</p>
       <p className="text-sm">{label}</p>
       <p className="text-xs text-muted-foreground">{note}</p>
-      <Button
+      {to && <Button
         variant="ghost"
         size="sm"
         nativeButton={false}
@@ -171,7 +175,7 @@ function QueueCard({
         className="mt-1 self-start px-0 text-brand-forest hover:bg-transparent hover:underline dark:text-brand-sage"
       >
         Open<ArrowRightIcon aria-hidden="true" />
-      </Button>
+      </Button>}
     </DashboardPanel>
   )
 }

@@ -37,6 +37,20 @@ public sealed class SupportTicketTests
         Assert.Equal(1, stats.Unassigned);
     }
 
+    [Theory]
+    [InlineData("42")]
+    [InlineData("Nonsense")]
+    public void ANumberOrUnknownNameIsNotACategoryOrStatus(string value)
+    {
+        var create = new FoundU.Application.Support.Validators.CreateSupportTicketRequestValidator()
+            .Validate(new CreateSupportTicketRequest("Cannot collect my bag", value, "The desk says my code is used.", null, null));
+        var update = new FoundU.Application.Support.Validators.UpdateSupportTicketRequestValidator()
+            .Validate(new UpdateSupportTicketRequest(value, null));
+
+        Assert.False(create.IsValid);
+        Assert.False(update.IsValid);
+    }
+
     [Fact]
     public async Task AStudentCannotReadOrWriteOnSomebodyElsesTicket()
     {

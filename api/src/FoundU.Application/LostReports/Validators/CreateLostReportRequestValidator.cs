@@ -14,7 +14,7 @@ public class CreateLostReportRequestValidator : AbstractValidator<CreateLostRepo
         RuleFor(x => x.Description)
             .NotEmpty()
             .MinimumLength(10).WithMessage("Describe the item in at least 10 characters so it can be matched.")
-            .MaximumLength(2000);
+            .MaximumLength(1000);
 
         RuleFor(x => x.PrimaryColor).MaximumLength(50);
         RuleFor(x => x.SecondaryColor).MaximumLength(50);

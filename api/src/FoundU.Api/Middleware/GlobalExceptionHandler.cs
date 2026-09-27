@@ -1,6 +1,8 @@
 using FoundU.Application.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace FoundU.Api.Middleware;
 
@@ -24,6 +26,15 @@ public class GlobalExceptionHandler : IExceptionHandler
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         var traceId = httpContext.TraceIdentifier;
+
+        // Two people acting on the same record at once lose the race at a unique index or a
+        // concurrency check. That is a conflict to retry, not a server fault.
+        if (exception is DbUpdateConcurrencyException
+            || exception is DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } })
+        {
+            exception = new ConflictAppException(
+                "Someone else changed this at the same moment. Refresh and try again.");
+        }
 
         var (statusCode, title) = exception switch
         {

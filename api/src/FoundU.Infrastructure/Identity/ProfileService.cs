@@ -68,8 +68,13 @@ public class ProfileService : IProfileService
             user.NormalizedUserName = _userManager.NormalizeName(newEmail);
         }
 
+        var studentNumber = string.IsNullOrWhiteSpace(request.StudentNumber) ? null : request.StudentNumber.Trim();
+        if (studentNumber is not null
+            && await _db.Users.AnyAsync(u => u.Id != userId && u.StudentNumber == studentNumber, cancellationToken))
+            throw new ConflictAppException("An account with this student number already exists.");
+
         user.FullName = request.FullName.Trim();
-        user.StudentNumber = string.IsNullOrWhiteSpace(request.StudentNumber) ? null : request.StudentNumber.Trim();
+        user.StudentNumber = studentNumber;
         user.UpdatedAt = DateTime.UtcNow;
 
         var result = await _userManager.UpdateAsync(user);

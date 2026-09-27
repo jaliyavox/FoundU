@@ -15,6 +15,7 @@ import {
   declareFoundPostHandedIn,
   displayCode,
   getFoundFeed,
+  invalidateFoundPosts,
   recogniseFoundPost,
   timeAgo,
   withdrawFoundPost,
@@ -183,7 +184,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
   const withdraw = useMutation({
     mutationFn: () => withdrawFoundPost(item!.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['found-feed'] })
+      invalidateFoundPosts(queryClient)
       toast.success('Post taken down.')
       onClose()
     },
@@ -194,7 +195,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
     mutationFn: () => declareFoundPostHandedIn(item!.id),
     onSuccess: next => {
       setSelectedPostState(next)
-      queryClient.invalidateQueries({ queryKey: ['found-feed'] })
+      invalidateFoundPosts(queryClient)
       toast.success('Saved. Security still needs to confirm receipt at the desk.')
     },
     onError: error => toast.error(error instanceof ApiError ? error.message : 'Could not update the post.'),

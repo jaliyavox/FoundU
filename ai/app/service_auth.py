@@ -45,7 +45,7 @@ def require_service_auth(
         )
 
     if supplied_key is None or not supplied_key.strip() or not secrets.compare_digest(
-        supplied_key, configured_key
+        supplied_key.encode("utf-8"), configured_key.encode("utf-8")
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

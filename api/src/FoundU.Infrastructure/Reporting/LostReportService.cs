@@ -372,6 +372,7 @@ public class LostReportService : ILostReportService
 
         var previousStatus = report.Status;
 
+        await CancelHandoversInFlightAsync(report, cancellationToken);
         report.Status = LostReportStatus.Withdrawn;
         report.WithdrawReason = Normalize(reason);
         report.WithdrawnAt = DateTime.UtcNow;
@@ -389,6 +390,27 @@ public class LostReportService : ILostReportService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(report.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// A closed report has nothing to hand in to: finders still walking it to a desk are
+    /// released, and their codes stop working, so the desk cannot reopen the report.
+    /// </summary>
+    private async Task CancelHandoversInFlightAsync(LostReport report, CancellationToken cancellationToken)
+    {
+        var walking = await _db.LostReportFoundClaims
+            .Where(c => c.LostReportId == report.Id && c.Status == HandoverStatus.AwaitingHandIn)
+            .ToListAsync(cancellationToken);
+
+        foreach (var handover in walking)
+        {
+            handover.Status = HandoverStatus.Cancelled;
+            handover.HandoverCode = null;
+            handover.HandoverExpiresAt = null;
+            handover.UpdatedAt = DateTime.UtcNow;
+        }
+
+        report.PausedUntil = null;
     }
 
     /// <summary>
@@ -433,14 +455,20 @@ public class LostReportService : ILostReportService
             Reason = Normalize(note) ?? "The owner has the item back",
         });
 
-        // Everyone who said they found it hears how it ended, and is credited for it. The
-        // finder who actually handed it in is in this list too - they pressed the button
-        // before walking it to the desk.
-        var finderIds = await _db.LostReportFoundClaims
+        // Everyone who said they found it hears how it ended. Only the finder who actually
+        // helped is credited: one who took it to a desk, or - when it was handed over in
+        // person - the only person who said they had it. Pressing "I found this" on every
+        // report must not earn points when some other owner gets their item back.
+        var finders = await _db.LostReportFoundClaims
             .Where(c => c.LostReportId == report.Id)
-            .Select(c => c.FinderId)
-            .Distinct()
+            .Select(c => new { c.FinderId, c.Status })
             .ToListAsync(cancellationToken);
+        var finderIds = finders.Select(f => f.FinderId).Distinct().ToList();
+        var creditedIds = finders
+            .Where(f => f.Status is HandoverStatus.AwaitingHandIn or HandoverStatus.InCustody or HandoverStatus.Collected)
+            .Select(f => f.FinderId)
+            .ToHashSet();
+        if (creditedIds.Count == 0 && finderIds.Count == 1) creditedIds.Add(finderIds[0]);
 
         foreach (var finderId in finderIds)
         {
@@ -452,6 +480,8 @@ public class LostReportService : ILostReportService
                 nameof(LostReport),
                 report.Id);
 
+            if (!creditedIds.Contains(finderId)) continue;
+
             await _honor.QueueAwardAsync(
                 finderId,
                 HonorAwardReason.HelpedReturn,
@@ -460,6 +490,9 @@ public class LostReportService : ILostReportService
                 $"Helped return a {itemName}",
                 cancellationToken);
         }
+
+        // After crediting: a finder still walking it to a desk may be the one who helped.
+        await CancelHandoversInFlightAsync(report, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -723,7 +756,7 @@ public class LostReportService : ILostReportService
     {
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            if (!Enum.TryParse<LostReportStatus>(query.Status, ignoreCase: true, out var status))
+            if (!Enum.TryParse<LostReportStatus>(query.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {
                 throw new ValidationAppException(nameof(query.Status),
                     $"Unknown status '{query.Status}'. Expected one of: {string.Join(", ", Enum.GetNames<LostReportStatus>())}.");

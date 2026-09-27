@@ -246,10 +246,16 @@ def _keyword_extract(text: str, vocabulary: IntakeVocabulary) -> SlotExtraction:
                 found["item_type"] = name
                 break
 
-    for colour in _COLOURS:
-        if re.search(rf"\b{colour}\b", lowered):
-            found["colour"] = colour
-            break
+    # The colour named first in the message is the item's; "blue bag with black straps" is blue.
+    positions = [
+        (m.start(), colour)
+        for colour in _COLOURS
+        if (m := re.search(rf"\b{colour}\b", lowered))
+    ]
+    if positions:
+        colour = min(positions)[1]
+        # Stored reports spell it "Grey" (the parser's canonical form).
+        found["colour"] = "grey" if colour == "gray" else colour
 
     for name in sorted(vocabulary.locations, key=len, reverse=True):
         if name.lower() in lowered:

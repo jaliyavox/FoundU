@@ -210,8 +210,14 @@ def _parse_item_description_deterministically(raw_description: str) -> Descripti
             continue
 
         formatted_feature = clause[0].upper() + clause[1:] if clause else ""
-        if formatted_feature and formatted_feature not in identifying_features:
+        formatted_feature = formatted_feature[:MAX_FEATURE_LENGTH].rstrip()
+        # Same rules the API applies to the result: at most five, none repeated in any case.
+        if formatted_feature and formatted_feature.casefold() not in {
+            f.casefold() for f in identifying_features
+        }:
             identifying_features.append(formatted_feature)
+        if len(identifying_features) == MAX_IDENTIFYING_FEATURES:
+            break
 
     # Handle unparseable / invalid descriptions
     if not item_type and not primary_color:

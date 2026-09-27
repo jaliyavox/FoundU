@@ -37,8 +37,8 @@ public class ConfirmFoundPostRequestValidator : AbstractValidator<ConfirmFoundPo
     public ConfirmFoundPostRequestValidator()
     {
         RuleFor(x => x.StorageLocationId).NotEmpty();
-        RuleFor(x => x.PrivateVerificationDetails).MaximumLength(2000);
-        RuleFor(x => x.GeneralDescription).MaximumLength(2000);
+        RuleFor(x => x.PrivateVerificationDetails).MaximumLength(1000);
+        RuleFor(x => x.GeneralDescription).MaximumLength(1000);
     }
 }
 

@@ -101,6 +101,29 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task SuspendedUser_WithWrongPassword_LooksLikeAnyFailedLogin()
+    {
+        await using var app = await AuthTestApp.CreateAsync();
+        await app.RegisterAsync("quiet-suspended@foundu.test");
+        var user = await app.Users.FindByEmailAsync("quiet-suspended@foundu.test");
+        user!.IsSuspended = true;
+        await app.Users.UpdateAsync(user);
+
+        // Without the password, nobody learns the account exists, let alone that it is suspended.
+        await Assert.ThrowsAsync<UnauthorizedAppException>(() => app.Auth.LoginAsync(
+            new("quiet-suspended@foundu.test", "WrongPassword123"), null));
+    }
+
+    [Fact]
+    public async Task Register_DuplicateStudentNumber_IsAConflictNotAServerError()
+    {
+        await using var app = await AuthTestApp.CreateAsync();
+        await app.Auth.RegisterAsync(new("First", "first@foundu.test", "Password123", "IT2201"), null);
+        await Assert.ThrowsAsync<ConflictAppException>(() => app.Auth.RegisterAsync(
+            new("Second", "second@foundu.test", "Password123", " IT2201 "), null));
+    }
+
+    [Fact]
     public async Task Refresh_RotatesTokenAndRevokesOriginal()
     {
         await using var app = await AuthTestApp.CreateAsync();

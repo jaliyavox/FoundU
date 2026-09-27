@@ -223,13 +223,13 @@ public class SupportService : ISupportService
         CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(query.Status)
-            && Enum.TryParse<SupportTicketStatus>(query.Status, ignoreCase: true, out var status))
+            && Enum.TryParse<SupportTicketStatus>(query.Status, ignoreCase: true, out var status) && Enum.IsDefined(status))
         {
             tickets = tickets.Where(t => t.Status == status);
         }
 
         if (!string.IsNullOrWhiteSpace(query.Category)
-            && Enum.TryParse<SupportTicketCategory>(query.Category, ignoreCase: true, out var category))
+            && Enum.TryParse<SupportTicketCategory>(query.Category, ignoreCase: true, out var category) && Enum.IsDefined(category))
         {
             tickets = tickets.Where(t => t.Category == category);
         }

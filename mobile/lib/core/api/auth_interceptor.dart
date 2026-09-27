@@ -88,7 +88,10 @@ class AuthInterceptor extends QueuedInterceptor {
     }
 
     if (!canRetry) {
-      _onSessionInvalidated();
+      // A refresh that failed on the network leaves the session in place; only a session
+      // the server rejected (tokens cleared) signs the student out.
+      final refreshToken = await _tokenStorage.readRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) _onSessionInvalidated();
       handler.next(err);
       return;
     }

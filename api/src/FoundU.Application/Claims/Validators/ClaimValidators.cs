@@ -40,7 +40,7 @@ public class SubmitClaimAnswersRequestValidator : AbstractValidator<SubmitClaimA
             answer.RuleFor(a => a.QuestionId).NotEmpty();
             answer.RuleFor(a => a.AnswerText)
                 .NotEmpty()
-                .MaximumLength(1000);
+                .MaximumLength(500);
         });
     }
 }
@@ -56,7 +56,7 @@ public class ClaimDecisionRequestValidator : AbstractValidator<ClaimDecisionRequ
             .Must(d => Allowed.Contains(d, StringComparer.OrdinalIgnoreCase))
             .WithMessage($"Decision must be one of: {string.Join(", ", Allowed)}.");
 
-        RuleFor(x => x.Reason).MaximumLength(1000);
+        RuleFor(x => x.Reason).MaximumLength(500);
 
         // Approving needs no explanation; the two outcomes that cost the claimant something
         // do, and it is shown to them.
@@ -76,7 +76,7 @@ public class OverturnClaimRequestValidator : AbstractValidator<OverturnClaimRequ
         RuleFor(x => x.Reason)
             .NotEmpty().WithMessage("Say why the rejection is being overturned.")
             .MinimumLength(10).WithMessage("Say enough that the staff member who rejected it understands.")
-            .MaximumLength(1000);
+            .MaximumLength(500);
     }
 }
 

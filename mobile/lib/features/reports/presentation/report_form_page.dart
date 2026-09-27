@@ -250,13 +250,16 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
           estimatedLostFromAt: _lostFromAt,
           estimatedLostToAt: _lostToAt,
         );
-        final created = await ref
-            .read(reportControllerProvider.notifier)
-            .createReport(request: request, images: _pickedImages);
+        final controller = ref.read(reportControllerProvider.notifier);
+        final created = await controller.createReport(request: request, images: _pickedImages);
 
         if (!mounted) return;
         messenger?.showSnackBar(
-          const SnackBar(content: Text('Lost report created successfully!')),
+          SnackBar(
+            content: Text(controller.photoUploadFailed
+                ? 'Report created, but the photos did not upload. Add them from Edit.'
+                : 'Lost report created successfully!'),
+          ),
         );
         if (created != null) {
           go('/reports/${created.id}');
