@@ -12,6 +12,11 @@ import 'auth_session.dart';
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthUser?>(AuthController.new);
 
+/// The app is the student side of FoundU; staff and admins work from the web dashboard, and
+/// every tab here calls a Student-only endpoint.
+const staffUseWebMessage =
+    'The FoundU app is for students. Staff and admins sign in on the web dashboard.';
+
 class AuthController extends AsyncNotifier<AuthUser?> {
   StreamSubscription<void>? _invalidationSubscription;
 
@@ -29,6 +34,10 @@ class AuthController extends AsyncNotifier<AuthUser?> {
 
     try {
       final user = await _repository.getCurrentUser();
+      if (user.role != 'Student') {
+        await _repository.clearSession();
+        return null;
+      }
       unawaited(ref.read(pushNotificationManagerProvider).start());
       return user;
     } on ApiException catch (error) {
@@ -44,9 +53,18 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     await _repository.clearSession();
     ref.read(authSessionEpochProvider.notifier).advance();
     state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => _repository.login(email: email.trim(), password: password),
-    );
+    state = await AsyncValue.guard(() async {
+      final user = await _repository.login(email: email.trim(), password: password);
+      if (user.role != 'Student') {
+        try {
+          await _repository.logout();
+        } on Object {
+          // The repository clears local credentials in a finally block.
+        }
+        throw const ApiException(staffUseWebMessage, statusCode: 403);
+      }
+      return user;
+    });
     if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
   }
 

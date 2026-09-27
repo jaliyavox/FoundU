@@ -94,8 +94,15 @@ class PushNavigationIntent {
       'VerificationQuestionAvailable' ||
       'CollectionInstructions' =>
         PushNavigationIntent('/claims/$entityId'),
-      'MessageReceived' || 'ItemReportedFound' =>
-        PushNavigationIntent('/reports/$entityId'),
+      'ItemReportedFound' => PushNavigationIntent('/reports/$entityId'),
+      // A message can be on the owner's report, a finder's side of it, or a found post, and
+      // the push does not say which. The inbox knows, so it opens there.
+      'MessageReceived' => const PushNavigationIntent('/notifications'),
+      'SupportTicketReply' ||
+      'SupportTicketUpdated' =>
+        PushNavigationIntent('/profile/support/$entityId'),
+      // Sent to a finder about someone else's report: their side lives on the feed.
+      'FoundPostConfirmed' || 'ItemReturnedToOwner' => const PushNavigationIntent('/home'),
       // A possible-match notification names a MatchSuggestion, not a LostReport. Its detail is
       // deliberately loaded from the user's normal report list rather than trusting that ID.
       'PossibleMatchFound' => const PushNavigationIntent('/reports'),

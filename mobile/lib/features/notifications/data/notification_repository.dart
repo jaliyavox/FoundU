@@ -32,8 +32,11 @@ class AppNotification {
             .hasMatch(id)) {
       return null;
     }
+    // These go to the finder but name the owner's report, which the finder cannot open.
+    if (type == 'FoundPostConfirmed' || type == 'ItemReturnedToOwner') return '/home';
     return switch (entityType) {
       'Claim' => '/claims/$id',
+      'SupportTicket' => '/profile/support/$id',
       'FoundReport' => '/home',
       // Finder replies belong to a feed thread, not a report owned by someone else.
       'LostReport' ||

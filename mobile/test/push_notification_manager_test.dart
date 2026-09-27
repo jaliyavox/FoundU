@@ -11,7 +11,19 @@ void main() {
     );
     expect(
       PushNavigationIntent.fromData({'type': 'MessageReceived', 'entityId': id})?.route,
+      '/notifications',
+    );
+    expect(
+      PushNavigationIntent.fromData({'type': 'ItemReportedFound', 'entityId': id})?.route,
       '/reports/$id',
+    );
+    expect(
+      PushNavigationIntent.fromData({'type': 'SupportTicketReply', 'entityId': id})?.route,
+      '/profile/support/$id',
+    );
+    expect(
+      PushNavigationIntent.fromData({'type': 'ItemReturnedToOwner', 'entityId': id})?.route,
+      '/home',
     );
     expect(
       PushNavigationIntent.fromData({'type': 'PossibleMatchFound', 'entityId': id})?.route,

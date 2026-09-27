@@ -97,6 +97,14 @@ class AuthRepository {
       final auth = AuthResponse.fromJson(response.data!);
       await _saveTokens(auth);
       return true;
+    } on DioException catch (error) {
+      // Only the server saying no ends the session. A timeout on weak Wi-Fi keeps the tokens,
+      // so the next request can try again instead of sending the student back to login.
+      final status = error.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await _tokenStorage.clear();
+      }
+      return false;
     } on Object {
       await _tokenStorage.clear();
       return false;

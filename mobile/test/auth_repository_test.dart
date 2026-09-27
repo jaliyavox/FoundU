@@ -227,6 +227,62 @@ void main() {
     expect(await storage.readAccessToken(), isNull);
     expect(await storage.readRefreshToken(), isNull);
   });
+
+  test('a refresh that fails on the network keeps the session', () async {
+    final storage = MemoryTokenStorage(
+      const AuthTokens(accessToken: 'expired', refreshToken: 'refresh-1'),
+    );
+    final authDio = Dio()
+      ..httpClientAdapter = CallbackAdapter((options) {
+        throw DioException.connectionTimeout(
+          timeout: const Duration(seconds: 5),
+          requestOptions: options,
+        );
+      });
+    final repository = AuthRepository(
+      authDio: authDio,
+      authenticatedDio: Dio(),
+      tokenStorage: storage,
+    );
+
+    expect(await repository.refreshSession(), isFalse);
+    expect(await storage.readRefreshToken(), 'refresh-1');
+  });
+
+  test('staff and admin accounts are sent to the web dashboard', () async {
+    final storage = MemoryTokenStorage();
+    var loggedOut = false;
+    final authDio = Dio()
+      ..httpClientAdapter = CallbackAdapter((options) {
+        if (options.path == '/api/auth/logout') {
+          loggedOut = true;
+          return ResponseBody.fromString('', 204);
+        }
+        final body = authResponseJson();
+        (body['user'] as Map<String, dynamic>)['role'] = 'Staff';
+        return jsonResponse(200, body);
+      });
+    final repository = AuthRepository(
+      authDio: authDio,
+      authenticatedDio: Dio(),
+      tokenStorage: storage,
+    );
+    final container = ProviderContainer(
+      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    await container.read(authControllerProvider.future);
+
+    await container
+        .read(authControllerProvider.notifier)
+        .login(email: 'priya@foundu.test', password: 'Password123');
+
+    final state = container.read(authControllerProvider);
+    expect(state.hasError, isTrue);
+    expect(state.error.toString(), staffUseWebMessage);
+    expect(loggedOut, isTrue);
+    expect(await storage.readAccessToken(), isNull);
+  });
 }
 
 Map<String, dynamic> authResponseJson() => {

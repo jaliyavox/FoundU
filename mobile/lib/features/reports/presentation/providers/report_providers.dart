@@ -28,17 +28,6 @@ final selectedStatusFilterProvider = NotifierProvider<StatusFilterNotifier, Stri
   StatusFilterNotifier.new,
 );
 
-class SearchQueryNotifier extends Notifier<String> {
-  @override
-  String build() => '';
-
-  void setQuery(String query) => state = query;
-}
-
-final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
-  SearchQueryNotifier.new,
-);
-
 final myReportsProvider = FutureProvider<PagedResult<LostReportListItemModel>>((ref) async {
   ref.watch(authSessionEpochProvider);
   final status = ref.watch(selectedStatusFilterProvider);
@@ -64,16 +53,25 @@ class ReportControllerNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
+  /// Set when the last [createReport] saved the report but not its photos. The report exists,
+  /// so the form must not offer to submit it again - that is how duplicates were made.
+  bool photoUploadFailed = false;
+
   Future<LostReportDetailModel?> createReport({
     required CreateLostReportRequest request,
     List<XFile> images = const [],
   }) async {
     state = const AsyncValue.loading();
+    photoUploadFailed = false;
     try {
       final repo = ref.read(reportRepositoryProvider);
       final created = await repo.createReport(request);
       if (images.isNotEmpty) {
-        await repo.uploadPhotos(created.id, images);
+        try {
+          await repo.uploadPhotos(created.id, images);
+        } on Object {
+          photoUploadFailed = true;
+        }
       }
       ref.invalidate(myReportsProvider);
       state = const AsyncValue.data(null);
