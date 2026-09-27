@@ -23,6 +23,13 @@ export type NotificationType =
   | 'CollectionInstructions'
   | 'ItemReportedFound'
   | 'MessageReceived'
+  | 'FoundPostConfirmed'
+  | 'FoundPostRecognised'
+  | 'ItemReturnedToOwner'
+  | 'SupportTicketReply'
+  | 'SupportTicketUpdated'
+  | 'HandoverStarted'
+  | 'HandoverCancelled'
 
 export const getNotifications = (page = 1, pageSize = 15) =>
   api.get<PagedResult<AppNotification>>(`/api/notifications?page=${page}&pageSize=${pageSize}`)
@@ -43,7 +50,12 @@ export const markAllRead = () => api.post<{ unread: number }>('/api/notification
 export function linkFor(notification: AppNotification): string | null {
   if (!notification.relatedEntityId) return null
 
+  // These go to the finder but point at the owner's report, which the finder cannot open.
+  if (notification.type === 'FoundPostConfirmed' || notification.type === 'ItemReturnedToOwner') return '/feed'
+
   switch (notification.relatedEntityType) {
+    case 'SupportTicket':
+      return '/support'
     case 'Claim':
       return `/claims/${notification.relatedEntityId}`
     case 'FoundReport':

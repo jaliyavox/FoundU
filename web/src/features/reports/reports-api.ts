@@ -168,17 +168,6 @@ export const getMyLostReports = (query: LostReportQuery) => {
   return api.get<PagedResult<LostReportListItem>>(`/api/lost-reports/mine?${params}`)
 }
 
-export const getLostReports = (query: LostReportQuery) => {
-  const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
-  if (query.search?.trim()) params.set('search', query.search.trim())
-  if (query.status) params.set('status', query.status)
-  if (query.categoryId) params.set('categoryId', query.categoryId)
-  if (query.lastSeenLocationId) params.set('lastSeenLocationId', query.lastSeenLocationId)
-  if (query.sortBy) params.set('sortBy', query.sortBy)
-  if (query.sortDirection) params.set('sortDirection', query.sortDirection)
-  return api.get<PagedResult<LostReportListItem>>(`/api/lost-reports?${params}`)
-}
-
 export const getLostReport = (id: string) =>
   api.get<LostReportDetail>(`/api/lost-reports/${id}`)
 
@@ -221,23 +210,6 @@ export interface FoundReportListItem {
   status: string
   hasVerificationDetails: boolean
   createdAt: string
-}
-
-export interface FoundReportQuery {
-  page: number
-  pageSize: number
-  search?: string
-  status?: string
-}
-
-export const createFoundReport = (input: CreateFoundReportInput) =>
-  api.post<{ id: string }>('/api/found-reports', input)
-
-export const getFoundReports = ({ page, pageSize, search, status }: FoundReportQuery) => {
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
-  if (search?.trim()) params.set('search', search.trim())
-  if (status) params.set('status', status)
-  return api.get<PagedResult<FoundReportListItem>>(`/api/found-reports?${params}`)
 }
 
 /* -------------------------------------------------------------------- shared */

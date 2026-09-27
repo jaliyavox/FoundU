@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api/client'
 import type { PagedResult } from '@/lib/api/types'
 
@@ -190,3 +191,12 @@ export const sendFoundPostMessage = (postId: string, body: string, recipientId?:
 /** 403 for somebody who is in none of the threads - that is an empty thread, not a failure. */
 export const getFoundPostMessages = (postId: string) =>
   api.get<FoundPostMessage[]>(`/api/found-posts/${postId}/messages`)
+
+/**
+ * A found post shows in three lists: the Found board, the Fresh finds strip on the lost feed,
+ * and the finder's own My reports. Anything that changes a post refreshes all three.
+ */
+export const invalidateFoundPosts = (queryClient: QueryClient) =>
+  Promise.all(
+    ['found-feed', 'found-strip', 'my-found-posts'].map(key => queryClient.invalidateQueries({ queryKey: [key] })),
+  )

@@ -22,6 +22,16 @@ describe('linkFor', () => {
     expect(linkFor({ ...base, relatedEntityType: 'LostReport', relatedEntityId: 'r1' })).toBe('/my-reports')
   })
 
+  it('sends a finder thanked for a return to the feed, not to a report they do not own', () => {
+    for (const type of ['FoundPostConfirmed', 'ItemReturnedToOwner'] as const) {
+      expect(linkFor({ ...base, type, relatedEntityType: 'LostReport', relatedEntityId: 'r1' })).toBe('/feed')
+    }
+  })
+
+  it('opens support for a desk reply on a ticket', () => {
+    expect(linkFor({ ...base, type: 'SupportTicketReply', relatedEntityType: 'SupportTicket', relatedEntityId: 't1' })).toBe('/support')
+  })
+
   it('stays inert rather than guessing a route for an unknown entity', () => {
     expect(linkFor({ ...base, relatedEntityType: 'AgentRun', relatedEntityId: 'a1' })).toBeNull()
   })

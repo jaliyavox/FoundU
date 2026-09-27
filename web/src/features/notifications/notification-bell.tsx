@@ -7,11 +7,16 @@ import {
   CircleCheckIcon,
   CircleXIcon,
   HandHeartIcon,
+  HomeIcon,
+  LifeBuoyIcon,
   MapPinIcon,
   MessageSquareIcon,
   PackageSearchIcon,
   ShieldQuestionIcon,
   UndoIcon,
+  WarehouseIcon,
+  FootprintsIcon,
+  EyeIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -37,6 +42,13 @@ const ICONS: Record<NotificationType, typeof BellIcon> = {
   CollectionInstructions: MapPinIcon,
   ItemReportedFound: HandHeartIcon,
   MessageReceived: MessageSquareIcon,
+  FoundPostConfirmed: WarehouseIcon,
+  FoundPostRecognised: EyeIcon,
+  ItemReturnedToOwner: HomeIcon,
+  SupportTicketReply: LifeBuoyIcon,
+  SupportTicketUpdated: LifeBuoyIcon,
+  HandoverStarted: FootprintsIcon,
+  HandoverCancelled: UndoIcon,
 }
 
 /** Only the two that carry an outcome get colour. Everything else is just news. */

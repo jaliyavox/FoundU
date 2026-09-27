@@ -33,11 +33,12 @@ import {
   type LostReportListItem,
   type LostReportQuery,
 } from './reports-api'
-import { timeAgo } from '@/features/feed/feed-api'
 import {
   declareFoundPostHandedIn,
   displayCode,
   getMyFoundPosts,
+  invalidateFoundPosts,
+  timeAgo,
   type FoundPostItem,
 } from '@/features/feed/feed-api'
 import { ItemIllustration } from '@/features/feed/item-illustration'
@@ -107,7 +108,7 @@ export function MyReportsPage() {
   const declareHandedIn = useMutation({
     mutationFn: (id: string) => declareFoundPostHandedIn(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-found-posts'] })
+      invalidateFoundPosts(queryClient)
       toast.success('Saved. Security still needs to confirm receipt at the desk.')
     },
     onError: mutationError => {

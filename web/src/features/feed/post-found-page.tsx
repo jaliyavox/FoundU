@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftIcon, HandIcon, HashIcon, Loader2Icon, RotateCwIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ import { defaultWindow, getCategories, getLocations, toUtcIso } from '@/features
 import { useAuth } from '@/features/auth/use-auth'
 import { readIntakeHandoff } from '@/features/intake/intake-api'
 import { ApiError } from '@/lib/api/client'
-import { displayCode, postFound } from './feed-api'
+import { displayCode, invalidateFoundPosts, postFound } from './feed-api'
 
 /**
  * "I found something." One short form: what, where, when, and a line the owner would
@@ -25,6 +25,7 @@ import { displayCode, postFound } from './feed-api'
  */
 export function PostFoundPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user } = useAuth()
   // Arrived from Ask FoundU with a draft: start from what the finder already said. Only a
   // finder's draft for this account - an owner's lost-report draft is not a found post.
@@ -56,6 +57,7 @@ export function PostFoundPage() {
         lostReportHandInCode: lostCode.replace(/\s/g, '') || undefined,
       }),
     onSuccess: (post) => {
+      invalidateFoundPosts(queryClient)
       setPosted({ code: post.handInCode })
       toast.success('Posted. Thank you.')
     },
