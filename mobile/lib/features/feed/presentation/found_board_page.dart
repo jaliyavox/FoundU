@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/brand.dart';
 import '../../../core/widgets/surfaces.dart';
@@ -144,9 +145,20 @@ class _FoundBoardPageState extends ConsumerState<FoundBoardPage> {
                         : const SizedBox.shrink(),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            // Room for the button, so it never sits over the last card.
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'post-found',
+        backgroundColor: Brand.forest,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: const StadiumBorder(),
+        onPressed: () => context.push('/home/found/new'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Post a found item'),
       ),
     );
   }

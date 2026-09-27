@@ -113,6 +113,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                   ),
                   const SizedBox(height: 16),
                   const _AskBanner(),
+                  const SizedBox(height: 10),
+                  // The other half of the board. The Post button's chooser offered it, but a
+                  // finder had no reason to open a menu to learn that posting a find existed.
+                  const _FoundSomethingBanner(),
                   const SizedBox(height: 18),
                 ]),
               ),
@@ -328,6 +332,58 @@ class _ChooserTile extends StatelessWidget {
 
 /// The way in to Ask FoundU from the feed - the first thing someone who has just lost
 /// something should see, above the reports of what other people have lost.
+class _FoundSomethingBanner extends StatelessWidget {
+  const _FoundSomethingBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Brand.radiusCard),
+        side: BorderSide(color: Brand.forest.withValues(alpha: .18)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/home/found/new'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Brand.forest.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.front_hand_outlined, color: Brand.forest),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Found something?', style: text.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Post a found item so the owner can spot it.',
+                      style: text.bodySmall?.copyWith(color: Brand.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.add_rounded, color: Brand.forest),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AskBanner extends StatelessWidget {
   const _AskBanner();
 
