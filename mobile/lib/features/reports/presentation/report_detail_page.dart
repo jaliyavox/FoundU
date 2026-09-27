@@ -349,7 +349,9 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                               children: [
                                 Icon(Icons.access_time_filled, color: Color(0xFF2E7D32), size: 18),
                                 SizedBox(width: 8),
-                                Text('Estimated Lost Time Range', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+                                Flexible(
+                                  child: Text('Estimated Lost Time Range', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -485,64 +487,67 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                       ),
                     ],
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          if (isActive) ...[
-                            // Edit Report Button
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  side: BorderSide(color: Colors.grey[400]!),
+                  // Clear of the phone's gesture bar, which otherwise sits on the buttons.
+                  child: SafeArea(
+                    top: false,
+                    // Two rows, not one: three buttons in a single row get a quarter of the
+                    // width each, which "Edit Report" and "Withdraw" do not fit - one wrapped
+                    // and the other ran off its own edge. The main thing to do with a report,
+                    // seeing what might be it, gets the full width at thumb height.
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (isActive) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 48),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    side: BorderSide(color: Colors.grey[400]!),
+                                  ),
+                                  onPressed: () => context.push('/reports/${report.id}/edit'),
+                                  icon: const Icon(Icons.edit_outlined, size: 18),
+                                  label: const Text('Edit', maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ),
-                                onPressed: () => context.push('/reports/${report.id}/edit'),
-                                icon: const Icon(Icons.edit_outlined, size: 18),
-                                label: const Text('Edit Report', style: TextStyle(fontWeight: FontWeight.bold)),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Withdraw Report Button
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  side: BorderSide(color: Colors.red[300]!),
-                                  backgroundColor: Colors.red[50]?.withValues(alpha: 0.5),
-                                  foregroundColor: Colors.red[700],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 48),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    side: BorderSide(color: Colors.red[300]!),
+                                    backgroundColor: Colors.red[50]?.withValues(alpha: 0.5),
+                                    foregroundColor: Colors.red[700],
+                                  ),
+                                  onPressed: controllerState.isLoading ? null : () => _showWithdrawDialog(context),
+                                  icon: const Icon(Icons.undo, size: 18),
+                                  label: const Text('Withdraw', maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ),
-                                onPressed: controllerState.isLoading ? null : () => _showWithdrawDialog(context),
-                                icon: const Icon(Icons.undo, size: 18),
-                                label: const Text('Withdraw', style: TextStyle(fontWeight: FontWeight.bold)),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          // View Matches button
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton.icon(
-                              onPressed: () => context.push('/reports/${report.id}/matches'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2E7D32),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: const Icon(Icons.auto_awesome, size: 18),
-                              label: const Text(
-                                'Possible Matches',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
+                            ],
                           ),
+                          const SizedBox(height: 10),
                         ],
-                      ),
-                    ],
+                        ElevatedButton.icon(
+                          onPressed: () => context.push('/reports/${report.id}/matches'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 52),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: const Icon(Icons.auto_awesome, size: 18),
+                          label: const Text('Possible matches', maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -589,13 +594,25 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
           }),
         ),
         const SizedBox(height: 6),
+        // Flexible labels: identical when there is room, able to give way on a narrow phone
+        // or with a larger system text size.
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Reported', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 0 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 0 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Matched', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 1 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 1 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Claimed', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 2 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 2 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Resolved', style: TextStyle(fontSize: 11, fontWeight: currentStage >= 3 ? FontWeight.bold : FontWeight.normal, color: currentStage >= 3 ? const Color(0xFF2E7D32) : Colors.grey)),
+            for (final (index, label) in const ['Reported', 'Matched', 'Claimed', 'Resolved'].indexed)
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: currentStage >= index ? FontWeight.bold : FontWeight.normal,
+                    color: currentStage >= index ? const Color(0xFF2E7D32) : Colors.grey,
+                  ),
+                ),
+              ),
           ],
         ),
       ],
