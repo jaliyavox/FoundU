@@ -262,15 +262,7 @@ public class LostReportService : ILostReportService
         Guid? requesterId = null,
         CancellationToken cancellationToken = default)
     {
-        // Active only: a withdrawn or resolved report is no longer something to look out for.
-        // Paused reports are out too - somebody is already walking that item to a desk, and a
-        // second finder setting off after it helps nobody. The pause lapses on its own, so
-        // this is a comparison against now rather than a flag somebody has to clear.
-        var now = DateTime.UtcNow;
-        var reports = _db.LostReports
-            .AsNoTracking()
-            .Where(r => r.Status == LostReportStatus.Active)
-            .Where(r => r.PausedUntil == null || r.PausedUntil < now);
+        var reports = OnPublicFeed();
 
         if (query.CategoryId is { } categoryId) reports = reports.Where(r => r.CategoryId == categoryId);
         if (query.ItemTypeId is { } itemTypeId) reports = reports.Where(r => r.ItemTypeId == itemTypeId);
@@ -293,27 +285,49 @@ public class LostReportService : ILostReportService
 
         var totalCount = await reports.CountAsync(cancellationToken);
 
-        var items = await reports
-            .Skip(query.Skip)
-            .Take(query.PageSize)
-            .Select(r => new LostReportFeedItemDto(
-                r.Id,
-                r.HandInCode,
-                r.Student.FullName,
-                requesterId != null && r.StudentId == requesterId,
-                r.Category.Name,
-                r.ItemType.Name,
-                r.LastSeenLocation.Name,
-                r.Description,
-                r.PrimaryColor,
-                r.EstimatedLostFromAt,
-                r.EstimatedLostToAt,
-                r.Photos.Select(p => p.Url).ToList(),
-                r.CreatedAt))
+        var items = await ToFeedItems(reports.Skip(query.Skip).Take(query.PageSize), requesterId)
             .ToListAsync(cancellationToken);
 
         return PagedResult<LostReportFeedItemDto>.Create(items, query.Page, query.PageSize, totalCount);
     }
+
+    public async Task<LostReportFeedItemDto> GetPublicFeedItemAsync(
+        Guid id,
+        Guid? requesterId = null,
+        CancellationToken cancellationToken = default)
+        => await ToFeedItems(OnPublicFeed().Where(r => r.Id == id), requesterId).FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundAppException("That report is no longer on the feed.");
+
+    /// <summary>
+    /// What the public feed may show. Active only: a withdrawn or resolved report is no longer
+    /// something to look out for. Paused reports are out too - somebody is already walking that
+    /// item to a desk, and a second finder setting off after it helps nobody. The pause lapses
+    /// on its own, so this is a comparison against now rather than a flag somebody has to clear.
+    /// </summary>
+    private IQueryable<LostReport> OnPublicFeed()
+    {
+        var now = DateTime.UtcNow;
+        return _db.LostReports
+            .AsNoTracking()
+            .Where(r => r.Status == LostReportStatus.Active)
+            .Where(r => r.PausedUntil == null || r.PausedUntil < now);
+    }
+
+    private static IQueryable<LostReportFeedItemDto> ToFeedItems(IQueryable<LostReport> reports, Guid? requesterId)
+        => reports.Select(r => new LostReportFeedItemDto(
+            r.Id,
+            r.HandInCode,
+            r.Student.FullName,
+            requesterId != null && r.StudentId == requesterId,
+            r.Category.Name,
+            r.ItemType.Name,
+            r.LastSeenLocation.Name,
+            r.Description,
+            r.PrimaryColor,
+            r.EstimatedLostFromAt,
+            r.EstimatedLostToAt,
+            r.Photos.Select(p => p.Url).ToList(),
+            r.CreatedAt));
 
     public async Task<LostReportDetailDto> GetByIdAsync(
         Guid id,

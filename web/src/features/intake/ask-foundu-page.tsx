@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightIcon, BotIcon, Loader2Icon, MapPinIcon, SendIcon } from 'lucide-react'
+import { ArrowRightIcon, BotIcon, HandIcon, Loader2Icon, MapPinIcon, SearchIcon, SendIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-panel'
@@ -14,7 +14,13 @@ import { getMyLostReports } from '@/features/reports/reports-api'
 import { createClaim } from '@/features/claims/claims-api'
 import { recogniseFoundPost } from '@/features/feed/feed-api'
 import { ApiError } from '@/lib/api/client'
-import { askIntake, readIntakeHandoff, type IntakeResponse } from './intake-api'
+import { askIntake, isFinder, readIntakeHandoff, slotsFor, type IntakeIntent, type IntakeResponse } from './intake-api'
+
+const GREETING = 'Lost something, or found something? Tell me what it is, its colour, and where.'
+const GREETINGS: Record<IntakeIntent, string> = {
+  lost: 'What did you lose? Tell me what it is, its colour, or where you last saw it.',
+  found: 'Thanks for picking it up. What did you find? Tell me what it is, its colour, and where you found it.',
+}
 
 export function AskFoundUPage() {
   const { user } = useAuth()
@@ -31,12 +37,16 @@ function IntakeConversation({ ownerId }: { ownerId: string }) {
     ? ((location.state as { askFoundU: string }).askFoundU).slice(0, 1000)
     : null
   const [result, setResult] = useState<IntakeResponse | null>(initial)
+  // Which side of the counter, when the student has said so with a button. Once the agent has
+  // heard it in their words, the answer lives in the slots it sends back.
+  const [side, setSide] = useState<IntakeIntent | null>(initial?.slots.intent ?? null)
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([
-    { role: 'assistant', text: initial?.reply ?? 'What did you lose? Tell me what it is, its colour, or where you last saw it.' },
+    { role: 'assistant', text: initial?.reply ?? GREETING },
   ])
   const [input, setInput] = useState('')
+  const finder = side === 'found' || isFinder(result)
   const mutation = useMutation({
-    mutationFn: (message: string) => askIntake(message, result?.slots),
+    mutationFn: (message: string) => askIntake(message, result?.slots ?? (side ? slotsFor(side) : undefined)),
     onSuccess: response => {
       setResult(response)
       setMessages(previous => [...previous, { role: 'assistant', text: response.reply }])
@@ -69,19 +79,30 @@ function IntakeConversation({ ownerId }: { ownerId: string }) {
   function reset() {
     mutation.reset()
     setResult(null)
+    setSide(null)
     setInput('')
-    setMessages([{ role: 'assistant', text: 'What did you lose? Tell me what it is, its colour, or where you last saw it.' }])
+    setMessages([{ role: 'assistant', text: GREETING }])
   }
+
+  function choose(intent: IntakeIntent) {
+    setSide(intent)
+    setMessages(previous => [...previous,
+      { role: 'user', text: intent === 'found' ? 'I found something.' : 'I lost something.' },
+      { role: 'assistant', text: GREETINGS[intent] }])
+  }
+
+  // The two buttons only make sense before anything has been said.
+  const choosing = !result && !side && messages.length === 1 && !mutation.isPending
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-brand-green">Find your way back to it</p>
+          <p className="text-sm font-medium text-brand-green">Lost it or found it</p>
           <h1 className="pt-1 text-2xl font-semibold tracking-tight">Ask FoundU</h1>
           <p className="max-w-xl pt-2 text-sm text-muted-foreground">
-            Describe your lost item. We’ll check available items and help you prepare the next step.
-            You confirm every report or claim; staff verify ownership.
+            Tell us what you lost and we’ll check what has been handed in - or what you found, and
+            we’ll check who is looking for it. You confirm every post or claim; staff verify ownership.
           </p>
         </div>
         <Button variant="ghost" disabled={mutation.isPending} onClick={reset}>Start again</Button>
@@ -99,24 +120,51 @@ function IntakeConversation({ ownerId }: { ownerId: string }) {
             </li>
           ))}
         </ol>
+        {choosing && (
+          <div className="flex flex-wrap gap-2 pl-7">
+            <Button variant="outline" onClick={() => choose('lost')}><SearchIcon aria-hidden="true" />I lost something</Button>
+            <Button variant="outline" onClick={() => choose('found')}><HandIcon aria-hidden="true" />I found something</Button>
+          </div>
+        )}
         {mutation.isPending && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2Icon className="size-4 animate-spin" aria-hidden="true" />Checking your details…</p>}
         {mutation.isError && <p role="alert" className="text-sm text-destructive">
           {mutation.error instanceof ApiError ? mutation.error.message : 'Could not reach FoundU.'} Your message is still below; send it again to retry, or use the report form.
         </p>}
         <PanelDivider />
         <form onSubmit={submit} className="flex flex-col gap-3">
-          <Label htmlFor="intake-message">{result ? 'Add or correct a detail' : 'Describe your item'}</Label>
+          <Label htmlFor="intake-message">{result ? 'Add or correct a detail' : finder ? 'Describe what you found' : 'Describe your item'}</Label>
           <Textarea id="intake-message" value={input} onChange={event => setInput(event.target.value)}
             maxLength={1000} rows={3} disabled={mutation.isPending} required
-            placeholder="I lost a black backpack near the library." aria-describedby="intake-privacy" />
+            placeholder={finder ? 'I found a blue water bottle in the cafeteria.' : 'I lost a black backpack near the library.'}
+            aria-describedby="intake-privacy" />
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p id="intake-privacy" className="text-xs text-muted-foreground">Leave out passwords, ID numbers and other private information.</p>
+            <p id="intake-privacy" className="text-xs text-muted-foreground">
+              {finder
+                ? 'Describe the outside only - what is inside is how the owner proves it is theirs.'
+                : 'Leave out passwords, ID numbers and other private information.'}
+            </p>
             <Button type="submit" disabled={!input.trim() || mutation.isPending}><SendIcon aria-hidden="true" />Send</Button>
           </div>
         </form>
       </DashboardPanel>
 
-      {result && !mutation.isPending && (
+      {result && !mutation.isPending && isFinder(result) && (
+        <>
+          {result.match?.kind === 'lost' && <OwnerLooking match={result.match} />}
+          <DashboardPanel className="flex flex-col items-start gap-3">
+            <h2 className="text-base font-medium">{result.match ? 'Not the same one? Post it anyway' : 'Your found post draft'}</h2>
+            <p className="text-sm text-muted-foreground">{result.draft.description}</p>
+            <p className="text-xs text-muted-foreground">
+              Nothing has been posted. Check it, then post it so the owner can spot it - or skip the
+              post and hand it in at any security desk.
+            </p>
+            <Button variant="outline" nativeButton={false} render={<Link to="/found/new" state={{ intake: { ownerId, response: result } }} />}>
+              Review found post<ArrowRightIcon aria-hidden="true" />
+            </Button>
+          </DashboardPanel>
+        </>
+      )}
+      {result && !mutation.isPending && !isFinder(result) && (
         <>
           {result.match && <MatchActions key={result.match.id} result={result} ownerId={ownerId} />}
           <DashboardPanel className="flex flex-col items-start gap-3">
@@ -130,8 +178,36 @@ function IntakeConversation({ ownerId }: { ownerId: string }) {
           </DashboardPanel>
         </>
       )}
-      <Link to="/my-reports/new" className="self-start text-sm text-muted-foreground underline underline-offset-4">Use the report form directly</Link>
+      {finder
+        ? <Link to="/found/new" className="self-start text-sm text-muted-foreground underline underline-offset-4">Use the found post form directly</Link>
+        : <Link to="/my-reports/new" className="self-start text-sm text-muted-foreground underline underline-offset-4">Use the report form directly</Link>}
     </section>
+  )
+}
+
+/**
+ * A finder shown the report of someone who is looking. The report is already on the public
+ * feed; this only points at it. The owner is reached through the report's own "I found this",
+ * which is where the warning, the message and the security hand-in code already live.
+ */
+function OwnerLooking({ match }: { match: NonNullable<IntakeResponse['match']> }) {
+  return (
+    <DashboardPanel className="flex flex-col items-start gap-4">
+      <div>
+        <p className="text-sm font-medium text-brand-green">Someone is looking for this · Reported lost</p>
+        <h2 className="pt-1 text-xl font-semibold">{[match.colour, match.itemType].filter(Boolean).join(' ')}</h2>
+        <p className="flex items-center gap-1 pt-2 text-sm text-muted-foreground"><MapPinIcon className="size-4" aria-hidden="true" />Last seen near {match.location}</p>
+        <p className="pt-3 text-sm">{match.description}</p>
+      </div>
+      <PanelDivider />
+      <p className="text-sm text-muted-foreground">
+        If it’s what you have, open their report and press <span className="font-medium text-foreground">I found this</span>.
+        You can message them, or hand it to security and they get a code to collect it.
+      </p>
+      <Button nativeButton={false} render={<Link to={`/feed?report=${match.id}`} />}>
+        Open their report<ArrowRightIcon aria-hidden="true" />
+      </Button>
+    </DashboardPanel>
   )
 }
 

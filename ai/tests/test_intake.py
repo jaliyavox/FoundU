@@ -49,6 +49,7 @@ def test_item_and_colour_is_enough_to_search():
         "location": None,
         "when": None,
         "distinctive": None,
+        "intent": None,
     }
 
 
@@ -176,3 +177,91 @@ def test_model_failure_never_stalls_the_conversation():
     )
     assert out["phase"] == "ready_to_search"
     assert out["slots"]["colour"] == "blue"
+
+
+# ------------------------------------------------------------------ finders
+
+
+def test_a_finder_is_recognised_and_asked_where_they_found_it():
+    out = run(
+        {
+            "history": [{"role": "user", "text": "I found a water bottle"}],
+            "vocabulary": VOCAB,
+        }
+    )
+    assert out["slots"]["intent"] == "found"
+    assert out["phase"] == "collecting"
+    assert "colour" in out["reply"].lower()
+
+    # Asked for the place, the finder is asked where they found it - not where they left it.
+    out = run(
+        {
+            "history": [{"role": "user", "text": "no idea of the colour"}],
+            "slots": {"item_type": "Water Bottle", "intent": "found"},
+            "vocabulary": VOCAB,
+        }
+    )
+    assert "colour" in out["reply"].lower()
+
+
+def test_the_side_that_comes_first_wins():
+    from app.agents.intake import _detect_intent
+
+    assert _detect_intent("I lost my wallet and someone found it") == "lost"
+    assert _detect_intent("Someone left a jacket in the gym") == "found"
+    assert _detect_intent("just picked up a set of keys") == "found"
+    assert _detect_intent("my keys are missing") == "lost"
+    assert _detect_intent("a blue bottle") is None
+
+
+def test_a_finder_does_not_turn_into_an_owner_mid_conversation():
+    out = run(
+        {
+            "history": [{"role": "user", "text": "I left it at the library desk already"}],
+            "slots": {"item_type": "Keys", "colour": "silver", "intent": "found"},
+            "vocabulary": VOCAB,
+        }
+    )
+    assert out["slots"]["intent"] == "found"
+
+
+def test_a_finder_is_pointed_at_the_owner_who_reported_it():
+    out = run(
+        {
+            "history": [{"role": "assistant", "text": "Search the available candidates."}],
+            "slots": {
+                "item_type": "Water Bottle",
+                "colour": "blue",
+                "location": "Cafeteria",
+                "intent": "found",
+            },
+            "vocabulary": VOCAB,
+            "candidates": [
+                {
+                    "id": "report-1",
+                    "item_type": "Water Bottle",
+                    "colour": "blue",
+                    "location": "Cafeteria",
+                    "description": "Blue steel bottle with a dent",
+                    "kind": "lost",
+                }
+            ],
+        }
+    )
+    assert out["phase"] == "matched"
+    assert out["match_candidate_id"] == "report-1"
+    assert "I found this" in out["reply"]
+
+
+def test_a_finder_with_no_owner_yet_is_told_to_post_it_or_hand_it_in():
+    out = run(
+        {
+            "history": [{"role": "assistant", "text": "Search the available candidates."}],
+            "slots": {"item_type": "Keys", "colour": "silver", "intent": "found"},
+            "vocabulary": VOCAB,
+            "candidates": [],
+        }
+    )
+    assert out["phase"] == "no_match"
+    assert "found item" in out["reply"]
+    assert "security desk" in out["reply"]

@@ -1,6 +1,9 @@
-"""Intake Agent: the conversation an owner has when they come looking for something.
+"""Intake Agent: the conversation a student has when they have lost something - or found it.
 
-The agent asks what was lost, in a fixed order, until it knows enough to search: what the item
+The first thing it settles is which side of the counter the person is on. An owner says "I
+lost..." and is searched against what has been handed in; a finder says "I found..." and is
+searched against what people have reported lost, so the item can go straight to its owner.
+Either way the agent asks, in a fixed order, until it knows enough to search: what the item
 is, its colour, and roughly where or when. ASP.NET owns the search - this service never sees the
 database - so the node works in two calls: first it collects, and says when it is ready; then it
 is called again with the candidates ASP.NET found, and picks one or admits there is none.
@@ -48,6 +51,13 @@ class IntakeSlots(BaseModel):
     location: str | None = Field(default=None, max_length=80)
     when: str | None = Field(default=None, max_length=80)
     distinctive: str | None = Field(default=None, max_length=200)
+    # Which side of the counter: an owner looking ("lost") or a finder holding it ("found").
+    # Unset reads as "lost", the conversation this agent started out as.
+    intent: Literal["lost", "found"] | None = None
+
+    @property
+    def is_finder(self) -> bool:
+        return self.intent == "found"
 
     def is_enough_to_search(self) -> bool:
         # An item and one more anchor. Colour or place is enough to narrow a campus board.
@@ -59,7 +69,11 @@ class IntakeSlots(BaseModel):
 
 
 class IntakeCandidate(BaseModel):
-    """A found item as ASP.NET is allowed to show it: the student-safe summary, no evidence."""
+    """Something ASP.NET is allowed to show, and nothing more.
+
+    For an owner, a found item's student-safe summary ("post" or "desk"), with no evidence. For
+    a finder, an open lost report ("lost") - already public on the feed, so nothing new leaks.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -68,7 +82,7 @@ class IntakeCandidate(BaseModel):
     colour: str | None = Field(default=None, max_length=40)
     location: str = Field(max_length=80)
     description: str = Field(max_length=500)
-    kind: Literal["post", "desk"]
+    kind: Literal["post", "desk", "lost"]
 
 
 class IntakeVocabulary(BaseModel):
@@ -114,6 +128,7 @@ class SlotExtraction(BaseModel):
     location: str | None = Field(default=None, max_length=80)
     when: str | None = Field(default=None, max_length=80)
     distinctive: str | None = Field(default=None, max_length=200)
+    intent: Literal["lost", "found"] | None = None
 
 
 class CandidatePick(BaseModel):
@@ -166,6 +181,43 @@ _WHEN_HINTS = [
 ]
 
 
+# How people say which side they are on. Whichever phrase comes first in the message wins, so
+# "I lost my wallet and someone found it" is still an owner talking.
+_FOUND_PHRASES = [
+    r"\b(?:i|we|i've|i have|we have|just)\s+(?:found|picked up|spotted|came across)\b",
+    r"\bfound (?:a|an|the|this|these|some|someone'?s|somebody'?s)\b",
+    r"\b(?:someone|somebody) (?:left|dropped|forgot)\b",
+    r"\bleft behind\b",
+    r"\bwho(?:se)? (?:owns|is this|is it)\b",
+    r"\bhand(?:ing)? (?:it |this )?in\b",
+]
+_LOST_PHRASES = [
+    r"\b(?:i|we|i've|i have)\s+(?:lost|misplaced|dropped|left)\b",
+    r"\blost my\b",
+    r"\bmissing\b",
+    r"\bcan'?t find\b",
+    r"\bcannot find\b",
+    r"\bleft my\b",
+]
+
+
+def _detect_intent(text: str) -> Literal["lost", "found"] | None:
+    lowered = text.lower()
+
+    def first(patterns: list[str]) -> int | None:
+        hits = [m.start() for p in patterns if (m := re.search(p, lowered))]
+        return min(hits) if hits else None
+
+    found_at, lost_at = first(_FOUND_PHRASES), first(_LOST_PHRASES)
+    if found_at is None and lost_at is None:
+        return None
+    if lost_at is None:
+        return "found"
+    if found_at is None:
+        return "lost"
+    return "found" if found_at < lost_at else "lost"
+
+
 def _keyword_extract(text: str, vocabulary: IntakeVocabulary) -> SlotExtraction:
     """The path that never fails: match the person's words against the campus's own names."""
     lowered = text.lower()
@@ -175,6 +227,7 @@ def _keyword_extract(text: str, vocabulary: IntakeVocabulary) -> SlotExtraction:
         "location": None,
         "when": None,
         "distinctive": None,
+        "intent": _detect_intent(text),
     }
 
     # Longest names first, so "student id card" beats "card".
@@ -226,6 +279,10 @@ def _merge(slots: IntakeSlots, extracted: SlotExtraction) -> IntakeSlots:
     """Keep earlier details unless the person supplies a correction in their latest message."""
     data = slots.model_dump()
     for key, value in extracted.model_dump().items():
+        # The side is settled once. A finder later saying "I left it at the desk" has not
+        # become an owner; switching sides is what "Start again" is for.
+        if key == "intent" and data.get("intent"):
+            continue
         if value:
             data[key] = value
     return IntakeSlots(**data)
@@ -240,11 +297,23 @@ _QUESTIONS = {
     "when": "Roughly when? Today, yesterday, a day of the week.",
 }
 
+# A finder is asked about what is in their hands - never what is inside it. Contents are the
+# owner's proof, and a finder who describes them in a chat has made them public.
+_FINDER_QUESTIONS = {
+    "item_type": (
+        "Thanks for picking it up. What did you find? A bag, a bottle, a card - whatever "
+        "you'd call it."
+    ),
+    "colour": "What colour is it, mainly?",
+    "location": "Where did you find it? A building or an area is enough.",
+    "when": "When did you find it? Today, yesterday, a day of the week.",
+}
+
 
 def _question_for(missing: str, slots: IntakeSlots) -> str:
     if missing == "colour" and slots.item_type:
         return f"Got it - a {slots.item_type.lower()}. What colour is it, mainly?"
-    return _QUESTIONS[missing]
+    return (_FINDER_QUESTIONS if slots.is_finder else _QUESTIONS)[missing]
 
 
 def _describe(slots: IntakeSlots) -> str:
@@ -298,10 +367,12 @@ def _run_intake(state: AgentState, llm_client: LlmClient | None = None) -> Agent
                     StructuredGenerationRequest(
                         operation="intake_extract",
                         system_instruction=(
-                            "Extract only what the person states about a lost item: item type, "
-                            "main colour, place, rough time, one distinctive feature. Use the item "
-                            "type names and location names given when they fit. Leave anything "
-                            "not stated as null. Never invent."
+                            "Extract only what the person states about an item they lost or "
+                            "found: item type, main colour, place, rough time, one distinctive "
+                            "feature, and intent - 'lost' if it is theirs and missing, 'found' "
+                            "if they have someone else's. Use the item type names and location "
+                            "names given when they fit. Leave anything not stated as null. "
+                            "Never invent."
                         ),
                         input={
                             "message": latest.text,
@@ -327,6 +398,25 @@ def _run_intake(state: AgentState, llm_client: LlmClient | None = None) -> Agent
         ranked = sorted(request.candidates, key=lambda c: _score(c, slots), reverse=True)
         best = ranked[0] if ranked else None
         confidence = _score(best, slots) if best else 0.0
+
+        if best is not None and confidence >= 0.70 and slots.is_finder:
+            colour_word = f"{best.colour} " if best.colour else ""
+            reply = (
+                f"Someone is looking for this: a {colour_word}{best.item_type.lower()} "
+                f'reported lost near {best.location}. "{best.description}" '
+                "If it's what you have, open their report and press I found this - you can "
+                "message them, or hand it to security and they get a code to collect it."
+            )
+            return {
+                "output": IntakeResult(
+                    reply=reply,
+                    slots=slots,
+                    phase="matched",
+                    match_candidate_id=best.id,
+                    match_confidence=round(confidence, 2),
+                ).model_dump(),
+                "trace": [*trace, "intake:matched"],
+            }
 
         if best is not None and confidence >= 0.70:
             where = (
@@ -357,8 +447,16 @@ def _run_intake(state: AgentState, llm_client: LlmClient | None = None) -> Agent
             }
 
         reply = (
-            f"I couldn't find a close match for your {_describe(slots)} in the available items. "
-            "Review a lost report draft from what you told me. You can check it before posting."
+            (
+                f"Nobody has reported a {_describe(slots)} lost yet. Post it as a found item "
+                "so the owner can spot it - or hand it in at any security desk."
+            )
+            if slots.is_finder
+            else (
+                f"I couldn't find a close match for your {_describe(slots)} in the available "
+                "items. Review a lost report draft from what you told me. You can check it "
+                "before posting."
+            )
         )
         return {
             "output": IntakeResult(reply=reply, slots=slots, phase="no_match").model_dump(),
@@ -368,7 +466,11 @@ def _run_intake(state: AgentState, llm_client: LlmClient | None = None) -> Agent
     # ---- enough to search?
     if slots.is_enough_to_search():
         reply = (
-            f"Thanks. Let me check what's been found for a {_describe(slots)}"
+            (
+                f"Thanks. Let me check whether anyone has reported a {_describe(slots)} lost"
+                if slots.is_finder
+                else f"Thanks. Let me check what's been found for a {_describe(slots)}"
+            )
             + (f" near {slots.location}" if slots.location else "")
             + "."
         )
@@ -414,6 +516,10 @@ def _merge_extractions(
     # Item types and places may be the model mapping the person's words onto a campus name -
     # that is its whole value here. A colour, a time or a feature must have been said: a list
     # of colours is not evidence the person named one.
+    # Intent is a label the schema already restricts to "lost" or "found"; nothing to ground.
+    if data.get("intent") is None:
+        data["intent"] = model.intent
+
     for key, allowed in (
         ("item_type", allowed_types),
         ("location", allowed_places),

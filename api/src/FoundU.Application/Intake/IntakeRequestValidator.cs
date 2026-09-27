@@ -14,6 +14,8 @@ public class IntakeRequestValidator : AbstractValidator<IntakeRequest>
             RuleFor(x => x.Slots!.Location).MaximumLength(80);
             RuleFor(x => x.Slots!.When).MaximumLength(80);
             RuleFor(x => x.Slots!.Distinctive).MaximumLength(200);
+            RuleFor(x => x.Slots!.Intent).Must(IntakeSlots.IsValidIntent)
+                .WithMessage("Intent is either 'lost' or 'found'.");
         });
     }
 }

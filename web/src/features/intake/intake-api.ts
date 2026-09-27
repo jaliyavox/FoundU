@@ -6,7 +6,17 @@ export interface IntakeSlots {
   location: string | null
   when: string | null
   distinctive: string | null
+  /** Which side: an owner looking ('lost', the default when unset) or a finder ('found'). */
+  intent?: IntakeIntent | null
 }
+
+export type IntakeIntent = 'lost' | 'found'
+
+export const isFinder = (response: Pick<IntakeResponse, 'slots'> | null) => response?.slots.intent === 'found'
+
+/** Slots with only the side known - what the page sends when someone picks "I found something". */
+export const slotsFor = (intent: IntakeIntent): IntakeSlots =>
+  ({ itemType: null, colour: null, location: null, when: null, distinctive: null, intent })
 
 export interface IntakeResponse {
   phase: 'collecting' | 'matched' | 'no_match' | 'unavailable'
@@ -22,7 +32,8 @@ export interface IntakeResponse {
   }
   match: {
     id: string
-    kind: 'desk' | 'post'
+    /** 'desk'/'post': a found item, shown to an owner. 'lost': an open lost report, shown to a finder. */
+    kind: 'desk' | 'post' | 'lost'
     itemType: string
     colour: string | null
     location: string
@@ -50,9 +61,10 @@ export function readIntakeHandoff(state: unknown, ownerId: string | undefined): 
   const slots = response.slots
   if (typeof draft.description !== 'string'
     || ![draft.categoryId, draft.itemTypeId, draft.locationId, draft.primaryColor, draft.when].every(optionalText)
-    || !['itemType', 'colour', 'location', 'when', 'distinctive'].every(key => optionalText(slots[key]))) return null
+    || !['itemType', 'colour', 'location', 'when', 'distinctive'].every(key => optionalText(slots[key]))
+    || ![undefined, null, 'lost', 'found'].includes(slots.intent as string | null | undefined)) return null
   const match = response.match
-  if (match !== null && (!isObject(match) || !['desk', 'post'].includes(String(match.kind))
+  if (match !== null && (!isObject(match) || !['desk', 'post', 'lost'].includes(String(match.kind))
     || !['id', 'itemType', 'location', 'description'].every(key => typeof match[key] === 'string')
     || !optionalText(match.colour))) return null
   return handoff as unknown as IntakeHandoff

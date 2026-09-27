@@ -56,6 +56,12 @@ public class LostReportsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _lostReports.GetPublicFeedAsync(query, User.GetUserIdOrNull(), cancellationToken));
 
+    /// <summary>One feed report, for a link straight to it. Same rules and fields as the feed.</summary>
+    [HttpGet("feed/{id:guid}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<LostReportFeedItemDto>> FeedItem(Guid id, CancellationToken cancellationToken)
+        => Ok(await _lostReports.GetPublicFeedItemAsync(id, User.GetUserIdOrNull(), cancellationToken));
+
     /// <summary>Staff/Admin view across every student's reports.</summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.Staff)]

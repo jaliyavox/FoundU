@@ -30,6 +30,9 @@ export interface FeedQuery {
  * Public feed. Readable without an account, but the token goes along when there is one so
  * the API can mark the caller's own posts - see `optionalAuth`.
  */
+/** One report as the feed shows it - for a link straight to it. 404 once it is off the feed. */
+export const getFeedItem = (id: string) => api.get<LostReportFeedItem>(`/api/lost-reports/feed/${id}`)
+
 export function getFeed({ page, pageSize, search }: FeedQuery) {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
   if (search?.trim()) params.set('search', search.trim())

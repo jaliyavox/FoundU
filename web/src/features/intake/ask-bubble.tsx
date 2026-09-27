@@ -22,7 +22,7 @@ export function AskBubble() {
   const [message, setMessage] = useState('')
 
   const isStudent = !user || user.role === 'Student'
-  // Staff have their own queues; a "what did you lose?" bubble is not for them.
+  // Staff have their own queues; a "lost or found something?" bubble is not for them.
   if (!isStudent) return null
 
   function submit(event: FormEvent) {
@@ -48,9 +48,9 @@ export function AskBubble() {
               <FlameIcon className="size-6" />
             </span>
             <div className="flex-1">
-              <p className="font-medium">Lost something?</p>
+              <p className="font-medium">Lost something? Found something?</p>
               <p className="pt-0.5 text-sm text-white/70">
-                Tell me what it is and I will check what has been handed in.
+                Tell me what it is - I will check what has been handed in, or who is looking for it.
               </p>
             </div>
           </div>
@@ -61,8 +61,8 @@ export function AskBubble() {
               value={message}
               onChange={event => setMessage(event.target.value)}
               maxLength={1000}
-              placeholder="I lost a black backpack near the library."
-              aria-label="What did you lose?"
+              placeholder="I lost a black backpack near the library - or, I found a blue bottle in the cafeteria."
+              aria-label="What did you lose or find?"
               className="border-neutral-900/12 bg-neutral-50 text-neutral-900 placeholder:text-neutral-400"
             />
             <div className="flex items-center justify-between gap-3">
@@ -87,7 +87,7 @@ export function AskBubble() {
         type="button"
         onClick={() => setOpen(value => !value)}
         aria-expanded={open}
-        aria-label={open ? 'Close Ask FoundU' : 'Ask FoundU about something you lost'}
+        aria-label={open ? 'Close Ask FoundU' : 'Ask FoundU about something you lost or found'}
         className={cn(
           'fixed right-4 bottom-6 z-60 flex size-14 items-center justify-center rounded-full bg-brand-forest text-white shadow-xl shadow-black/30 transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:outline-none sm:right-6',
         )}

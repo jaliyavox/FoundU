@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
+import { Link, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   ChevronLeftIcon,
@@ -18,7 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/use-auth'
-import { getFeed, type LostReportFeedItem } from './feed-api'
+import { getFeed, getFeedItem, type LostReportFeedItem } from './feed-api'
 import { FeedCard } from './feed-card'
 import { CardConnector } from './card-connector'
 import { FeedDetailPanel } from './feed-detail-panel'
@@ -57,6 +58,26 @@ export function FeedPage() {
     // Keeps the previous page on screen while the next one loads, instead of flashing skeletons.
     placeholderData: keepPreviousData,
   })
+
+  // A link straight to one report (Ask FoundU pointing a finder at its owner) opens it in the
+  // same panel a click on its card would.
+  const [params, setParams] = useSearchParams()
+  const linkedId = params.get('report')
+  const linked = useQuery({
+    queryKey: ['lost-feed-item', linkedId, user?.id ?? null],
+    queryFn: () => getFeedItem(linkedId!),
+    enabled: Boolean(linkedId),
+    retry: false,
+  })
+  useEffect(() => {
+    if (linked.data) setSelected(linked.data)
+  }, [linked.data])
+  useEffect(() => {
+    // Off the feed since the link was made - say so once, and drop the parameter.
+    if (!linked.isError) return
+    toast.error('That report is no longer on the feed - it may already be on its way back.')
+    setParams({}, { replace: true })
+  }, [linked.isError, setParams])
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -275,6 +296,7 @@ export function FeedPage() {
           setSelected(null)
           setZoomed(false)
           setConfirming(false)
+          if (linkedId) setParams({}, { replace: true })
         }}
       />
       <FeedSpotlight

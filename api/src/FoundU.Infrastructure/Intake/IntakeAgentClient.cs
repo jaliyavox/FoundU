@@ -52,7 +52,7 @@ public sealed class IntakeAgentClient(HttpClient http, IOptions<AiServiceOptions
     private static bool ValidSlots(IntakeSlots slots) =>
         (slots.ItemType?.Length ?? 0) <= 80 && (slots.Colour?.Length ?? 0) <= 40
         && (slots.Location?.Length ?? 0) <= 80 && (slots.When?.Length ?? 0) <= 80
-        && (slots.Distinctive?.Length ?? 0) <= 200;
+        && (slots.Distinctive?.Length ?? 0) <= 200 && IntakeSlots.IsValidIntent(slots.Intent);
 
     private sealed record Envelope(string? Agent, string? AgentRunId, string? Status, IntakeAgentResult? Output);
 }
