@@ -43,7 +43,11 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       ref.invalidate(notificationsProvider);
       ref.invalidate(unreadNotificationsProvider);
       final route = notification?.route;
-      if (route != null) context.push(route);
+      // go, not push. Most destinations are tabs, which live inside the shell, and the inbox
+      // sits outside it: pushing a tab from here stacked a second copy of the whole shell on
+      // the one underneath, and two identical pages in one navigator crash it. Going replaces
+      // the stack instead - the same thing a tapped push notification already does.
+      if (route != null) context.go(route);
     } catch (_) {
       if (!mounted || epoch != ref.read(authSessionEpochProvider)) return;
       ScaffoldMessenger.of(context).showSnackBar(
