@@ -129,6 +129,11 @@ export function ItemDetailPage() {
           <Fact icon={PackageIcon} label="Kept at" value={item.storageLocationName ?? 'Not at a desk yet'} />
           <Fact icon={UserIcon} label={item.finderName ? 'Found by' : 'Logged by'} value={item.finderName ?? item.staffName ?? '-'} />
         </dl>
+        {item.handedToSecurityAt && item.status === 'Posted' && (
+          <p className="rounded-xl border border-amber-500/30 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            Finder declared this item was handed to security. Confirm the code and physical item below before logging receipt.
+          </p>
+        )}
       </DashboardPanel>
 
       {item.status === 'Posted' && <ConfirmPostPanel item={item} />}
@@ -323,7 +328,7 @@ function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
         </p>
         {item.handInCode && (
           <p className="pt-2 text-xs text-muted-foreground">
-            Their code: <span className="font-mono font-medium tracking-wider text-foreground">{item.handInCode.slice(0, 3)} {item.handInCode.slice(3)}</span>
+            Finder code: <span className="font-mono font-medium tracking-wider text-foreground">{item.handInCode.slice(0, 3)} {item.handInCode.slice(3)}</span>
           </p>
         )}
       </div>

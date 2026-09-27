@@ -16,6 +16,7 @@ export interface FoundReportListItem {
   hasVerificationDetails: boolean
   /** Set when a student posted it rather than a desk logging it. */
   finderName: string | null
+  handedToSecurityAt: string | null
   createdAt: string
 }
 
@@ -42,6 +43,7 @@ export interface FoundReportDetail {
   finderName: string | null
   /** The finder's code - staff only, and only while it is a post. */
   handInCode: string | null
+  handedToSecurityAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -132,3 +134,6 @@ export const ITEM_STATUS_LABELS: Record<FoundReportStatus, string> = {
   Returned: 'Returned',
   Disposed: 'Disposed',
 }
+
+export const itemStatusLabel = (item: Pick<FoundReportListItem, 'status' | 'handedToSecurityAt'>) =>
+  item.status === 'Posted' && item.handedToSecurityAt ? 'Handed to security' : ITEM_STATUS_LABELS[item.status]

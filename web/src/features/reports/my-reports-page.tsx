@@ -500,7 +500,7 @@ function FoundPostCard({
 }) {
   const isPosted = post.status === 'Posted'
   const isDeclared = Boolean(post.handedToSecurityAt)
-  const isAtDesk = post.status !== 'Posted'
+  const isConfirmedByStaff = post.status !== 'Posted'
 
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-foreground/10 bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -509,7 +509,9 @@ function FoundPostCard({
           <h3 className="truncate text-sm font-medium">
             {[post.primaryColor, post.itemTypeName].filter(Boolean).join(' ')}
           </h3>
-          <Badge variant="outline">{isAtDesk ? 'At security' : isDeclared ? 'Handed in' : 'Still with you'}</Badge>
+          <Badge variant="outline">
+            {isConfirmedByStaff ? 'Gave to staff' : isDeclared ? 'Waiting for staff' : 'Still with you'}
+          </Badge>
         </div>
         <p className="pt-1 text-xs text-muted-foreground">
           {post.categoryName} · found at {post.foundLocationName} · {timeAgo(post.createdAt)}
@@ -522,7 +524,7 @@ function FoundPostCard({
         )}
         {isDeclared && isPosted && (
           <p className="pt-2 text-xs text-amber-700 dark:text-amber-300">
-            You marked this as handed in. Security must confirm receipt before it can be claimed.
+            Pending staff confirmation. The item is not claimable until security logs receipt.
           </p>
         )}
       </div>

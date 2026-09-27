@@ -155,6 +155,7 @@ public class FoundReportService : IFoundReportService
                 r.Status.ToString(),
                 r.PrivateVerificationDetails != null,
                 r.Finder == null ? null : r.Finder.FullName,
+                r.HandedToSecurityAt,
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -186,6 +187,7 @@ public class FoundReportService : IFoundReportService
                 r.Staff == null ? null : r.Staff.FullName,
                 r.Finder == null ? null : r.Finder.FullName,
                 r.HandInCode,
+                r.HandedToSecurityAt,
                 r.CreatedAt,
                 r.UpdatedAt))
             .FirstOrDefaultAsync(cancellationToken);

@@ -31,7 +31,7 @@ import { formatDateTime } from '@/features/reports/reports-api'
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { getFoundPostByCode, getItems, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
+import { getFoundPostByCode, getItems, itemStatusLabel, ITEM_STATUS_STYLES } from './items-api'
 
 const PAGE_SIZE = 15
 
@@ -245,7 +245,7 @@ export function ItemsPage() {
                           )}
                         >
                           <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                          {ITEM_STATUS_LABELS[item.status]}
+                          {itemStatusLabel(item)}
                         </span>
                       </TableCell>
 

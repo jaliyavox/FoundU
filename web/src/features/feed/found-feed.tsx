@@ -274,7 +274,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
 
             {item.isMine ? (
               <div className="flex flex-col gap-3">
-                {displayedItem.status === 'Posted' && !displayedItem.handedToSecurityAt && (
+                {displayedItem?.status === 'Posted' && !displayedItem.handedToSecurityAt && (
                   <Button
                     className="bg-brand-forest text-white hover:bg-brand-forest/90"
                     onClick={() => handIn.mutate()}

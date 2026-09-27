@@ -37,6 +37,7 @@ public record FoundReportListItemDto(
     bool HasVerificationDetails,
     /// <summary>Set when a student posted it. Staff read a post differently from a desk record.</summary>
     string? FinderName,
+    DateTime? HandedToSecurityAt,
     DateTime CreatedAt);
 
 /// <summary>Full detail, Staff/Admin only - includes the hidden ownership evidence.</summary>
@@ -63,6 +64,7 @@ public record FoundReportDetailDto(
     string? FinderName,
     /// <summary>The finder's code, for the desk to pull the post up. Staff only, and only on posts.</summary>
     string? HandInCode,
+    DateTime? HandedToSecurityAt,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
