@@ -67,7 +67,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               path: '/home',
               builder: (_, __) => const FeedPage(),
               routes: [
-                GoRoute(path: 'found/new', parentNavigatorKey: _rootKey, builder: (_, __) => const PostFoundPage()),
+                // Ask FoundU hands a finder's draft over as `extra`; anywhere else opens it blank.
+                GoRoute(
+                  path: 'found/new',
+                  parentNavigatorKey: _rootKey,
+                  builder: (_, state) => PostFoundPage(draft: state.extra is IntakeDraft ? state.extra as IntakeDraft : null),
+                ),
                 // The board behind the "Fresh finds" strip.
                 GoRoute(path: 'found', parentNavigatorKey: _rootKey, builder: (_, __) => const FoundBoardPage()),
               ],

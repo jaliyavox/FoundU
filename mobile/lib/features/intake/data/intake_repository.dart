@@ -7,7 +7,7 @@ import '../../../core/api/api_exception.dart';
 /// What the agent has understood so far. Sent back with every message - there is no server
 /// session, so nothing is lost if the API restarts mid-conversation.
 class IntakeSlots {
-  const IntakeSlots({this.itemType, this.colour, this.location, this.when, this.distinctive});
+  const IntakeSlots({this.itemType, this.colour, this.location, this.when, this.distinctive, this.intent});
 
   final String? itemType;
   final String? colour;
@@ -15,12 +15,19 @@ class IntakeSlots {
   final String? when;
   final String? distinctive;
 
+  /// Which side of the counter: 'lost' (an owner looking - the default when unset) or
+  /// 'found' (a finder holding someone else's item).
+  final String? intent;
+
+  bool get isFinder => intent == 'found';
+
   factory IntakeSlots.fromJson(Map<String, dynamic> json) => IntakeSlots(
         itemType: json['itemType'] as String?,
         colour: json['colour'] as String?,
         location: json['location'] as String?,
         when: json['when'] as String?,
         distinctive: json['distinctive'] as String?,
+        intent: json['intent'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -29,6 +36,7 @@ class IntakeSlots {
         'location': location,
         'when': when,
         'distinctive': distinctive,
+        'intent': intent,
       };
 }
 
@@ -57,8 +65,9 @@ class IntakeDraft {
       );
 }
 
-/// The one found item the agent pointed at. Kind "post" - a finder still has it; "desk" - it
-/// is in custody and can be claimed.
+/// The one thing the agent pointed at. For an owner, a found item: kind "post" - a finder
+/// still has it; "desk" - it is in custody and can be claimed. For a finder, kind "lost" - an
+/// open lost report, the same one the feed shows.
 class IntakeMatch {
   const IntakeMatch({
     required this.id,
@@ -77,6 +86,7 @@ class IntakeMatch {
   final String description;
 
   bool get isAtDesk => kind == 'desk';
+  bool get isLostReport => kind == 'lost';
 
   factory IntakeMatch.fromJson(Map<String, dynamic> json) => IntakeMatch(
         id: json['id'] as String,

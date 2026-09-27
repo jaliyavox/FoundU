@@ -21,11 +21,13 @@ class FakeIntake extends IntakeRepository {
   FakeIntake(this.answer) : super(Dio());
   final IntakeResponse Function(String message) answer;
   final asked = <String>[];
+  final sentSlots = <IntakeSlots?>[];
   bool fail = false;
 
   @override
   Future<IntakeResponse> ask(String message, IntakeSlots? slots) async {
     asked.add(message);
+    sentSlots.add(slots);
     if (fail) throw const ApiException('The assistant is unavailable right now.');
     return answer(message);
   }
@@ -110,5 +112,49 @@ void main() {
 
     expect(find.text('my phone'), findsOneWidget);
     expect(find.textContaining('The assistant is unavailable right now.'), findsOneWidget);
+  });
+
+  testWidgets('"I found something" tells the agent which side the student is on', (tester) async {
+    final intake = FakeIntake((_) => reply('collecting', 'What colour is it?'));
+    await mount(tester, intake);
+
+    await tester.tap(find.text('I found something'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Thanks for picking it up'), findsOneWidget);
+    // The choice is made once; the buttons go.
+    expect(find.text('I lost something'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'a blue water bottle');
+    await tester.tap(find.byTooltip('Send'));
+    await tester.pumpAndSettle();
+
+    expect(intake.sentSlots.single?.intent, 'found');
+  });
+
+  testWidgets('a finder is pointed at the owner, and offered a found post if it is not theirs', (tester) async {
+    final intake = FakeIntake((_) => const IntakeResponse(
+          phase: 'matched',
+          reply: 'Someone is looking for this.',
+          slots: IntakeSlots(itemType: 'Water Bottle', colour: 'blue', intent: 'found'),
+          draft: IntakeDraft(description: 'Blue water bottle, found at Library.'),
+          match: IntakeMatch(
+            id: 'report-1',
+            kind: 'lost',
+            itemType: 'Water Bottle',
+            colour: 'Blue',
+            location: 'Library',
+            description: 'Dented lid, university sticker.',
+          ),
+        ));
+    await mount(tester, intake, first: 'I found a blue water bottle in the library');
+
+    expect(find.text('Someone is looking for this · reported lost'), findsOneWidget);
+    expect(find.text('Last seen near Library'), findsOneWidget);
+    expect(find.text('Open their report'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Review found post'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Not the same one? Post it anyway'), findsOneWidget);
+    // Not the owner's flow: nothing here claims the item or drafts a lost report.
+    expect(find.textContaining('open a claim'), findsNothing);
+    expect(find.text('Review report draft'), findsNothing);
   });
 }

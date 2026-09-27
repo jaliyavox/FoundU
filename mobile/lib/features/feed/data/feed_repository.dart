@@ -32,6 +32,16 @@ class FeedRepository {
     }
   }
 
+  /// One report as the feed shows it - for a link straight to it. 404 once it is off the feed.
+  Future<FeedItem> getFeedItem(String id) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/api/lost-reports/feed/$id');
+      return FeedItem.fromJson(response.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// "I found this". Recorded once per person however often it is pressed.
   Future<FoundClaimResult> registerFoundClaim(String reportId) async {
     try {

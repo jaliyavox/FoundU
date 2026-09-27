@@ -9,6 +9,7 @@ import '../../../core/widgets/surfaces.dart';
 import '../../claims/data/claim_models.dart';
 import '../../claims/data/claim_repository.dart';
 import '../../feed/data/feed_repository.dart';
+import '../../feed/presentation/feed_detail_sheet.dart';
 import '../../reports/data/report_models.dart';
 import '../../reports/data/report_repository.dart';
 import '../data/intake_repository.dart';
@@ -17,14 +18,21 @@ final _openReportsProvider = FutureProvider.autoDispose<List<LostReportListItemM
   (ref) async => (await ref.watch(reportRepositoryProvider).getMyReports(status: 'Active', pageSize: 50)).items,
 );
 
+const _greeting = 'Lost something, or found something? Tell me what it is, its colour, and where.';
+const _greetings = {
+  'lost': 'What did you lose? Tell me what it is, its colour, or where you last saw it.',
+  'found': 'Thanks for picking it up. What did you find? Tell me what it is, its colour, and where you found it.',
+};
+
 class _Turn {
   const _Turn(this.fromMe, this.text);
   final bool fromMe;
   final String text;
 }
 
-/// "Ask FoundU": say what you lost, answer what the agent still needs, and it checks what has
-/// been found. It suggests - you confirm every report or claim, and the desk still decides.
+/// "Ask FoundU": say what you lost - or what you found - and answer what the agent still needs.
+/// An owner is shown what has been handed in; a finder is shown who is looking for it. It
+/// suggests - you confirm every post or claim, and the desk still decides.
 class AskFoundUPage extends ConsumerStatefulWidget {
   const AskFoundUPage({super.key, this.initialQuestion});
 
@@ -39,11 +47,25 @@ class AskFoundUPage extends ConsumerStatefulWidget {
 class _AskFoundUPageState extends ConsumerState<AskFoundUPage> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  final _turns = <_Turn>[
-    const _Turn(false, 'What did you lose? Tell me what it is, its colour, or where you last saw it.'),
-  ];
+  final _turns = <_Turn>[const _Turn(false, _greeting)];
   IntakeResponse? _last;
   bool _thinking = false;
+
+  /// Which side, when the student said so with a button. Once the agent has heard it in their
+  /// words, the answer lives in the slots it sends back.
+  String? _side;
+
+  bool get _finder => _side == 'found' || (_last?.slots.isFinder ?? false);
+  bool get _choosing => _last == null && _side == null && _turns.length == 1 && !_thinking;
+
+  void _choose(String side) {
+    setState(() {
+      _side = side;
+      _turns
+        ..add(_Turn(true, side == 'found' ? 'I found something.' : 'I lost something.'))
+        ..add(_Turn(false, _greetings[side]!));
+    });
+  }
 
   @override
   void initState() {
@@ -73,7 +95,8 @@ class _AskFoundUPageState extends ConsumerState<AskFoundUPage> {
     _toBottom();
 
     try {
-      final response = await ref.read(intakeRepositoryProvider).ask(message, _last?.slots);
+      final slots = _last?.slots ?? (_side == null ? null : IntakeSlots(intent: _side));
+      final response = await ref.read(intakeRepositoryProvider).ask(message, slots);
       if (!mounted) return;
       setState(() {
         _last = response;
@@ -102,8 +125,9 @@ class _AskFoundUPageState extends ConsumerState<AskFoundUPage> {
     setState(() {
       _turns
         ..clear()
-        ..add(const _Turn(false, 'What did you lose? Tell me what it is, its colour, or where you last saw it.'));
+        ..add(const _Turn(false, _greeting));
       _last = null;
+      _side = null;
     });
   }
 
@@ -127,6 +151,26 @@ class _AskFoundUPageState extends ConsumerState<AskFoundUPage> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 for (final turn in _turns) _Bubble(turn: turn),
+                if (_choosing)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 44, bottom: 10),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _choose('lost'),
+                          icon: const Icon(Icons.search_rounded),
+                          label: const Text('I lost something'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _choose('found'),
+                          icon: const Icon(Icons.front_hand_outlined),
+                          label: const Text('I found something'),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (_thinking)
                   Padding(
                     padding: const EdgeInsets.only(left: 44, top: 4),
@@ -134,18 +178,24 @@ class _AskFoundUPageState extends ConsumerState<AskFoundUPage> {
                       children: [
                         const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
                         const SizedBox(width: 8),
-                        Text('Checking what has been found…', style: text.bodySmall?.copyWith(color: Brand.muted)),
+                        Text(_finder ? 'Checking who is looking for it…' : 'Checking what has been found…',
+                            style: text.bodySmall?.copyWith(color: Brand.muted)),
                       ],
                     ),
                   ),
                 if (last != null && !_thinking) ...[
-                  if (last.match != null) ...[
+                  if (last.match case final match? when match.isLostReport) ...[
+                    const SizedBox(height: 12),
+                    _OwnerLookingCard(match: match),
+                  ] else if (last.match != null) ...[
                     const SizedBox(height: 12),
                     _MatchCard(match: last.match!),
                   ],
                   if (last.phase != 'collecting') ...[
                     const SizedBox(height: 12),
-                    _DraftCard(draft: last.draft, hasMatch: last.match != null),
+                    last.slots.isFinder
+                        ? _FoundDraftCard(draft: last.draft, hasMatch: last.match != null)
+                        : _DraftCard(draft: last.draft, hasMatch: last.match != null),
                   ],
                 ],
               ],
@@ -164,7 +214,11 @@ class _AskFoundUPageState extends ConsumerState<AskFoundUPage> {
                 onSubmitted: _send,
                 decoration: InputDecoration(
                   counterText: '',
-                  hintText: last == null ? 'I lost a black backpack near the library' : 'Add or correct a detail',
+                  hintText: last != null
+                      ? 'Add or correct a detail'
+                      : _finder
+                          ? 'I found a blue water bottle in the cafeteria'
+                          : 'I lost a black backpack near the library',
                   suffixIcon: IconButton(
                     tooltip: 'Send',
                     onPressed: _thinking ? null : () => _send(_input.text),
@@ -392,6 +446,114 @@ class _DraftCard extends StatelessWidget {
             onPressed: () => context.push('/reports/new', extra: draft),
             icon: const Icon(Icons.edit_note_rounded),
             label: const Text('Review report draft'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A finder shown the report of someone who is looking. The report is already on the public
+/// feed; this only opens it. The owner is reached through the report's own "I found this",
+/// where the warning, the message and the security hand-in code already live.
+class _OwnerLookingCard extends ConsumerStatefulWidget {
+  const _OwnerLookingCard({required this.match});
+  final IntakeMatch match;
+
+  @override
+  ConsumerState<_OwnerLookingCard> createState() => _OwnerLookingCardState();
+}
+
+class _OwnerLookingCardState extends ConsumerState<_OwnerLookingCard> {
+  bool _opening = false;
+
+  Future<void> _open() async {
+    setState(() => _opening = true);
+    try {
+      final item = await ref.read(feedRepositoryProvider).getFeedItem(widget.match.id);
+      if (!mounted) return;
+      await showFeedDetail(context, item);
+    } on ApiException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('That report is no longer on the feed - it may already be on its way back.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final match = widget.match;
+    final title = [match.colour, match.itemType].where((part) => part != null && part.isNotEmpty).join(' ');
+
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Someone is looking for this · reported lost',
+            style: text.labelMedium?.copyWith(color: Brand.forest, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(title, style: text.titleLarge),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.place_outlined, size: 16, color: Brand.muted),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text('Last seen near ${match.location}', style: text.bodySmall?.copyWith(color: Brand.muted)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(match.description, style: text.bodyMedium?.copyWith(height: 1.45)),
+          const SizedBox(height: 14),
+          const Divider(),
+          const SizedBox(height: 10),
+          Text(
+            "If it's what you have, open their report and press I found this. You can message them, "
+            'or hand it to security and they get a code to collect it.',
+            style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          InkButton(label: 'Open their report', icon: Icons.arrow_forward_rounded, busy: _opening, onPressed: _open),
+        ],
+      ),
+    );
+  }
+}
+
+class _FoundDraftCard extends StatelessWidget {
+  const _FoundDraftCard({required this.draft, required this.hasMatch});
+  final IntakeDraft draft;
+  final bool hasMatch;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Panel(
+      color: Brand.mist,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(hasMatch ? 'Not the same one? Post it anyway' : 'Your found post draft', style: text.titleMedium),
+          const SizedBox(height: 6),
+          Text(draft.description, style: text.bodyMedium?.copyWith(height: 1.45)),
+          const SizedBox(height: 6),
+          Text(
+            'Nothing has been posted. Check it, then post it so the owner can spot it - or skip the post '
+            'and hand it in at any security desk.',
+            style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/home/found/new', extra: draft),
+            icon: const Icon(Icons.front_hand_outlined),
+            label: const Text('Review found post'),
           ),
         ],
       ),
