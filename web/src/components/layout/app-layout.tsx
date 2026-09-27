@@ -11,6 +11,7 @@ import {
   LayoutDashboardIcon,
   LifeBuoyIcon,
   LogOutIcon,
+  MapPinnedIcon,
   MoonIcon,
   PackageSearchIcon,
   ShieldQuestionIcon,
@@ -79,6 +80,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/my-claims', label: 'My claims', icon: ShieldQuestionIcon, allow: ['Student'] },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3Icon, allow: ['Admin'] },
   { to: '/admin/moderation', label: 'Moderation', icon: FlagIcon, allow: ['Admin'] },
+  { to: '/admin/reference', label: 'Places & categories', icon: MapPinnedIcon, allow: ['Admin'] },
   { to: '/admin', label: 'Users', icon: UsersIcon, allow: ['Admin'], exact: true },
 ]
 

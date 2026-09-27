@@ -136,6 +136,7 @@ public static class DependencyInjection
         services.AddScoped<ISupportService, SupportService>();
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IAdminOverviewService, AdminOverviewService>();
+        services.AddScoped<IReferenceAdminService, ReferenceAdminService>();
         services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
         services.AddOptions<FirebaseOptions>()
             .Bind(configuration.GetSection(FirebaseOptions.SectionName));

@@ -25,6 +25,7 @@ import { HelpToFindPage } from '@/features/help/help-to-find-page'
 import { SupportPage } from '@/features/support/support-page'
 import { AdminSupportPage } from '@/features/support/admin-support-page'
 import { AdminOverviewPage } from '@/features/admin/admin-overview-page'
+import { ReferencePage } from '@/features/admin/reference-page'
 import { HandoverDeskPage } from '@/features/items/handover-desk-page'
 import { AccountPage } from '@/features/account/account-page'
 
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allow={['Admin']} />,
             children: [
               { path: 'admin', element: <AdminUsersPage /> },
+              { path: 'admin/reference', element: <ReferencePage /> },
               { path: 'admin/analytics', element: <AnalyticsPage /> },
               { path: 'admin/moderation', element: <ModerationPage /> },
             ],
