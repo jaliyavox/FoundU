@@ -396,15 +396,19 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
               // 3. Date & Time Window Section
               _buildSectionHeader('3. When was it lost?', Icons.access_time_outlined),
               const SizedBox(height: 10),
-              // Presets row
-              Row(
+              // Presets - a Wrap rather than a Row, so on a narrow phone the chips flow onto a
+              // second line instead of running off the edge.
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Text('Quick Select: ', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(right: 2),
+                    child: Text('Quick Select:', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  ),
                   _presetChip('Last 2 Hours', () => _applyTimePreset('2h')),
-                  const SizedBox(width: 6),
                   _presetChip('Today', () => _applyTimePreset('today')),
-                  const SizedBox(width: 6),
                   _presetChip('Yesterday', () => _applyTimePreset('yesterday')),
                 ],
               ),
@@ -499,16 +503,20 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
 
               Row(
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt, size: 18),
-                    label: const Text('Take Photo'),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickImage(ImageSource.camera),
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      label: const Text('Take Photo'),
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library, size: 18),
-                    label: const Text('From Gallery'),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickImage(ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library, size: 18),
+                      label: const Text('From Gallery'),
+                    ),
                   ),
                 ],
               ),
@@ -596,12 +604,14 @@ class _ReportFormPageState extends ConsumerState<ReportFormPage> {
       children: [
         Icon(icon, size: 20, color: const Color(0xFF2E7D32)),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E5631),
+        Flexible(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E5631),
+            ),
           ),
         ),
       ],

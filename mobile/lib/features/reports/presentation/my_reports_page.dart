@@ -641,8 +641,13 @@ class _ReportCard extends StatelessWidget {
               const Divider(height: 1),
               const SizedBox(height: 8),
 
-              // Action Buttons Row (Web-like: Details, Edit, Withdraw, Matches)
-              Row(
+              // Actions - Details, I found this, Edit, Withdraw, Matches. A Wrap, not a Row:
+              // five controls do not fit one line on a phone, and a Row that overflows runs
+              // them off the edge of the card.
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   // Details Link Button
                   InkWell(
@@ -668,7 +673,6 @@ class _ReportCard extends StatelessWidget {
                   ),
 
                   if (item.status.toLowerCase() == 'active' || item.status.toLowerCase() == 'matched') ...[
-                    const SizedBox(width: 8),
                     // "I found this" - the owner has it back, so the report closes.
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
@@ -723,8 +727,6 @@ class _ReportCard extends StatelessWidget {
                       ),
                     ),
                   ],
-
-                  const Spacer(),
 
                   if (item.status.toLowerCase() == 'active' || item.status.toLowerCase() == 'matched')
                     TextButton.icon(
@@ -796,13 +798,24 @@ class _ReportCard extends StatelessWidget {
           }),
         ),
         const SizedBox(height: 4),
+        // Flexible labels: identical when there is room, and able to give way on a narrow
+        // phone or with a larger system text size instead of running off the card.
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Reported', style: TextStyle(fontSize: 10, color: currentStage >= 0 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Matched', style: TextStyle(fontSize: 10, color: currentStage >= 1 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Claimed', style: TextStyle(fontSize: 10, color: currentStage >= 2 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Resolved', style: TextStyle(fontSize: 10, color: currentStage >= 3 ? const Color(0xFF2E7D32) : Colors.grey)),
+            for (final (index, label) in stages.indexed)
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: currentStage >= index ? const Color(0xFF2E7D32) : Colors.grey,
+                  ),
+                ),
+              ),
           ],
         ),
       ],
