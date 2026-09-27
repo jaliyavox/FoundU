@@ -187,6 +187,13 @@ public class HandoverService : IHandoverService
         var report = claim.LostReport;
         var now = DateTime.UtcNow;
 
+        // The owner closed the report after the finder set off. Log it as an ordinary found
+        // item instead - reopening a withdrawn or resolved report would resurrect it.
+        if (report.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
+            throw new ConflictAppException("The owner has closed this report. Log the item as a new found item instead.");
+
+        var previousStatus = report.Status;
+
         // The item becomes a logged found item like any other, so the rest of the system -
         // storage, audits, analytics - sees it the way it sees everything else in custody.
         var item = new FoundReport
@@ -219,10 +226,13 @@ public class HandoverService : IHandoverService
         _db.LostReportStatusHistories.Add(new LostReportStatusHistory
         {
             LostReportId = report.Id,
-            FromStatus = LostReportStatus.Active,
+            FromStatus = previousStatus,
             ToStatus = LostReportStatus.Matched,
             ChangedByUserId = staffId,
-            Reason = "Handed in by the finder and logged at a desk.",
+            // The desk's note (validated to 200 characters) is kept with the step it describes.
+            Reason = string.IsNullOrWhiteSpace(request.Note)
+                ? "Handed in by the finder and logged at a desk."
+                : $"Handed in by the finder and logged at a desk. {request.Note.Trim()}",
         });
 
         _notifications.Queue(

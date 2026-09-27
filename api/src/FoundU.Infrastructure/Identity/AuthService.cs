@@ -43,14 +43,20 @@ public class AuthService : IAuthService
             throw new ConflictAppException("An account with this email already exists.");
         }
 
-        // Self-registration is Students only - see RegisterRequest.cs. Staff/Admin accounts are
-        // created through a separate Admin-only management endpoint, not this one.
+        var studentNumber = string.IsNullOrWhiteSpace(request.StudentNumber) ? null : request.StudentNumber.Trim();
+        if (studentNumber is not null && await _userManager.Users.AnyAsync(u => u.StudentNumber == studentNumber))
+        {
+            throw new ConflictAppException("An account with this student number already exists.");
+        }
+
+        // Self-registration is Students only - see RegisterRequest.cs. Staff accounts are not
+        // created through the API; see docs/testing for how the demo seed provisions them.
         var user = new AppUser
         {
             UserName = request.Email, // UserName == Email by convention (AppUser.cs)
             Email = request.Email,
             FullName = request.FullName,
-            StudentNumber = request.StudentNumber,
+            StudentNumber = studentNumber,
             Role = UserRole.Student
         };
 
@@ -74,11 +80,6 @@ public class AuthService : IAuthService
             throw new UnauthorizedAppException();
         }
 
-        if (user.IsSuspended)
-        {
-            throw new ForbiddenAppException("This account has been suspended. Contact an administrator.");
-        }
-
         // lockoutOnFailure: true - after IdentityOptions.Lockout.MaxFailedAccessAttempts
         // consecutive bad passwords, the account is locked out for a cooldown window,
         // protecting against brute-force guessing.
@@ -86,6 +87,12 @@ public class AuthService : IAuthService
         if (!result.Succeeded)
         {
             throw new UnauthorizedAppException();
+        }
+
+        // Checked after the password, so an email alone does not reveal that an account is suspended.
+        if (user.IsSuspended)
+        {
+            throw new ForbiddenAppException("This account has been suspended. Contact an administrator.");
         }
 
         return await IssueTokensAsync(user, ipAddress);

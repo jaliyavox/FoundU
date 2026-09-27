@@ -23,6 +23,25 @@ namespace FoundU.Tests;
 public sealed class HandoverTests
 {
     [Fact]
+    public async Task WithdrawingTheReportStopsTheFindersCodeWorkingAtTheDesk()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var started = await fixture.Handovers.StartAsync(fixture.Report.Id, fixture.Finder.Id);
+
+        await fixture.Reports.WithdrawAsync(fixture.Report.Id, fixture.Owner.Id, "Found it at home");
+
+        var handover = await fixture.Db.LostReportFoundClaims.SingleAsync();
+        Assert.Equal(HandoverStatus.Cancelled, handover.Status);
+        Assert.Null(handover.HandoverCode);
+        await Assert.ThrowsAsync<NotFoundAppException>(() => fixture.Handovers.ReceiveAsync(
+            started.Code!, fixture.Staff.Id, new ReceiveHandoverRequest(fixture.Storage.Id, null)));
+
+        // The report stays withdrawn, and no orphaned found item was logged against it.
+        Assert.Equal(LostReportStatus.Withdrawn, (await fixture.Db.LostReports.SingleAsync()).Status);
+        Assert.False(await fixture.Db.FoundReports.AnyAsync());
+    }
+
+    [Fact]
     public async Task StartingAHandoverMintsOneCodeAndTakesTheNoticeOffTheFeed()
     {
         await using var fixture = await Fixture.CreateAsync();

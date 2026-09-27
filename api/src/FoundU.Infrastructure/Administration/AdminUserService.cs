@@ -46,7 +46,7 @@ public class AdminUserService : IAdminUserService
 
         if (!string.IsNullOrWhiteSpace(query.Role))
         {
-            if (!Enum.TryParse<UserRole>(query.Role, ignoreCase: true, out var role))
+            if (!Enum.TryParse<UserRole>(query.Role, ignoreCase: true, out var role) || !Enum.IsDefined(role))
             {
                 throw new ValidationAppException(nameof(query.Role),
                     $"Unknown role '{query.Role}'. Expected one of: {string.Join(", ", Enum.GetNames<UserRole>())}.");
@@ -129,6 +129,12 @@ public class AdminUserService : IAdminUserService
 
         // Existing refresh tokens would otherwise keep the session alive until they expire.
         await RevokeActiveTokensAsync(user.Id, cancellationToken);
+
+        // A suspended account's phone should stop receiving pushes as well.
+        var devices = await _db.DeviceRegistrations
+            .Where(d => d.UserId == user.Id && d.IsActive)
+            .ToListAsync(cancellationToken);
+        foreach (var device in devices) device.IsActive = false;
 
         await _db.SaveChangesAsync(cancellationToken);
 

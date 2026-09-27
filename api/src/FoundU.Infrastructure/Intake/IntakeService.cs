@@ -170,7 +170,7 @@ public sealed class IntakeService(FoundUDbContext db, IIntakeAgentClient agent) 
         var names = await db.ItemTypes.AsNoTracking().Where(t => t.Id == itemTypeId)
             .Select(t => t.Name + " " + t.Category.Name).FirstOrDefaultAsync(cancellationToken) ?? "";
         string[] valuable = ["wallet", "purse", "phone", "laptop", "tablet", "card", "id", "licence", "license", "passport", "key", "electronic", "cash"];
-        var words = names.ToLowerInvariant().Split([' ', '&', '/', ','], StringSplitOptions.RemoveEmptyEntries);
+        var words = names.ToLowerInvariant().Split(new[] { ' ', '&', '/', ',' }, StringSplitOptions.RemoveEmptyEntries);
         return words.Any(w => valuable.Any(v => w.StartsWith(v, StringComparison.Ordinal)))
             ? " Because it's the kind of thing people carry money or ID in, handing it to security is the safest choice."
             : "";

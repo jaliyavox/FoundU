@@ -365,10 +365,17 @@ public class FoundPostService : IFoundPostService
 
         // The suggestion is the same row a desk or the agent would write; the owner's word
         // carries no more weight than theirs, and the claim's questions still decide.
-        await _suggestions.CreateAsync(
-            new CreateMatchSuggestionRequest(report.Id, post.Id, "You recognised this on the feed."),
-            ownerId,
-            cancellationToken);
+        // The matching agent may already have paired them when the post went up. The owner
+        // saying "that's mine" is still news for the finder, so only the row is skipped.
+        var alreadySuggested = await _db.MatchSuggestions.AnyAsync(
+            m => m.LostReportId == report.Id && m.FoundReportId == post.Id, cancellationToken);
+        if (!alreadySuggested)
+        {
+            await _suggestions.CreateAsync(
+                new CreateMatchSuggestionRequest(report.Id, post.Id, "You recognised this on the feed."),
+                ownerId,
+                cancellationToken);
+        }
 
         if (post.FinderId is { } finderId)
         {
@@ -524,14 +531,18 @@ public class FoundPostService : IFoundPostService
                 nameof(FoundReport),
                 post.Id);
 
-            // A desk has the item in its hands: the one outcome nobody can award themselves.
-            await _honor.QueueAwardAsync(
-                finderId,
-                HonorAwardReason.HandedInAtDesk,
-                null,
-                post.Id,
-                $"Handed in a {post.ItemType.Name.ToLowerInvariant()} at {post.FoundLocation.Name}",
-                cancellationToken);
+            // A desk has the item in its hands: the one outcome nobody can award themselves -
+            // so a staff member confirming their own post earns nothing.
+            if (finderId != staffId)
+            {
+                await _honor.QueueAwardAsync(
+                    finderId,
+                    HonorAwardReason.HandedInAtDesk,
+                    null,
+                    post.Id,
+                    $"Handed in a {post.ItemType.Name.ToLowerInvariant()} at {post.FoundLocation.Name}",
+                    cancellationToken);
+            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);

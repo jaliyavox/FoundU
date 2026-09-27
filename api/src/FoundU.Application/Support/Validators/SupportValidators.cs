@@ -14,7 +14,7 @@ public class CreateSupportTicketRequestValidator : AbstractValidator<CreateSuppo
 
         RuleFor(x => x.Category)
             .NotEmpty()
-            .Must(value => Enum.TryParse<SupportTicketCategory>(value, ignoreCase: true, out _))
+            .Must(value => Enum.TryParse<SupportTicketCategory>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed))
             .WithMessage("Choose one of the listed categories.");
 
         RuleFor(x => x.Body)
@@ -42,7 +42,7 @@ public class UpdateSupportTicketRequestValidator : AbstractValidator<UpdateSuppo
     {
         RuleFor(x => x.Status)
             .NotEmpty()
-            .Must(value => Enum.TryParse<SupportTicketStatus>(value, ignoreCase: true, out _))
+            .Must(value => Enum.TryParse<SupportTicketStatus>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed))
             .WithMessage("Unknown status.");
     }
 }

@@ -108,7 +108,7 @@ public class FoundReportService : IFoundReportService
 
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            if (!Enum.TryParse<FoundReportStatus>(query.Status, ignoreCase: true, out var status))
+            if (!Enum.TryParse<FoundReportStatus>(query.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {
                 throw new ValidationAppException(nameof(query.Status),
                     $"Unknown status '{query.Status}'. Expected one of: {string.Join(", ", Enum.GetNames<FoundReportStatus>())}.");

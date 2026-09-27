@@ -42,6 +42,26 @@ public sealed class HonorPointsTests
     }
 
     [Fact]
+    public async Task PressingIFoundThisAloneEarnsNothingWhenSomeoneElseHandedItIn()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var clicker = new AppUser { FullName = "Clicker Student", UserName = "clicker@test", Role = UserRole.Student };
+        fixture.Db.Users.Add(clicker);
+        // The fixture's finder took it to a desk; the clicker only pressed the button.
+        var handedIn = await fixture.Db.LostReportFoundClaims.SingleAsync();
+        handedIn.Status = HandoverStatus.InCustody;
+        fixture.Db.LostReportFoundClaims.Add(new LostReportFoundClaim { LostReportId = fixture.Report.Id, FinderId = clicker.Id });
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Service.ResolveAsync(fixture.Report.Id, fixture.Owner.Id, null);
+
+        var award = await fixture.Db.HonorAwards.SingleAsync();
+        Assert.Equal(fixture.Finder.Id, award.UserId);
+        // Both still hear how it ended.
+        Assert.True(await fixture.Db.Notifications.AnyAsync(n => n.UserId == clicker.Id && n.Type == NotificationType.ItemReturnedToOwner));
+    }
+
+    [Fact]
     public async Task AnAlreadyClosedReportCannotBeClosedAgainForMorePoints()
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -77,6 +97,20 @@ public sealed class HonorPointsTests
         Assert.False(await honor.QueueAwardAsync(fixture.Finder.Id, HonorAwardReason.HelpedReturn, fixture.Report.Id, null, "and again"));
 
         Assert.Equal(1, await fixture.Db.HonorAwards.CountAsync());
+    }
+
+    [Fact]
+    public async Task TheSameReturnCreditedFromTwoPathsPaysOnce()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var honor = new HonorService(fixture.Db);
+        var item = Guid.NewGuid();
+
+        // Owner closes the report first (lost report only), then the desk collects the item
+        // (lost report and found item). Same outcome - the second would break a unique index.
+        Assert.True(await honor.QueueAwardAsync(fixture.Finder.Id, HonorAwardReason.HelpedReturn, fixture.Report.Id, null, "resolved"));
+        await fixture.Db.SaveChangesAsync();
+        Assert.False(await honor.QueueAwardAsync(fixture.Finder.Id, HonorAwardReason.HelpedReturn, fixture.Report.Id, item, "collected"));
     }
 
     [Fact]

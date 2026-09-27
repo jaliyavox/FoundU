@@ -534,7 +534,7 @@ public class ClaimService : IClaimService
         ClaimDecisionRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!Enum.TryParse<ApprovalDecisionType>(request.Decision, ignoreCase: true, out var decision))
+        if (!Enum.TryParse<ApprovalDecisionType>(request.Decision, ignoreCase: true, out var decision) || !Enum.IsDefined(decision))
         {
             throw new ValidationAppException(nameof(ClaimDecisionRequest.Decision), "Unknown decision.");
         }
@@ -616,6 +616,22 @@ public class ClaimService : IClaimService
         if (item is null || item.Status != FoundReportStatus.Unclaimed)
         {
             throw new ConflictAppException("This item is no longer in storage, so the claim cannot be approved now.");
+        }
+
+        // The rejection put the owner's report back on the feed. If they have since closed it
+        // there is nothing to approve; if it is still open it comes off the feed again.
+        var lostReport = await _db.LostReports
+            .FirstOrDefaultAsync(r => r.Id == claim.LostReportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{claim.LostReportId}' was not found.");
+
+        if (lostReport.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
+        {
+            throw new ConflictAppException("The owner has closed their report, so the claim cannot be approved now.");
+        }
+
+        if (lostReport.Status == LostReportStatus.Active)
+        {
+            MoveLostReport(lostReport, LostReportStatus.Matched, adminId, "A rejected claim was overturned.");
         }
 
         var previous = await _db.ApprovalDecisions
@@ -823,7 +839,13 @@ public class ClaimService : IClaimService
             throw new ConflictAppException("This claim has already been decided.");
         }
 
-        MoveClaim(claim, ClaimStatus.Cancelled, studentId, string.IsNullOrWhiteSpace(reason) ? null : reason.Trim());
+        var cancelReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (cancelReason is { Length: > 500 })
+        {
+            throw new ValidationAppException("Reason", "Keep the reason under 500 characters.");
+        }
+
+        MoveClaim(claim, ClaimStatus.Cancelled, studentId, cancelReason);
         await ReopenLostReportIfNothingElsePendingAsync(claim, studentId, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -1130,7 +1152,7 @@ public class ClaimService : IClaimService
 
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            if (!Enum.TryParse<ClaimStatus>(query.Status, ignoreCase: true, out var status))
+            if (!Enum.TryParse<ClaimStatus>(query.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {
                 throw new ValidationAppException(nameof(ClaimQuery.Status), $"Unknown claim status '{query.Status}'.");
             }

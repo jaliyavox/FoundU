@@ -69,8 +69,13 @@ public sealed class ClaimWorkflowService : IClaimWorkflowService
 
     private async Task SynchronizeRunAsync(Guid claimId, Guid workflowId, string status, CancellationToken cancellationToken)
     {
-        var run = await _db.AgentRuns.Include(item => item.Steps).FirstOrDefaultAsync(item => item.ClaimId == claimId && item.Objective == "Coordinator claim verification workflow", cancellationToken);
-        if (run is null || !ContainsWorkflowId(run.FinalOutcomeJson, workflowId)) return;
+        // A claim sent back for revision has one coordinator run per attempt, so pick the run
+        // that belongs to this workflow rather than whichever the database returns first.
+        var runs = await _db.AgentRuns.Include(item => item.Steps)
+            .Where(item => item.ClaimId == claimId && item.Objective == "Coordinator claim verification workflow")
+            .ToListAsync(cancellationToken);
+        var run = runs.FirstOrDefault(item => ContainsWorkflowId(item.FinalOutcomeJson, workflowId));
+        if (run is null) return;
         run.Status = status switch
         {
             "waiting_for_approval" => AgentRunStatus.PausedForApproval,

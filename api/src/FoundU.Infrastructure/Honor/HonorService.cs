@@ -35,12 +35,14 @@ public class HonorService : IHonorService
             return false;
 
         // Both the saved rows and the ones already queued in this unit of work count, so a
-        // single request cannot award the same outcome twice before anything is saved.
+        // single request cannot award the same outcome twice before anything is saved. An
+        // outcome is the same if either report matches - the same rule as the two unique
+        // indexes in HonorAwardConfiguration, which would otherwise fail the save.
         var alreadySaved = await _db.HonorAwards.AnyAsync(
             a => a.UserId == userId
                 && a.Reason == reason
-                && a.LostReportId == lostReportId
-                && a.FoundReportId == foundReportId,
+                && ((lostReportId != null && a.LostReportId == lostReportId)
+                    || (foundReportId != null && a.FoundReportId == foundReportId)),
             cancellationToken);
         if (alreadySaved) return false;
 
@@ -48,8 +50,8 @@ public class HonorService : IHonorService
             entry.State == EntityState.Added
             && entry.Entity.UserId == userId
             && entry.Entity.Reason == reason
-            && entry.Entity.LostReportId == lostReportId
-            && entry.Entity.FoundReportId == foundReportId);
+            && ((lostReportId != null && entry.Entity.LostReportId == lostReportId)
+                || (foundReportId != null && entry.Entity.FoundReportId == foundReportId)));
         if (alreadyQueued) return false;
 
         _db.HonorAwards.Add(new HonorAward
