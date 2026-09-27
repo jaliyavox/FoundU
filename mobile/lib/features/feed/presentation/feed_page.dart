@@ -245,6 +245,9 @@ extension on _FeedPageState {
   void _showPostChooser(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      // On the root navigator, so the sheet covers the floating nav. Opened from a tab it
+      // would otherwise live inside that tab, underneath the nav, hiding its bottom.
+      useRootNavigator: true,
       backgroundColor: Brand.paper,
       builder: (sheet) => SafeArea(
         child: Padding(

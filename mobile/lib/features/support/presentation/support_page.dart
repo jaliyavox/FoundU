@@ -115,6 +115,9 @@ class SupportPage extends ConsumerWidget {
 Future<String?> showNewTicketSheet(BuildContext context) {
   return showModalBottomSheet<String>(
     context: context,
+    // On the root navigator, so the sheet covers the floating nav. Opened from a tab it
+    // would otherwise live inside that tab, underneath the nav, hiding its bottom.
+    useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Brand.paper,

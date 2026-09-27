@@ -18,6 +18,9 @@ import '../../handover/presentation/handover_choice.dart';
 Future<void> showFeedDetail(BuildContext context, FeedItem item) {
   return showModalBottomSheet<void>(
     context: context,
+    // On the root navigator, so the sheet covers the floating nav. Opened from a tab it
+    // would otherwise live inside that tab, underneath the nav, hiding its bottom.
+    useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Brand.paper,

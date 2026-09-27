@@ -25,6 +25,9 @@ final _myOpenReportsProvider = FutureProvider.autoDispose<List<LostReportListIte
 Future<void> showFoundPostDetail(BuildContext context, FoundPost post) {
   return showModalBottomSheet<void>(
     context: context,
+    // On the root navigator, so the sheet covers the floating nav. Opened from a tab it
+    // would otherwise live inside that tab, underneath the nav, hiding its bottom.
+    useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Brand.paper,
