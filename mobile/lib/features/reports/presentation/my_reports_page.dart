@@ -7,6 +7,7 @@ import '../data/report_models.dart';
 import 'providers/report_providers.dart';
 import '../../../core/theme/brand.dart';
 import '../../handover/presentation/handover_notice.dart';
+import '../../../core/widgets/pill_nav.dart';
 
 class MyReportsPage extends ConsumerStatefulWidget {
   const MyReportsPage({super.key});
@@ -194,6 +195,7 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
           ),
         ],
       ),
+      floatingActionButtonLocation: const AboveNavFabLocation(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/reports/new'),
         backgroundColor: const Color(0xFF2E7D32),
@@ -356,7 +358,8 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
                   onRefresh: () async => ref.refresh(myReportsProvider),
                   color: const Color(0xFF2E7D32),
                   child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                    // Clear of the floating nav and the button raised above it.
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, AboveNavFabLocation.listEndPadding),
                     itemCount: items.length,
                     itemBuilder: (context, index) {
                       final item = items[index];

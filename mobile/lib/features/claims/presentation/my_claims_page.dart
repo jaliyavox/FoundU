@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../data/claim_models.dart';
 import 'providers/claim_providers.dart';
+import '../../../core/widgets/pill_nav.dart';
 
 class MyClaimsPage extends ConsumerWidget {
   const MyClaimsPage({super.key});
@@ -35,7 +36,8 @@ class MyClaimsPage extends ConsumerWidget {
                   : RefreshIndicator(
                       onRefresh: pager.refresh,
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                        // The last claim has to be able to scroll out from under the nav.
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, AboveNavFabLocation.clearance),
                         itemCount:
                             claims.items.length + (claims.hasMore ? 1 : 0),
                         itemBuilder: (_, index) {

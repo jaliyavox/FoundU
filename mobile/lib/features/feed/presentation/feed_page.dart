@@ -8,6 +8,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/theme/brand.dart';
 import '../../../core/widgets/flame_mark.dart';
 import '../../../core/widgets/foundu_mark.dart';
+import '../../../core/widgets/pill_nav.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../reference/data/reference_models.dart';
 import '../../reference/data/reference_repository.dart';
@@ -219,8 +220,8 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                         : const SizedBox.shrink(),
               ),
             ),
-            // Room for the floating nav.
-            const SliverToBoxAdapter(child: SizedBox(height: 96)),
+            // Room for the floating nav and the Post button raised above it.
+            const SliverToBoxAdapter(child: SizedBox(height: AboveNavFabLocation.listEndPadding)),
           ],
         ),
       ),
@@ -234,7 +235,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         icon: const Icon(Icons.add_rounded),
         label: const Text('Post'),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButtonLocation: const AboveNavFabLocation(),
     );
   }
 }

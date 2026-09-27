@@ -95,3 +95,25 @@ class _PillNavButton extends StatelessWidget {
     );
   }
 }
+
+/// Lifts a tab page's floating action button clear of the floating nav.
+///
+/// Each tab is its own Scaffold inside the shell's Scaffold, so it cannot see the nav and
+/// would park its button in the default bottom corner - exactly where the pill floats. This
+/// takes the default spot and raises it by the nav's footprint.
+class AboveNavFabLocation extends FloatingActionButtonLocation {
+  const AboveNavFabLocation();
+
+  /// The nav's height, the margin under it, and a gap so the two do not touch.
+  static const double clearance = 72 + 16 + 12;
+
+  /// Space to leave at the end of a scrolling list on a page that has a raised button, so the
+  /// last item can scroll clear of both the nav and the button above it.
+  static const double listEndPadding = clearance + 56 + 16;
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final base = FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    return Offset(base.dx, base.dy - clearance);
+  }
+}
