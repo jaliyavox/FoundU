@@ -33,7 +33,6 @@ WIPE = [
     "FoundReportMessages", "FoundReportStatusHistories", "FoundItemPhotos", "StorageTransfers",
     "SupportTicketMessages", "SupportTickets", "HonorAwards", "Notifications",
     "DeviceRegistrations", "RefreshTokens", "AuditLogs", "FoundReports", "LostReports",
-    "ai_workflow_states",
 ]
 
 
@@ -196,6 +195,10 @@ def main():
                       "Bunch of keys on a blue lanyard, three keys and a locker tag.", "Blue")
     call(f"/api/found-posts/{keys['id']}/messages",
          {"body": "I think those are mine - is there a small brass key on the ring?"}, people["amara"])
+
+    security_waiting = found_post(people["kasun"], "Wallet", "Student Center",
+                                  "Brown wallet found beside the student services desk.", "Brown", 10)
+    call(f"/api/found-posts/{security_waiting['id']}/hand-in", {}, people["kasun"])
 
     # Handed in and confirmed by the desk, so it is claimable.
     card = found_post(people["kasun"], "Student Card", "Library", "Student ID card found on a study desk.", None, 26)

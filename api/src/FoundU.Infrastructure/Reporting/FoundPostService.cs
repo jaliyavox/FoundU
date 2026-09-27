@@ -420,6 +420,36 @@ public class FoundPostService : IFoundPostService
         return await LoadAsync(post.Id, finderId, cancellationToken);
     }
 
+    public async Task<FoundPostFeedItemDto> DeclareHandedInAsync(
+        Guid id,
+        Guid finderId,
+        CancellationToken cancellationToken = default)
+    {
+        var post = await _db.FoundReports
+            .FirstOrDefaultAsync(f => f.Id == id && f.FinderId == finderId, cancellationToken)
+            ?? throw new NotFoundAppException($"Found post '{id}' was not found.");
+
+        if (post.Status != FoundReportStatus.Posted)
+            throw new ConflictAppException("This post has already been received by a desk.");
+
+        if (post.HandedToSecurityAt is null)
+        {
+            post.HandedToSecurityAt = DateTime.UtcNow;
+            post.UpdatedAt = DateTime.UtcNow;
+            _db.FoundReportStatusHistories.Add(new FoundReportStatusHistory
+            {
+                FoundReportId = post.Id,
+                FromStatus = FoundReportStatus.Posted,
+                ToStatus = FoundReportStatus.Posted,
+                ChangedByUserId = finderId,
+                Reason = "Finder declared that the item was handed to security.",
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        return await LoadAsync(post.Id, finderId, cancellationToken);
+    }
+
     public async Task<FoundReportDetailDto> GetByHandInCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         var normalised = code.Replace(" ", "");
@@ -546,5 +576,6 @@ public class FoundPostService : IFoundPostService
             f.FoundAt,
             f.Status.ToString(),
             requesterId != null && f.FinderId == requesterId ? f.HandInCode : null,
+            requesterId != null && f.FinderId == requesterId ? f.HandedToSecurityAt : null,
             f.CreatedAt);
 }

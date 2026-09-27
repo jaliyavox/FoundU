@@ -80,6 +80,12 @@ public class FoundPostsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _posts.WithdrawAsync(id, User.GetUserId(), request.Reason, cancellationToken));
 
+    [HttpPost("{id:guid}/hand-in")]
+    public async Task<ActionResult<FoundPostFeedItemDto>> DeclareHandedIn(
+        Guid id,
+        CancellationToken cancellationToken)
+        => Ok(await _posts.DeclareHandedInAsync(id, User.GetUserId(), cancellationToken));
+
     /// <summary>The desk pulling a post up by the code the finder quotes.</summary>
     [HttpGet("by-code/{code}")]
     [Authorize(Policy = PolicyNames.Staff)]

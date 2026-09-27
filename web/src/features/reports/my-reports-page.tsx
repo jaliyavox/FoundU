@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BellRingIcon,
+  CheckCircle2Icon,
   ChevronLeftIcon,
   MessageSquareIcon,
   ChevronRightIcon,
@@ -33,6 +34,12 @@ import {
   type LostReportQuery,
 } from './reports-api'
 import { timeAgo } from '@/features/feed/feed-api'
+import {
+  declareFoundPostHandedIn,
+  displayCode,
+  getMyFoundPosts,
+  type FoundPostItem,
+} from '@/features/feed/feed-api'
 import { ItemIllustration } from '@/features/feed/item-illustration'
 import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
@@ -90,6 +97,22 @@ export function MyReportsPage() {
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['my-lost-reports', query],
     queryFn: () => getMyLostReports(query),
+  })
+
+  const { data: foundPosts, isPending: foundPostsPending } = useQuery({
+    queryKey: ['my-found-posts'],
+    queryFn: () => getMyFoundPosts(1, 50),
+  })
+
+  const declareHandedIn = useMutation({
+    mutationFn: (id: string) => declareFoundPostHandedIn(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-found-posts'] })
+      toast.success('Saved. Security still needs to confirm receipt at the desk.')
+    },
+    onError: mutationError => {
+      toast.error(mutationError instanceof ApiError ? mutationError.message : 'Could not update the found item.')
+    },
   })
 
   const resolve = useMutation({
@@ -157,6 +180,39 @@ export function MyReportsPage() {
 
       {/* Matching suggestions panel */}
       <SuggestionsPanel />
+
+      <DashboardPanel className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-base font-medium">Found item reports</h2>
+            <p className="pt-1 text-sm text-muted-foreground">
+              Track items you found and tell security when you have handed one in.
+            </p>
+          </div>
+          <Button variant="outline" nativeButton={false} render={<Link to="/found/new" />}>
+            <PlusIcon aria-hidden="true" />
+            List a found item
+          </Button>
+        </div>
+
+        {foundPostsPending ? (
+          <Skeleton className="h-20 w-full" />
+        ) : foundPosts?.items.length ? (
+          <ul className="flex flex-col gap-3">
+            {foundPosts.items.map(post => (
+              <li key={post.id}>
+                <FoundPostCard
+                  post={post}
+                  isUpdating={declareHandedIn.isPending && declareHandedIn.variables === post.id}
+                  onHandedIn={() => declareHandedIn.mutate(post.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">You have not listed a found item yet.</p>
+        )}
+      </DashboardPanel>
 
       {/* Filters, Search, Sort Controls */}
       <div className={cn(panelSurface, 'flex flex-col gap-4 p-4')}>
@@ -430,6 +486,54 @@ export function MyReportsPage() {
         }}
       />
     </section>
+  )
+}
+
+function FoundPostCard({
+  post,
+  isUpdating,
+  onHandedIn,
+}: {
+  post: FoundPostItem
+  isUpdating: boolean
+  onHandedIn: () => void
+}) {
+  const isPosted = post.status === 'Posted'
+  const isDeclared = Boolean(post.handedToSecurityAt)
+  const isAtDesk = post.status !== 'Posted'
+
+  return (
+    <article className="flex flex-col gap-3 rounded-xl border border-foreground/10 bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-sm font-medium">
+            {[post.primaryColor, post.itemTypeName].filter(Boolean).join(' ')}
+          </h3>
+          <Badge variant="outline">{isAtDesk ? 'At security' : isDeclared ? 'Handed in' : 'Still with you'}</Badge>
+        </div>
+        <p className="pt-1 text-xs text-muted-foreground">
+          {post.categoryName} · found at {post.foundLocationName} · {timeAgo(post.createdAt)}
+        </p>
+        <p className="pt-2 text-sm text-muted-foreground">{post.description}</p>
+        {post.handInCode && isPosted && (
+          <p className="pt-2 text-xs text-muted-foreground">
+            Desk code: <span className="font-mono font-medium tracking-wider text-foreground">{displayCode(post.handInCode)}</span>
+          </p>
+        )}
+        {isDeclared && isPosted && (
+          <p className="pt-2 text-xs text-amber-700 dark:text-amber-300">
+            You marked this as handed in. Security must confirm receipt before it can be claimed.
+          </p>
+        )}
+      </div>
+
+      {isPosted && !isDeclared && (
+        <Button className="shrink-0" disabled={isUpdating} onClick={onHandedIn}>
+          {isUpdating ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <CheckCircle2Icon aria-hidden="true" />}
+          I gave it to security
+        </Button>
+      )}
+    </article>
   )
 }
 

@@ -138,6 +138,7 @@ export interface FoundPostItem {
   status: 'Posted' | 'Unclaimed' | 'Claimed' | 'Returned' | 'Disposed'
   /** Only on your own post - what you quote at the desk. */
   handInCode: string | null
+  handedToSecurityAt: string | null
   createdAt: string
 }
 
@@ -166,6 +167,9 @@ export const recogniseFoundPost = (id: string, lostReportId: string) =>
 
 export const withdrawFoundPost = (id: string, reason?: string) =>
   api.post<FoundPostItem>(`/api/found-posts/${id}/withdraw`, { reason })
+
+export const declareFoundPostHandedIn = (id: string) =>
+  api.post<FoundPostItem>(`/api/found-posts/${id}/hand-in`)
 
 export const getMyFoundPosts = (page = 1, pageSize = 20) =>
   api.get<PagedResult<FoundPostItem>>(`/api/found-posts/mine?page=${page}&pageSize=${pageSize}`)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ClockIcon, HashIcon, HandIcon, Loader2Icon, MapPinIcon, Trash2Icon } from 'lucide-react'
@@ -11,7 +11,15 @@ import { getMyLostReports } from '@/features/reports/reports-api'
 import { FormSelect } from '@/features/reports/form-select'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { displayCode, getFoundFeed, recogniseFoundPost, timeAgo, withdrawFoundPost, type FoundPostItem } from './feed-api'
+import {
+  declareFoundPostHandedIn,
+  displayCode,
+  getFoundFeed,
+  recogniseFoundPost,
+  timeAgo,
+  withdrawFoundPost,
+  type FoundPostItem,
+} from './feed-api'
 import { ItemIllustration } from './item-illustration'
 import { MessageThread } from './message-thread'
 import { CardConnector } from './card-connector'
@@ -119,7 +127,11 @@ export function FoundPostCard({ item, onOpen }: { item: FoundPostItem; onOpen: (
         />
         {/* Says plainly what a teaser is: not yet in anyone's custody. */}
         <span className="absolute top-3 left-3 rounded-full bg-amber-400/90 px-2.5 py-1 text-[11px] font-semibold text-neutral-900">
-          {item.isMine ? 'Your post' : 'Not at a desk yet'}
+          {item.isMine && item.handedToSecurityAt
+            ? 'Handed to security'
+            : item.isMine
+              ? 'Your post'
+              : 'Not at a desk yet'}
         </span>
       </div>
 
@@ -144,6 +156,11 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
   const queryClient = useQueryClient()
   const [reportId, setReportId] = useState('')
   const [done, setDone] = useState(false)
+  const [selectedPostState, setSelectedPostState] = useState<FoundPostItem | null>(item)
+
+  useEffect(() => {
+    setSelectedPostState(item)
+  }, [item])
 
   const canRecognise = user?.role === 'Student' && item !== null && !item.isMine
 
@@ -173,6 +190,18 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
     onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.'),
   })
 
+  const handIn = useMutation({
+    mutationFn: () => declareFoundPostHandedIn(item!.id),
+    onSuccess: next => {
+      setSelectedPostState(next)
+      queryClient.invalidateQueries({ queryKey: ['found-feed'] })
+      toast.success('Saved. Security still needs to confirm receipt at the desk.')
+    },
+    onError: error => toast.error(error instanceof ApiError ? error.message : 'Could not update the post.'),
+  })
+
+  const displayedItem = selectedPostState ?? item
+
   return (
     <>
       {/* Same lift-and-chain as the lost board: card out of the grid, dashed line, panel. */}
@@ -200,7 +229,9 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
             </SheetHeader>
 
             <p className="rounded-xl border border-amber-500/30 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Not at a desk yet. It can be claimed once the finder hands it in.
+              {item.isMine && displayedItem?.handedToSecurityAt
+                ? 'You marked this as handed to security. It can be claimed after security confirms receipt.'
+                : 'Not at a desk yet. It can be claimed once the finder hands it in.'}
             </p>
 
             <p className="text-sm leading-relaxed text-pretty text-neutral-700">{item.description}</p>
@@ -224,11 +255,11 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
               </div>
             </dl>
 
-            {item.isMine && item.handInCode && (
+            {item.isMine && displayedItem?.handInCode && (
               <div className="flex items-center justify-between gap-4 rounded-xl bg-brand-forest px-4 py-3 text-white">
                 <div>
                   <p className="text-xs text-white/70">Quote this at the desk when you hand it in</p>
-                  <p className="font-mono text-2xl font-semibold tracking-[0.2em] tabular-nums">{displayCode(item.handInCode)}</p>
+                  <p className="font-mono text-2xl font-semibold tracking-[0.2em] tabular-nums">{displayCode(displayedItem.handInCode)}</p>
                 </div>
                 <HashIcon className="size-6 shrink-0 text-white/60" aria-hidden="true" />
               </div>
@@ -242,15 +273,27 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
             )}
 
             {item.isMine ? (
-              <Button
-                variant="outline"
-                className="border-neutral-900/15 bg-white/70 text-neutral-800 hover:bg-white"
-                onClick={() => withdraw.mutate()}
-                disabled={withdraw.isPending}
-              >
-                {withdraw.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <Trash2Icon aria-hidden="true" />}
-                Take this post down
-              </Button>
+              <div className="flex flex-col gap-3">
+                {displayedItem.status === 'Posted' && !displayedItem.handedToSecurityAt && (
+                  <Button
+                    className="bg-brand-forest text-white hover:bg-brand-forest/90"
+                    onClick={() => handIn.mutate()}
+                    disabled={handIn.isPending}
+                  >
+                    {handIn.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <HandIcon aria-hidden="true" />}
+                    I gave it to security
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="border-neutral-900/15 bg-white/70 text-neutral-800 hover:bg-white"
+                  onClick={() => withdraw.mutate()}
+                  disabled={withdraw.isPending || handIn.isPending}
+                >
+                  {withdraw.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <Trash2Icon aria-hidden="true" />}
+                  Take this post down
+                </Button>
+              </div>
             ) : !user ? (
               <Button className="bg-brand-forest text-white hover:bg-brand-forest/90" nativeButton={false} render={<Link to="/login" />}>
                 Sign in if this is yours

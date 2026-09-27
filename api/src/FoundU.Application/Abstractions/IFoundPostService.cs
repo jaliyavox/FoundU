@@ -36,6 +36,8 @@ public interface IFoundPostService
     /// <summary>The finder taking their post down before a desk sees it.</summary>
     Task<FoundPostFeedItemDto> WithdrawAsync(Guid id, Guid finderId, string? reason, CancellationToken cancellationToken = default);
 
+    Task<FoundPostFeedItemDto> DeclareHandedInAsync(Guid id, Guid finderId, CancellationToken cancellationToken = default);
+
     /// <summary>Staff pulling a post up by the code the finder quotes at the desk.</summary>
     Task<FoundReportDetailDto> GetByHandInCodeAsync(string code, CancellationToken cancellationToken = default);
 

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeftIcon,
+  CheckCircle2Icon,
   ClockIcon,
   EyeOffIcon,
   LinkIcon,
@@ -11,6 +12,7 @@ import {
   PackageCheckIcon,
   PackageIcon,
   RotateCwIcon,
+  ShieldCheckIcon,
   UserIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -131,6 +133,8 @@ export function ItemDetailPage() {
 
       {item.status === 'Posted' && <ConfirmPostPanel item={item} />}
 
+      <CustodyTracker item={item} />
+
       {/* Set apart deliberately: this is the one thing on the screen that must not be read
           out to whoever is standing at the counter. */}
       <DashboardPanel className="flex flex-col gap-3 border-amber-500/30 from-amber-500/8 via-amber-500/4 to-transparent dark:from-amber-500/12">
@@ -218,6 +222,46 @@ export function ItemDetailPage() {
   )
 }
 
+function CustodyTracker({ item }: { item: FoundReportDetail }) {
+  const steps = [
+    { label: 'Found item posted', done: true },
+    { label: 'Received by security', done: item.status !== 'Posted' },
+    { label: item.status === 'Returned' ? 'Returned to owner' : 'Held for verified claim', done: item.status === 'Returned' },
+  ]
+
+  return (
+    <DashboardPanel className="flex flex-col gap-4">
+      <div className="flex items-start gap-3">
+        <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-brand-green" aria-hidden="true" />
+        <div>
+          <h2 className="font-heading text-base font-medium">Security desk tracker</h2>
+          <p className="pt-1 text-sm text-muted-foreground">
+            Track the item from the finder&apos;s post to a verified collection. Each step is recorded against this item.
+          </p>
+        </div>
+      </div>
+
+      <ol className="grid gap-3 sm:grid-cols-3">
+        {steps.map((step, index) => (
+          <li key={step.label} className="flex items-start gap-2 text-sm">
+            <span
+              className={cn(
+                'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-medium',
+                step.done
+                  ? 'border-brand-green bg-brand-green text-white'
+                  : 'border-foreground/15 text-muted-foreground',
+              )}
+            >
+              {step.done ? <CheckCircle2Icon className="size-4" aria-hidden="true" /> : index + 1}
+            </span>
+            <span className={step.done ? 'text-foreground' : 'text-muted-foreground'}>{step.label}</span>
+          </li>
+        ))}
+      </ol>
+    </DashboardPanel>
+  )
+}
+
 function Fact({
   icon: Icon,
   label,
@@ -272,10 +316,10 @@ function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
   return (
     <DashboardPanel className="flex flex-col gap-4 border-amber-500/30 from-amber-500/8 via-amber-500/4 to-transparent dark:from-amber-500/12">
       <div>
-        <h2 className="font-heading text-base font-medium">Confirm it at the desk</h2>
+          <h2 className="font-heading text-base font-medium">Receive it at the security desk</h2>
         <p className="pt-1 text-sm text-muted-foreground">
-          {item.finderName ?? 'A student'} posted this and has now handed it in. Say where it is kept and
-          record one detail the finder did not publish. From then on it can be claimed.
+          {item.finderName ?? 'A student'} posted this item. Confirm that you physically received it,
+          choose where it is kept, and record one private detail before it can be claimed.
         </p>
         {item.handInCode && (
           <p className="pt-2 text-xs text-muted-foreground">
@@ -316,7 +360,7 @@ function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
         onClick={() => confirm.mutate()}
       >
         {confirm.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <PackageCheckIcon aria-hidden="true" />}
-        Confirm and shelve it
+        I received it at the security desk
       </Button>
     </DashboardPanel>
   )

@@ -38,6 +38,7 @@ public record FoundPostFeedItemDto(
     DateTime FoundAt,
     string Status,
     string? HandInCode,
+    DateTime? HandedToSecurityAt,
     DateTime CreatedAt);
 
 /// <summary>
