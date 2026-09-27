@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  HandHeartIcon,
   PlusIcon,
   RotateCwIcon,
   SearchIcon,
@@ -145,6 +146,19 @@ export function FeedPage() {
                 <PlusIcon aria-hidden="true" />
                 {postLabel}
               </Button>
+              {/* The other half of the board. Without it a finder had to spot "See more" on
+                  the Fresh finds strip to learn that posting a find was possible at all. */}
+              {user?.role === 'Student' && (
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-white/25 bg-white/8 text-white hover:bg-white/15 hover:text-white"
+                  nativeButton={false}
+                  render={<Link to="/found/new" />}
+                >
+                  <HandHeartIcon aria-hidden="true" />
+                  Post a found item
+                </Button>
+              )}
             </div>
           </div>
         </section>
