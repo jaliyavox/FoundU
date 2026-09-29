@@ -9,7 +9,7 @@ Available now:
   Read before writing screens in `/web`.
 - [`testing/test-report.md`](testing/test-report.md) — final testing pass: what was run, the
   defects found and fixed, and the known issues still open.
-- [`testing/user-stories.md`](testing/user-stories.md) — 58 user stories with acceptance
+- [`testing/user-stories.md`](testing/user-stories.md) — 59 user stories with acceptance
   criteria, owner and how each was verified.
 - [`testing/evaluation-guide.md`](testing/evaluation-guide.md) — the four-member split, demo
   scripts, tests to show, viva questions and a shared rubric.

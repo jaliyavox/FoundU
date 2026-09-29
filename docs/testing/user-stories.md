@@ -45,7 +45,7 @@ browser crawl, logged in as the role · **M** = manual demo step in the evaluati
 
 | ID | Story | Acceptance criteria | Pri | Verified |
 |---|---|---|---|---|
-| US-20 | As a **student**, I want to claim a found item from a match suggestion, so that I can get it back. | One open claim per item per student. The report moves to Matched. | Must | A, L |
+| US-20 | As a **student**, I want to claim a found item from a match suggestion, so that I can get it back. | One open claim per item per student, and none once an item is approved for the report (one lost item is one found item). The report moves to Matched. | Must | A, L |
 | US-21 | As a **student**, I want to answer verification questions, so that I can prove the item is mine. | Questions never reveal the private details. Answers are at most 500 characters. The claim moves to UnderReview. | Must | A, L |
 | US-22 | As a **student**, I want to see my claims and their status, and cancel one, so that I stay informed. | "My claims" is paginated. I can cancel only while the claim is open. The collection code shows only to me once the claim is approved. | Must | A, B |
 | US-23 | As a **student**, I want to dismiss a suggestion that isn't mine, so that my list stays clean. | The suggestion is marked Dismissed. | Should | A |
@@ -71,7 +71,7 @@ browser crawl, logged in as the role · **M** = manual demo step in the evaluati
 | US-42 | As **staff**, I want to look up a finder's post by its code and confirm it arrived, so that it becomes a stored item. | The status becomes Unclaimed and the finder earns +10 and is notified. | Must | A |
 | US-43 | As **staff**, I want to enter a handover code and **receive** the item into storage, so that the owner is told where to collect it. | A storage location is required and an optional note is kept in the history. A code for a closed report is refused. | Must | A, L |
 | US-44 | As **staff**, I want to **release** an item by code after checking the collector's ID, so that it goes to the right person. | The ID-check box is required (400 without it). A code works only once (404 the second time). The finder earns +25. | Must | A, L |
-| US-45 | As **staff**, I want to hand over an approved claim by its collection code, so that the owner leaves with the item. | The lost report becomes Resolved and the found item Returned. The code works only once. | Must | L |
+| US-45 | As **staff**, I want to hand over an approved claim by its collection code, so that the owner leaves with the item. | The desk looks the code up and sees the owner's name first. Hand-over needs the ID-check tick (400 without). The lost report becomes Resolved and the found item Returned. The code works only once. | Must | A, L, B |
 
 ## Epic 6 — AI agents and matching · owner M3
 
@@ -102,10 +102,11 @@ browser crawl, logged in as the role · **M** = manual demo step in the evaluati
 | US-70 | As **staff**, I want an overview of queues (claims to review, items in storage, open tickets, flags), so that I know what needs doing today. | Staff see the figures; only Admin see links to admin-only pages. | Must | B |
 | US-71 | As **staff**, I want a claim queue and claim detail with questions, answers, AI runs and decision buttons, so that I can verify ownership. | Approve, Reject (reason required) or Request revision. Approving closes rival claims on the same item. Staff never see the collection code. | Must | A, L |
 | US-72 | As an **admin**, I want to overturn a wrongful rejection, so that mistakes can be corrected. | A reason of at least 10 characters. Both decisions are kept for audit. The report goes back to Matched. Refused if the item has gone or the report is closed. | Should | L |
-| US-73 | As an **admin**, I want to search users and suspend or reinstate them with a reason, so that I can stop abuse. | I cannot suspend myself or another admin. Suspension blocks login and refresh immediately and revokes sessions and devices. | Must | A, L |
+| US-73 | As an **admin**, I want to search users and suspend or reinstate them with a reason, so that I can stop abuse. | I cannot suspend myself or another admin. Suspension blocks login and refresh immediately, and a token already issued stops on its next request. Sessions and devices are revoked. | Must | A, L |
+| US-78 | As an **admin**, I want to make a registered user Staff or Admin, so that I can staff the desk without touching the database. | Never my own role. Only real roles. The user is signed out and returns with the new access. | Must | A, L, B |
 | US-74 | As an **admin**, I want to manage places, categories, item types and storage locations, so that the pickers match the campus. | Add, rename, retire or restore. Delete only what no record uses (409 otherwise), and never the last available one. | Must | A, L |
 | US-75 | As an **admin**, I want analytics (returns, mean days to return, storage, 30-day chart), so that I can report on the service. | Counts come from real records. There is a "show as table" view for accessibility. | Should | B |
-| US-76 | As an **admin**, I want a moderation page for flagged reports and rejected claims, so that I can act on them. | Clear a flag in one click (the API also allows Staff). Known issue: only the first 20 flags are listed. | Should | B |
+| US-76 | As an **admin**, I want a moderation page for flagged reports and rejected claims, so that I can act on them. | Clear a flag in one click (the API also allows Staff). Paged, so every flag can be reached. | Should | B |
 | US-77 | As **staff**, the pages I can't use should be blocked, so that access is enforced on the server and in the browser. | The API enforces Student, Staff and Admin policies. Web routes redirect to `/forbidden`. | Must | L, B |
 
 ## Epic 9 — Support tickets · owner M4
@@ -129,6 +130,6 @@ browser crawl, logged in as the role · **M** = manual demo step in the evaluati
 | 5 Desk work with codes | 6 | M2 |
 | 6 AI agents and matching | 8 | M3 |
 | 7 Notifications and push | 4 | M3 |
-| 8 Staff and Admin panel | 8 | M4 |
+| 8 Staff and Admin panel | 9 | M4 |
 | 9 Support tickets | 3 | M4 |
-| **Total** | **58** | M1 18 · M2 13 · M3 12 · M4 15 |
+| **Total** | **59** | M1 18 · M2 13 · M3 12 · M4 16 |

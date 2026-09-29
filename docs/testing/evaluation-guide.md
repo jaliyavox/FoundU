@@ -52,10 +52,10 @@ Suggested grade bands: 85+ excellent · 70–84 good · 55–69 satisfactory · 
 
 | | M1 | M2 | M3 | M4 |
 |---|---|---|---|---|
-| User stories | 18 | 13 | 12 | 15 |
+| User stories | 18 | 13 | 12 | 16 |
 | API controllers | 3 | 5 | 4 | 7 |
 | Main backend services | Auth, Profile, LostReport, PhotoStorage | FoundPost, FoundReport, Handover, Honor, HelpToFind | Whole AI service (Python), Matching/Verification/Parser/Intake/Workflow clients, Notification push | Claim, AdminUser, AdminOverview, Analytics, ReferenceAdmin, Support |
-| Fixes from the testing pass (§3) | 6, 7, 8, 16, 17, 22, 26 | 2, 3, 4, 12, 20, 24, 25 | 1, 5, 11, 14, 15, 18, 21, 27 | 9, 10, 13, 19, 23 |
+| Fixes from testing (report §3 and §5) | 6, 7, 8, 16, 17, 22, 26, 36, 43 | 2, 3, 4, 12, 20, 24, 25, 32, 37, 38 | 1, 5, 11, 14, 15, 18, 21, 27, 41 | 9, 10, 13, 19, 23, 33, 34, 35, 39, 40, 42 |
 | Platforms | Web + mobile | Web + mobile | Python + web + mobile | Web (+ mobile claims and support) |
 
 ---
@@ -100,7 +100,7 @@ accessibility, flagging a report, "I got it back".
 - *How do you stop one student editing another's report?* The service compares `report.StudentId` with the id from the token and returns 403. The live probes check this.
 - *Web tokens are in localStorage — is that safe?* This is a documented trade-off in `tokens.ts`. The API returns tokens in the response body, so an httpOnly cookie isn't available. The 15-minute access token limits the damage.
 
-**Known limitations to raise:** there is no endpoint to create staff accounts (seed only) · a suspended user's access token works for up to 15 minutes · the mobile app has no Google sign-in and no flag button.
+**Known limitations to raise:** the mobile app has no Google sign-in and no flag button · the web keeps tokens in localStorage (see the viva answer above).
 
 ---
 
@@ -143,7 +143,9 @@ mine" recognition.
 - *What happens if the finder never turns up?* After 48 hours the handover expires, the code is cleared and the report goes back on the feed (`ExpireLapsedAsync`).
 - *Why does receiving an item create a `FoundReport`?* So storage, audits and analytics treat it like any other item in custody.
 
-**Known limitations to raise:** staff cannot mark an item Disposed · claim collection does not require an ID-check flag (handover release does) · mobile can't show "my found posts" or "I gave it to security".
+**Known limitations to raise:** staff cannot mark an item Disposed · mobile can't show "my found posts" or "I gave it to security".
+
+**Also be ready for:** *what if two desks scan the same code at once?* Claims, found items and handovers carry PostgreSQL's `xmin` row version, so the second save fails with a 409 instead of logging the item twice (test report fix 32). *Why does collection need an ID tick?* The code says which item, not who is at the counter. The desk looks the code up, sees the owner's name, then confirms the ID check (fix 37).
 
 ---
 
@@ -203,7 +205,9 @@ approval step, and the service-key authentication.
 - *Why could matching produce false positives before, and how did you prove the fix?* Colour alone scored 0.5. There is a new unit test, and the black umbrella vs black wallet case now gives no_match.
 - *Is this machine learning?* Be honest. See the note above.
 
-**Known limitations to raise:** answer grading almost never returns `likely_match` (exact match only, and stop words count) · matching compares one pair on type and colour, with no date or place weighting · 7 of the 9 registry tools are stubs · the in-memory LangGraph checkpointer is never cleared.
+**Known limitations to raise:** matching compares one pair on type and colour, with no date or place weighting · 7 of the 9 registry tools are stubs · the in-memory LangGraph checkpointer is never cleared.
+
+**Also be ready for:** *how is an answer graded?* Filler words are ignored. At least 80% of the hidden detail's meaningful words is a match, 40% is partial. An answer much longer than the detail is capped at partial, so listing every plausible word does not work (fix 41).
 
 ---
 
@@ -231,7 +235,7 @@ route guards, and the global error handling.
 1. Sign in as `priya` (staff) → lands on Found items. Open **Overview** → queue figures. Staff see no links to admin pages (fix 19). Try `/admin` → Forbidden.
 2. Full claim: a student claims an item → staff **Generate questions** → the student answers → staff see the answers and the AI recommendation → **Reject** with a reason → the report is back on the feed.
 3. Sign in as admin → **Overturn** the rejection with a reason → the claim is approved, both decisions are kept, and the report is off the feed (fix 10). The student sees the collection code, staff don't.
-4. **Users**: search `nadia` → suspend with a reason → she cannot log in (403, but a wrong password still gives 401). Reinstate. Try to suspend yourself → refused.
+4. **Users**: search `nadia` → suspend with a reason → she cannot log in (403, but a wrong password still gives 401), and a token she already had stops working on the next request. Reinstate. Try to suspend yourself → refused. **Make a registered student Staff** with the role control → they are signed out and come back with desk access. Your own role can't be changed.
 5. **Places & categories**: add a place, rename it, retire it. Try to delete a category that has reports → 409 "Retire it instead".
 6. **Analytics**: returns, storage, the 30-day chart and "Show as a table". **Moderation**: clear a flag.
 7. **Support**: as `dev`, open a ticket. As `priya`, assign it, reply, then resolve → Dev is notified. Dev replies → the ticket reopens.
@@ -247,7 +251,9 @@ route guards, and the global error handling.
 - *How is the overturn audited?* The rejection and the override `ApprovalDecision` rows both stay, with `IsOverride` and `OverriddenByUserId`.
 - *Why did a ticket with status "9" vanish from the queue?* `Enum.TryParse` accepts numbers. Validation now requires `Enum.IsDefined` (fix 9).
 
-**Known limitations to raise:** no endpoint to create or promote staff · analytics days are in UTC · moderation lists only the first 20 flags · a suspended user's access token lasts up to 15 minutes.
+**Known limitations to raise:** analytics days are in UTC (the chart says so).
+
+**Also be ready for:** *one lost item, two found items?* Approval refuses a second item for the same report, and the owner's other claims close (fix 33). *The owner withdraws while staff are reviewing?* The claim is cancelled and approval is refused (fix 34). *How are staff accounts made?* They register, then an admin changes their role (fix 39).
 
 ---
 

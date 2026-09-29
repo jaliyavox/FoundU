@@ -23,7 +23,7 @@ after the fixes.
 | Browser crawl, 3 roles × every page (Playwright) | — | **48/48 pages** load with no console errors and no failed API calls. Every forbidden route redirects. |
 | Bugs fixed | — | **31** (1 build break, 5 High, 14 Medium, 11 Low) |
 
-**Total automated tests: 585, all passing.**
+**Total automated tests: 585, all passing** (596 after the evaluation-panel pass in section 5).
 
 ## 2. How it was tested
 
@@ -93,26 +93,43 @@ listed so no member is caught out in a viva.
 
 | Area | Issue | Impact | Suggested fix |
 |---|---|---|---|
-| API | **No endpoint creates Staff or promotes a user.** Staff accounts exist only through `demo_seed.py`, which uses direct SQL. `AdminUserService` tells admins to "change the role first", which isn't possible. | Examiners may ask how staff are onboarded. | `POST /api/admin/users` or `PUT /api/admin/users/{id}/role` (Admin policy) |
-| API | An access token keeps working for up to **15 minutes** after suspension. Refresh is blocked immediately. | Standard JWT trade-off, documented in code. | Check `IsSuspended` in `OnTokenValidated` |
 | API | A Google-only account can add a password with only an access token. | Low: an attacker needs a stolen token. | Require a fresh Google ID token |
-| API | Claim collection by code does not require an ID-check flag, although handover release does. | Inconsistent desk procedure. | Add `OwnerIdChecked` to the collect request |
 | API | Staff cannot mark a stored item as **Disposed**. | Items stay in storage forever. | A staff "dispose" action |
 | API | Analytics group days in **UTC**, not campus time. | Chart days shift by 5.5 hours (Sri Lanka). | Convert to the campus time zone, or label the chart UTC |
 | API | After a revision, a paused coordinator run from the first attempt can stop a new run from starting. | Rare. Staff can still decide manually. | Close the old run on revision |
 | API | FCM `InvalidArgument` deactivates a device token even when the payload was at fault. | Low. | Only deactivate on `Unregistered` |
 | API | Dead code: the `StorageTransfer` entity, the reference-data block in `DevelopmentDataSeeder`, and the duplicate route `lost-reports/mine` + `my-reports` (web uses one, mobile the other). | Cleanup only. | Remove, or pick one route |
-| AI | Verification grading almost never returns `likely_match`: exact match, and stop words count toward overlap. | Staff rely on their own judgement. | Drop stop words, and count a score ≥ 0.8 as a match |
 | AI | Intake field limits (40 or 80 characters) are shorter than the DB columns (50, 100, 150). A very long place name makes Ask FoundU unavailable. | Rare. | Align the limits |
 | AI | Retrying after a mid-run 503 gets 409 instead of resuming. | Rare. | Allow a failed record to re-run |
 | AI | 7 of the 9 registry tools are stubs; `/agents/parse-description` has no caller. | Cleanup only. | Remove, or mark as future work |
-| Web | Moderation lists only the first 20 flags. The count shows the total. | Only with more than 20 flags. | Add a pager |
-| Web | Login redirects back to the page you came from even if your role can't open it. | Lands on Forbidden once. | Check the role before redirecting |
 | Web | A single 1.4 MB JavaScript bundle (Vite warning). | Slower first load. | Split routes with `React.lazy` |
 | Mobile | Missing compared with web: my found posts and "I gave it to security", the match-suggestions list, flagging a report, Google sign-in. | Students need the web app for these. | Port the screens |
 | Mobile | After a claim from Ask FoundU, or a report withdraw/resolve, My claims or the feed are refreshed only by pull-to-refresh. | Stale for a short time. | `ref.invalidate` the providers |
 
-## 5. How to reproduce the testing
+## 5. Evaluation-panel pass (29 September 2026)
+
+We re-ran the system as an examiner would: reading the claim, handover and collection code for state-machine gaps, then attacking the running stack. That meant parallel requests, one student acting on another's records, disguised uploads and malformed input. A probe of **36 live checks** now passes. A browser run drives the new desk-collection and login flows (4/4), and the 48-page crawl is still clean. Each fix below has a test.
+
+| # | Severity | Defect found by the panel | Fix | Proof |
+|---|---|---|---|---|
+| 32 | **High** | **Race:** two staff approving rival claims on one item at the same moment both got 200. Each approval rejected the other and both saves landed, so **both students were told "approved" and "rejected"**, and the loser kept a collection code. Two desks receiving one handover code could log the item twice. | Claims, found items and handovers carry PostgreSQL's `xmin` row version as a concurrency token. The second save fails with 409. The migration adds no column. | `PostgresPersistenceIntegrationTests.TwoStaffApprovingRivalClaimsAtOnce…` (fails 2 runs in 5 without the fix, passes 10 in 10 with it); live: parallel approvals give 200 + 409, parallel receives give 200 + 409, no orphaned item |
+| 33 | High | One lost report could have **two items approved** (claim A on item X and claim B on item Y). | Approval requires no other approved item for the report. The owner's other open claims on it close. A new claim is refused once one is approved. | `ClaimLifecycleTests.ApprovingOneItemClosesTheOwnersOtherClaims…`, live |
+| 34 | High | Staff could **approve a claim after the owner withdrew the report**. Withdraw left open claims in the queue. | Withdraw and "I got it back" cancel claims still waiting on staff. Every approval (staff or admin overturn) checks that the report is open and the item unreserved. | `ClaimLifecycleTests.WithdrawingCancelsOpenClaims…`, live |
+| 35 | Medium | A rejection or cancel put the report **back on the public feed** while an approved item, or a finder's hand-in, was still waiting at the desk for the owner. | Reopening also counts approved-uncollected claims and live handovers. | `ClaimLifecycleTests.ARejectionDoesNotPutTheReportBack…` |
+| 36 | Medium | An owner could withdraw a report while their item sat reserved at the desk, leaving it on hold forever. | Refused with a clear message (collect it, or open a ticket). | `ClaimLifecycleTests.AnOwnerCannotWithdrawWhile…`, live |
+| 37 | Medium | "Mark collected" handed an item over the moment a code was typed. The desk never saw whose item it was, and there was no ID check, unlike handover release. | `GET /api/claims/by-code/{code}` shows the owner first. Collect requires `ownerIdChecked`. The web desk is now look-up → tick → hand over. | `ClaimsEndpointIntegrationTests`, `ClaimLifecycleTests.TheDeskMustCheckId…`, browser flow |
+| 38 | Medium | A student's "might be yours" list kept items that were taken down, already returned or reserved for someone else. "This is mine" then failed. | Filtered out. | live (post withdrawn → suggestion gone) |
+| 39 | Medium | No way to make anyone Staff or Admin (only direct SQL in the seed script). | `PUT /api/admin/users/{id}/role` and a role control on the Users page. You can never change your own role. The user's sessions end. | `ClaimLifecycleTests.AnAdminMakesSomeoneStaff…`, live |
+| 40 | Medium | A suspended user's access token, or one carrying an old role, kept working for up to 15 minutes. | The token check at validation refuses it on the next request. | live (suspend → 401; role change → old token 401) |
+| 41 | Low | Answer grading almost never reached `likely_match`, and filler words earned partial credit. | Filler words ignored. A faithful paraphrase (≥ 80% of the meaningful words) is a match. A keyword-stuffed answer is capped at partial. | `test_a_faithful_paraphrase_is_a_match…` |
+| 42 | Low | Moderation showed only the first 20 flags. | Pager. | browser crawl |
+| 43 | Low | After signing in, a staff member who had followed a student link landed on Forbidden. | The redirect is used only if the role can open that page. | `role-home.test.ts`, browser flow |
+
+**Checked and found sound by the panel:** one student opening, answering or cancelling another's claim, or uploading to their report (403). A text file named `.jpg` (400). Negative page numbers and 5000-character searches (200, clamped). Non-GUID ids (404). Malformed JSON (400). Messaging your own report (400).
+
+**Totals after the panel pass:** .NET 173, AI 297, web 48, mobile 78, so **596 automated tests, all passing**.
+
+## 6. How to reproduce the testing
 
 ```bash
 # Unit / integration (what CI runs)
