@@ -370,9 +370,23 @@ public class LostReportService : ILostReportService
             throw new ConflictAppException("A resolved report cannot be withdrawn.");
         }
 
+        // An item already on a shelf for this owner - an approved claim or a finder's hand-in -
+        // would otherwise sit reserved for someone who has said they no longer want it.
+        var itemWaiting = await _db.Claims.AnyAsync(
+                c => c.LostReportId == report.Id && c.Status == ClaimStatus.Approved && c.CollectedAt == null,
+                cancellationToken)
+            || await _db.LostReportFoundClaims.AnyAsync(
+                h => h.LostReportId == report.Id && h.Status == HandoverStatus.InCustody,
+                cancellationToken);
+        if (itemWaiting)
+        {
+            throw new ConflictAppException(
+                "An item is waiting for you at the desk. Collect it, or open a support ticket if it is not yours.");
+        }
+
         var previousStatus = report.Status;
 
-        await CancelHandoversInFlightAsync(report, cancellationToken);
+        await CloseOpenWorkAsync(report, studentId, "The owner withdrew the report.", cancellationToken);
         report.Status = LostReportStatus.Withdrawn;
         report.WithdrawReason = Normalize(reason);
         report.WithdrawnAt = DateTime.UtcNow;
@@ -393,11 +407,30 @@ public class LostReportService : ILostReportService
     }
 
     /// <summary>
-    /// A closed report has nothing to hand in to: finders still walking it to a desk are
-    /// released, and their codes stop working, so the desk cannot reopen the report.
+    /// A closed report has nothing to hand in to and nothing to claim against: finders still
+    /// walking it to a desk are released (their codes stop working, so the desk cannot reopen
+    /// the report), and claims still waiting on staff leave the queue.
     /// </summary>
-    private async Task CancelHandoversInFlightAsync(LostReport report, CancellationToken cancellationToken)
+    private async Task CloseOpenWorkAsync(LostReport report, Guid ownerId, string reason, CancellationToken cancellationToken)
     {
+        var openClaims = await _db.Claims
+            .Where(c => c.LostReportId == report.Id && Claims.ClaimService.OpenStatuses.Contains(c.Status))
+            .ToListAsync(cancellationToken);
+
+        foreach (var claim in openClaims)
+        {
+            _db.ClaimStatusHistories.Add(new ClaimStatusHistory
+            {
+                ClaimId = claim.Id,
+                FromStatus = claim.Status,
+                ToStatus = ClaimStatus.Cancelled,
+                ChangedByUserId = ownerId,
+                Reason = reason,
+            });
+            claim.Status = ClaimStatus.Cancelled;
+            claim.UpdatedAt = DateTime.UtcNow;
+        }
+
         var walking = await _db.LostReportFoundClaims
             .Where(c => c.LostReportId == report.Id && c.Status == HandoverStatus.AwaitingHandIn)
             .ToListAsync(cancellationToken);
@@ -492,7 +525,7 @@ public class LostReportService : ILostReportService
         }
 
         // After crediting: a finder still walking it to a desk may be the one who helped.
-        await CancelHandoversInFlightAsync(report, cancellationToken);
+        await CloseOpenWorkAsync(report, studentId, "The owner has the item back.", cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

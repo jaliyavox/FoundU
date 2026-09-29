@@ -45,7 +45,7 @@ public class ClaimService : IClaimService
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
-    private static readonly ClaimStatus[] OpenStatuses =
+    internal static readonly ClaimStatus[] OpenStatuses =
     [
         ClaimStatus.Pending,
         ClaimStatus.WaitingForAnswer,
@@ -100,6 +100,15 @@ public class ClaimService : IClaimService
         if (alreadyClaiming)
         {
             throw new ConflictAppException("You already have an open claim for this item.");
+        }
+
+        var reportAlreadyApproved = await _db.Claims.AnyAsync(
+            c => c.LostReportId == request.LostReportId && c.Status == ClaimStatus.Approved,
+            cancellationToken);
+
+        if (reportAlreadyApproved)
+        {
+            throw new ConflictAppException("An item has already been approved for this report. Collect it from the desk.");
         }
 
         var claim = new Claim
@@ -550,6 +559,11 @@ public class ClaimService : IClaimService
 
         var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
 
+        if (decision == ApprovalDecisionType.Approved)
+        {
+            await EnsureApprovableAsync(claim, staffId, "The claim was approved.", cancellationToken);
+        }
+
         _db.ApprovalDecisions.Add(new ApprovalDecision
         {
             ClaimId = claim.Id,
@@ -608,31 +622,9 @@ public class ClaimService : IClaimService
             throw new ConflictAppException("Only a rejected claim can be overturned.");
         }
 
-        // The item may have gone to somebody else in the meantime - their approval stands.
-        var item = await _db.FoundReports
-            .AsNoTracking()
-            .FirstOrDefaultAsync(f => f.Id == claim.FoundReportId, cancellationToken);
-
-        if (item is null || item.Status != FoundReportStatus.Unclaimed)
-        {
-            throw new ConflictAppException("This item is no longer in storage, so the claim cannot be approved now.");
-        }
-
-        // The rejection put the owner's report back on the feed. If they have since closed it
-        // there is nothing to approve; if it is still open it comes off the feed again.
-        var lostReport = await _db.LostReports
-            .FirstOrDefaultAsync(r => r.Id == claim.LostReportId, cancellationToken)
-            ?? throw new NotFoundAppException($"Lost report '{claim.LostReportId}' was not found.");
-
-        if (lostReport.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
-        {
-            throw new ConflictAppException("The owner has closed their report, so the claim cannot be approved now.");
-        }
-
-        if (lostReport.Status == LostReportStatus.Active)
-        {
-            MoveLostReport(lostReport, LostReportStatus.Matched, adminId, "A rejected claim was overturned.");
-        }
+        // The rejection put the owner's report back on the feed, and the item may have gone to
+        // somebody else since. The same checks as any approval.
+        await EnsureApprovableAsync(claim, adminId, "A rejected claim was overturned.", cancellationToken);
 
         var previous = await _db.ApprovalDecisions
             .Where(d => d.ClaimId == claim.Id)
@@ -794,12 +786,27 @@ public class ClaimService : IClaimService
             FromStatus = claim.Status,
             ToStatus = claim.Status,
             ChangedByUserId = staffId,
-            Reason = "Collected.",
+            Reason = "Collected. Student ID checked against the owner's name.",
         });
 
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
+    public async Task<ClaimDetailDto> GetByCollectionCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        var normalised = code.Replace(" ", "");
+        var claimId = await _db.Claims
+            .AsNoTracking()
+            .Where(c => c.CollectionCode == normalised && c.Status == ClaimStatus.Approved)
+            .Select(c => (Guid?)c.Id)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundAppException("No approved claim has that code.");
+
+        return ForStaff(await LoadDetailAsync(claimId, cancellationToken));
     }
 
     /// <summary>
@@ -1010,6 +1017,47 @@ public class ClaimService : IClaimService
     /* ------------------------------------------------------------------ internals */
 
     /// <summary>
+    /// What must be true before anyone - staff or an admin overturning - can approve a claim:
+    /// the item is still on the shelf and unreserved, and the owner has not closed their
+    /// report. A report back on the feed after a rejection comes off it again.
+    /// </summary>
+    private async Task EnsureApprovableAsync(Claim claim, Guid actorId, string reason, CancellationToken cancellationToken)
+    {
+        var item = await _db.FoundReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == claim.FoundReportId, cancellationToken);
+
+        if (item is null || item.Status != FoundReportStatus.Unclaimed)
+        {
+            throw new ConflictAppException("This item is no longer in storage, so the claim cannot be approved now.");
+        }
+
+        var lostReport = await _db.LostReports
+            .FirstOrDefaultAsync(r => r.Id == claim.LostReportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{claim.LostReportId}' was not found.");
+
+        if (lostReport.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
+        {
+            throw new ConflictAppException("The owner has closed their report, so the claim cannot be approved now.");
+        }
+
+        // One lost item is one found item. A second approval against the same report would
+        // put two items on hold for one person.
+        var alreadyApproved = await _db.Claims.AnyAsync(
+            c => c.LostReportId == claim.LostReportId && c.Id != claim.Id && c.Status == ClaimStatus.Approved,
+            cancellationToken);
+        if (alreadyApproved)
+        {
+            throw new ConflictAppException("Another item has already been approved for this report.");
+        }
+
+        if (lostReport.Status == LostReportStatus.Active)
+        {
+            MoveLostReport(lostReport, LostReportStatus.Matched, actorId, reason);
+        }
+    }
+
+    /// <summary>
     /// Approval is the only path that closes anything: the item is handed over, the search is
     /// over, and every other open claim on that item is now moot.
     /// </summary>
@@ -1083,6 +1131,19 @@ public class ClaimService : IClaimService
 
             await ReopenLostReportIfNothingElsePendingAsync(rival, staffId, cancellationToken);
         }
+
+        // The owner's other claims on the same report were for other candidate items. Theirs
+        // has been found, so those can stop taking up a place in the queue.
+        var siblings = await _db.Claims
+            .Where(c => c.LostReportId == claim.LostReportId
+                && c.Id != claim.Id
+                && OpenStatuses.Contains(c.Status))
+            .ToListAsync(cancellationToken);
+
+        foreach (var sibling in siblings)
+        {
+            MoveClaim(sibling, ClaimStatus.Cancelled, staffId, "Another item was approved for this report.");
+        }
     }
 
     /// <summary>
@@ -1099,11 +1160,18 @@ public class ClaimService : IClaimService
 
         if (lostReport is null || lostReport.Status != LostReportStatus.Matched) return;
 
+        // Still spoken for if another claim is open, an approved one is waiting to be collected,
+        // or a finder's handover is on its way or already at a desk. Any of those means the
+        // item may well be found; putting the notice back on the feed would say it is not.
         var stillOpen = await _db.Claims.AnyAsync(
             c => c.LostReportId == claim.LostReportId
                 && c.Id != claim.Id
-                && OpenStatuses.Contains(c.Status),
-            cancellationToken);
+                && (OpenStatuses.Contains(c.Status) || (c.Status == ClaimStatus.Approved && c.CollectedAt == null)),
+            cancellationToken)
+            || await _db.LostReportFoundClaims.AnyAsync(
+                h => h.LostReportId == claim.LostReportId
+                    && (h.Status == HandoverStatus.AwaitingHandIn || h.Status == HandoverStatus.InCustody),
+                cancellationToken);
 
         if (!stillOpen)
         {

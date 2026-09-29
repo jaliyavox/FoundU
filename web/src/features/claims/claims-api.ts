@@ -134,8 +134,15 @@ export const submitAnswers = (id: string, answers: { questionId: string; answerT
 export const decideClaim = (id: string, decision: string, reason?: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/decision`, { decision, reason })
 
-/** Staff: the owner quoted their collection code; this hands the item over. 404 if wrong or used. */
-export const collectClaim = (code: string) => api.post<ClaimDetail>('/api/claims/collect', { code })
+/** Staff: whose approved item a collection code is for, before the ID check. 404 if wrong or used. */
+export const getClaimByCode = (code: string) => api.get<ClaimDetail>(`/api/claims/by-code/${code}`)
+
+/**
+ * Staff: hand the item over. The desk must say it checked the collector's student ID against
+ * the owner's name, as at the handover desk. 404 if the code is wrong or used.
+ */
+export const collectClaim = (code: string, ownerIdChecked: boolean) =>
+  api.post<ClaimDetail>('/api/claims/collect', { code, ownerIdChecked })
 
 /** Admin only: overturn a rejection after a dispute. Recorded as an override. */
 export const overturnClaim = (id: string, reason: string) =>

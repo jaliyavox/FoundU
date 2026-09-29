@@ -133,9 +133,11 @@ assert claim["collectionCode"] is None
 owner = req("GET", f'/claims/{claim["id"]}', student)
 code = owner["collectionCode"]
 assert code
-collected = req("POST", "/claims/collect", admin, {"code": code})
+assert req("GET", f"/claims/by-code/{code}", admin)["id"] == claim["id"]
+req("POST", "/claims/collect", admin, {"code": code}, status=400)  # no ID check, no handover
+collected = req("POST", "/claims/collect", admin, {"code": code, "ownerIdChecked": True})
 assert collected["collectedAt"] and collected["collectionCode"] is None
-req("POST", "/claims/collect", admin, {"code": code}, 404)
+req("POST", "/claims/collect", admin, {"code": code, "ownerIdChecked": True}, 404)
 assert req("GET", f'/lost-reports/{lost["id"]}', student)["status"] == "Resolved"
 assert req("GET", f'/found-reports/{found["id"]}', admin)["status"] == "Returned"
 notes = req("GET", "/notifications", student)["items"]

@@ -88,5 +88,8 @@ public class CollectClaimRequestValidator : AbstractValidator<CollectClaimReques
             .NotEmpty().WithMessage("Ask the student for their collection code.")
             .Must(c => HandoverCodes.LooksValid(c.Replace(" ", "")))
             .WithMessage("A collection code is six digits.");
+
+        RuleFor(x => x.OwnerIdChecked)
+            .Equal(true).WithMessage("Check the collector's student ID against the owner's name first.");
     }
 }

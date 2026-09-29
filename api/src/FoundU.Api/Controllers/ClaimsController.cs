@@ -144,6 +144,12 @@ public class ClaimsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _claims.CollectAsync(request.Code, User.GetUserId(), cancellationToken));
 
+    /// <summary>Staff: whose item a collection code is for, shown before the ID check.</summary>
+    [HttpGet("by-code/{code}")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<ClaimDetailDto>> GetByCollectionCode(string code, CancellationToken cancellationToken)
+        => Ok(await _claims.GetByCollectionCodeAsync(code, cancellationToken));
+
     [HttpPost("{id:guid}/cancel")]
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<ClaimDetailDto>> Cancel(

@@ -67,7 +67,12 @@ public record ClaimDetailDto(
     DateTime UpdatedAt);
 
 /// <summary>The desk marking an item collected. The code is the whole request.</summary>
-public record CollectClaimRequest(string Code);
+/// <summary>
+/// The desk handing over an approved item. Like a handover release, the desk must say it
+/// checked the collector's student ID against the owner's name - a code says which item,
+/// never who is standing at the counter.
+/// </summary>
+public record CollectClaimRequest(string Code, bool OwnerIdChecked = false);
 
 /// <summary>Staff writing the questions a claimant must answer.</summary>
 public record AddVerificationQuestionsRequest(IReadOnlyList<string> Questions);

@@ -106,17 +106,25 @@ public sealed class ClaimsEndpointIntegrationTests
         Assert.NotNull(code);
         Assert.Matches("^[0-9]{6}$", code);
 
-        var wrongCode = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest("000000"));
+        var wrongCode = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest("000000", OwnerIdChecked: true));
         Assert.Equal(HttpStatusCode.NotFound, wrongCode.StatusCode);
 
-        var collected = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code!));
+        // The desk sees whose item it is first, and cannot hand it over without the ID check.
+        var lookup = await staff.GetFromJsonAsync<ClaimDetailDto>($"/api/claims/by-code/{code}");
+        Assert.Equal(claim.Id, lookup!.Id);
+        Assert.Null(lookup.CollectionCode);
+        var unchecked_ = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code!));
+        Assert.Equal(HttpStatusCode.BadRequest, unchecked_.StatusCode);
+        Assert.Equal(FoundReportStatus.Claimed, await app.FoundStatusAsync());
+
+        var collected = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code!, OwnerIdChecked: true));
         collected.EnsureSuccessStatusCode();
         Assert.Equal(FoundReportStatus.Returned, await app.FoundStatusAsync());
         Assert.Equal(LostReportStatus.Resolved, await app.LostStatusAsync());
         Assert.True(await app.HasLostHistoryAsync(app.LostReport.Id, LostReportStatus.Resolved));
 
         // Once. The same code the second time looks like one that never existed.
-        var again = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code));
+        var again = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code, OwnerIdChecked: true));
         Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
     }
 
