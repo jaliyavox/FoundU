@@ -50,6 +50,10 @@ export const suspendUser = (id: string, reason: string) =>
 
 export const reinstateUser = (id: string) => api.post<AdminUser>(`/api/admin/users/${id}/reinstate`)
 
+/** How staff and admins are made: they register, then an admin changes their role here. */
+export const changeUserRole = (id: string, role: AdminUser['role']) =>
+  api.put<AdminUser>(`/api/admin/users/${id}/role`, { role })
+
 export const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })
 

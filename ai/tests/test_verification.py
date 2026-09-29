@@ -95,6 +95,34 @@ def test_answer_evaluation_partial_match():
     assert output["recommendation"] == "manual_review"
 
 
+def test_a_faithful_paraphrase_is_a_match_but_filler_and_stuffing_are_not():
+    # Expected detail: "small crack near charging port".
+    answer = "there is a small crack by the charging port"
+    paraphrase = evaluate_answers(
+        evaluation_request([{"question_id": "verification-1", "answer": answer}])
+    )
+    assert paraphrase["evaluations"][0]["result"] == "match"
+    assert paraphrase["recommendation"] == "likely_match"
+
+    filler = evaluate_answers(
+        evaluation_request([{"question_id": "verification-1", "answer": "the a on and near"}])
+    )
+    assert filler["evaluations"][0]["result"] == "no_match"
+
+    stuffed = evaluate_answers(
+        evaluation_request(
+            [
+                {
+                    "question_id": "verification-1",
+                    "answer": "small big crack scratch dent sticker charging port screen case "
+                    "back front corner edge",
+                }
+            ]
+        )
+    )
+    assert stuffed["evaluations"][0]["result"] == "partial_match"
+
+
 def test_answer_evaluation_incorrect_and_missing_answers():
     incorrect = evaluate_answers(
         evaluation_request([{"question_id": "verification-1", "answer": "blue sticker"}])

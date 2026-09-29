@@ -9,7 +9,7 @@ import { AuthLayout } from './auth-layout'
 import { AuthLoading } from './auth-loading'
 import { useAuth } from './use-auth'
 import { ApiError } from '@/lib/api/client'
-import { homeRouteForRole } from '@/routes/role-home'
+import { canRoleOpen, homeRouteForRole } from '@/routes/role-home'
 import { GoogleButton } from '@/features/account/google-button'
 
 export function LoginPage() {
@@ -50,7 +50,9 @@ export function LoginPage() {
         return
       }
 
-      const destination = from
+      // Only back to where they were if their role can open it; a staff member following a
+      // student's link would otherwise land on Forbidden straight after signing in.
+      const destination = from && canRoleOpen(signedIn.role, from.pathname)
         ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
         : homeRouteForRole(signedIn.role)
       navigate(destination, { replace: true })
