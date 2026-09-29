@@ -22,6 +22,8 @@ public record AdminUserListItemDto(
 
 public record SuspendUserRequest(string Reason);
 
+public record ChangeUserRoleRequest(string Role);
+
 /// <summary>Filters for the admin users table, on top of the standard pagination contract.</summary>
 public class AdminUserQuery : PaginationQuery
 {

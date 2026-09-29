@@ -50,4 +50,15 @@ public class AdminUsersController : ControllerBase
     [HttpPost("{id:guid}/reinstate")]
     public async Task<ActionResult<AdminUserListItemDto>> Reinstate(Guid id, CancellationToken cancellationToken)
         => Ok(await _adminUsers.ReinstateAsync(id, cancellationToken));
+
+    /// <summary>
+    /// How Staff and Admin accounts are made: the person registers, then an admin changes
+    /// their role here. Their sessions end so the new role applies at once.
+    /// </summary>
+    [HttpPut("{id:guid}/role")]
+    public async Task<ActionResult<AdminUserListItemDto>> ChangeRole(
+        Guid id,
+        [FromBody] ChangeUserRoleRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _adminUsers.ChangeRoleAsync(id, User.GetUserId(), request.Role, cancellationToken));
 }

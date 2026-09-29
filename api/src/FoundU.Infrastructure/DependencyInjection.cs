@@ -96,6 +96,35 @@ public static class DependencyInjection
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
+                // A signature proves who the token was issued to, not that they may still act.
+                // Suspension, or a role change by an admin, takes effect on the next request
+                // rather than when the 15-minute token happens to run out.
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var principal = context.Principal;
+                        var subject = principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                            ?? principal?.FindFirst("sub")?.Value;
+                        if (!Guid.TryParse(subject, out var userId))
+                        {
+                            context.Fail("The token names no user.");
+                            return;
+                        }
+
+                        var db = context.HttpContext.RequestServices.GetRequiredService<FoundUDbContext>();
+                        var user = await db.Users.AsNoTracking()
+                            .Where(u => u.Id == userId)
+                            .Select(u => new { u.IsSuspended, u.Role })
+                            .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+
+                        var tokenRole = principal!.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                        if (user is null || user.IsSuspended || tokenRole != user.Role.ToString())
+                        {
+                            context.Fail("This session is no longer valid.");
+                        }
+                    }
+                };
             });
 
         services.AddAuthorizationBuilder()

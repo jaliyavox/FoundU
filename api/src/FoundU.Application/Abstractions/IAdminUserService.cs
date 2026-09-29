@@ -20,4 +20,7 @@ public interface IAdminUserService
     Task<AdminUserListItemDto> SuspendAsync(Guid userId, Guid actingAdminId, string reason, CancellationToken cancellationToken = default);
 
     Task<AdminUserListItemDto> ReinstateAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Makes someone Student, Staff or Admin. Never the acting admin's own account.</summary>
+    Task<AdminUserListItemDto> ChangeRoleAsync(Guid userId, Guid actingAdminId, string role, CancellationToken cancellationToken = default);
 }

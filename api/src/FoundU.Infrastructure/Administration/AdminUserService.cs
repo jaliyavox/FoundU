@@ -113,7 +113,7 @@ public class AdminUserService : IAdminUserService
         if (user.Role == UserRole.Admin)
         {
             throw new ForbiddenAppException(
-                "Administrator accounts cannot be suspended. Change the role first if this is intended.");
+                "Administrator accounts cannot be suspended. Change their role to Staff first if this is intended.");
         }
 
         if (user.IsSuspended)
@@ -165,9 +165,49 @@ public class AdminUserService : IAdminUserService
     }
 
     /// <summary>
-    /// Suspension blocks login and refresh, but an access token already in the wild stays
-    /// valid until it expires. Revoking the refresh tokens caps that at the access token's
-    /// lifetime instead of the refresh token's.
+    /// How staff and admins are made: someone registers as a student, and an admin changes
+    /// their role. Nobody changes their own - an admin demoting themselves could leave the
+    /// system with none, and it cannot be undone from inside the app.
+    /// </summary>
+    public async Task<AdminUserListItemDto> ChangeRoleAsync(
+        Guid userId,
+        Guid actingAdminId,
+        string role,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.TryParse<UserRole>(role, ignoreCase: true, out var newRole) || !Enum.IsDefined(newRole))
+        {
+            throw new ValidationAppException(nameof(role), "The role must be Student, Staff or Admin.");
+        }
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            ?? throw new NotFoundAppException($"User '{userId}' was not found.");
+
+        if (user.Id == actingAdminId)
+        {
+            throw new ValidationAppException(nameof(userId), "You cannot change your own role.");
+        }
+
+        if (user.Role == newRole)
+        {
+            throw new ConflictAppException($"This account is already {newRole}.");
+        }
+
+        user.Role = newRole;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        // Their tokens carry the old role. Signing them out makes the new one take effect now;
+        // the token check refuses the old access token on its next request.
+        await RevokeActiveTokensAsync(user.Id, cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await LoadAsync(user.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Revoking the refresh tokens ends the sessions; the token check at validation refuses an
+    /// access token already in the wild on its next request.
     /// </summary>
     private async Task RevokeActiveTokensAsync(Guid userId, CancellationToken cancellationToken)
     {
