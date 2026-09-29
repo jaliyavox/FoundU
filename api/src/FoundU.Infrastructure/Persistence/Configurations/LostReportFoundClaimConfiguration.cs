@@ -10,6 +10,7 @@ public class LostReportFoundClaimConfiguration : IEntityTypeConfiguration<LostRe
     {
         builder.ToTable("LostReportFoundClaims");
         builder.HasKey(c => c.Id);
+        builder.HasRowVersion();
 
         builder.Property(c => c.SeenAt).HasColumnType("timestamptz");
         builder.Property(c => c.CreatedAt).HasColumnType("timestamptz").IsRequired();

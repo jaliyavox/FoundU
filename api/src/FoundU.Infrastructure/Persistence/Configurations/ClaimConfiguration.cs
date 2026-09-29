@@ -10,6 +10,7 @@ public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
     {
         builder.ToTable("Claims");
         builder.HasKey(c => c.Id);
+        builder.HasRowVersion();
 
         builder.Property(c => c.CollectionCode).HasMaxLength(6).IsFixedLength();
         builder.Property(c => c.CollectedAt).HasColumnType("timestamptz");

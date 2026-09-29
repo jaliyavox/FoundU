@@ -2,6 +2,7 @@ using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Application.Claims.Dtos;
 using FoundU.Application.Abstractions;
+using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Notifications.Dtos;
 using FoundU.Infrastructure.Claims;
 using FoundU.Infrastructure.Honor;
@@ -179,6 +180,46 @@ public sealed class PostgresPersistenceIntegrationTests
         Assert.Equal(ClaimStatus.UnderReview, (await db.Claims.SingleAsync(item => item.Id == competing.Claim.Id)).Status);
         Assert.Empty(await db.ApprovalDecisions.Where(item => item.ClaimId == competing.Claim.Id).ToListAsync());
         Assert.Empty(await db.Notifications.Where(item => item.RelatedEntityId == competing.Claim.Id).ToListAsync());
+    }
+
+    [PostgresFact]
+    public async Task TwoStaffApprovingRivalClaimsAtOnceLeavesOneWinnerAndOneStory()
+    {
+        await using var setup = PostgresTestDatabase.CreateContext();
+        await PostgresTestDatabase.MigrateAsync(setup);
+        var seeded = await SeedClaimAsync(setup);
+        var rival = await AddCompetingClaimAsync(setup, seeded.Found);
+
+        // Two desks, two connections, the same moment. Before the row version, each approval
+        // rejected the other's claim and both saves landed: both students were told approved
+        // and rejected, and the loser kept a collection code.
+        await using var deskA = PostgresTestDatabase.CreateContext();
+        await using var deskB = PostgresTestDatabase.CreateContext();
+        var results = await Task.WhenAll(
+            TryApprove(CreateClaimService(deskA), seeded.Claim.Id, seeded.Staff.Id),
+            TryApprove(CreateClaimService(deskB), rival.Claim.Id, seeded.Staff.Id));
+
+        Assert.Equal(1, results.Count(ok => ok));
+        await using var verify = PostgresTestDatabase.CreateContext();
+        var claims = await verify.Claims.IgnoreQueryFilters()
+            .Where(c => c.FoundReportId == seeded.Found.Id).ToListAsync();
+        var winner = Assert.Single(claims, c => c.Status == ClaimStatus.Approved);
+        Assert.All(claims.Where(c => c.Id != winner.Id), loser => Assert.Null(loser.CollectionCode));
+        Assert.Equal(1, await verify.Notifications.CountAsync(
+            n => n.Type == NotificationType.ClaimApproved && (n.RelatedEntityId == seeded.Claim.Id || n.RelatedEntityId == rival.Claim.Id)));
+
+        static async Task<bool> TryApprove(ClaimService service, Guid claimId, Guid staffId)
+        {
+            try
+            {
+                await service.DecideAsync(claimId, staffId, new ClaimDecisionRequest("Approved", null));
+                return true;
+            }
+            catch (Exception error) when (error is ConflictAppException or DbUpdateException)
+            {
+                return false;
+            }
+        }
     }
 
     [PostgresFact]
