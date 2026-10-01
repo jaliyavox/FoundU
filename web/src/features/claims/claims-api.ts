@@ -134,8 +134,15 @@ export const submitAnswers = (id: string, answers: { questionId: string; answerT
 export const decideClaim = (id: string, decision: string, reason?: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/decision`, { decision, reason })
 
-/** Staff: the owner quoted their collection code; this hands the item over. 404 if wrong or used. */
-export const collectClaim = (code: string) => api.post<ClaimDetail>('/api/claims/collect', { code })
+/** Staff: whose approved item a collection code is for, before the ID check. 404 if wrong or used. */
+export const getClaimByCode = (code: string) => api.get<ClaimDetail>(`/api/claims/by-code/${code}`)
+
+/**
+ * Staff: hand the item over. The desk must say it checked the collector's student ID against
+ * the owner's name, as at the handover desk. 404 if the code is wrong or used.
+ */
+export const collectClaim = (code: string, ownerIdChecked: boolean) =>
+  api.post<ClaimDetail>('/api/claims/collect', { code, ownerIdChecked })
 
 /** Admin only: overturn a rejection after a dispute. Recorded as an override. */
 export const overturnClaim = (id: string, reason: string) =>
@@ -222,3 +229,23 @@ export interface AgentRun {
 }
 
 export const getAgentRuns = (claimId: string) => api.get<AgentRun[]>(`/api/claims/${claimId}/agent-runs`)
+
+/** Safe, staff-only status for a durable Coordinator workflow linked to this claim. */
+export interface AgentWorkflowState {
+  workflowId: string
+  status: 'waiting_for_approval' | 'approved' | 'rejected' | 'completed' | 'failed'
+  approvalRequired: boolean
+  approvalStatus: 'not_required' | 'pending' | 'approved' | 'rejected'
+  pendingActionType: string | null
+  safeActionSummary: string | null
+  requestedAt: string | null
+  decidedAt: string | null
+  decisionMakerId: string | null
+}
+
+/** Browser calls ASP.NET only; it never receives the AI service key. */
+export const getAgentWorkflow = (claimId: string, workflowId: string) =>
+  api.get<AgentWorkflowState>(`/api/claims/${claimId}/agent-workflows/${workflowId}`)
+
+export const decideAgentWorkflow = (claimId: string, workflowId: string, decision: 'approved' | 'rejected') =>
+  api.post<AgentWorkflowState>(`/api/claims/${claimId}/agent-workflows/${workflowId}/approval`, { decision })

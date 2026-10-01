@@ -17,7 +17,7 @@ namespace FoundU.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.30")
+                .HasAnnotation("ProductVersion", "8.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -173,6 +173,10 @@ namespace FoundU.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("GoogleSubjectId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -235,6 +239,11 @@ namespace FoundU.Infrastructure.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GoogleSubjectId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AppUsers_GoogleSubjectId_Unique")
+                        .HasFilter("\"GoogleSubjectId\" IS NOT NULL");
 
                     b.HasIndex("IsSuspended");
 
@@ -648,6 +657,12 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CollectionCode")
@@ -752,6 +767,47 @@ namespace FoundU.Infrastructure.Migrations
                     b.ToTable("ClaimStatusHistories", (string)null);
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.DeviceRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<DateTime?>("DeactivatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("FcmToken")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FcmToken")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "IsActive");
+
+                    b.ToTable("DeviceRegistrations", (string)null);
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.FoundItemPhoto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -822,6 +878,9 @@ namespace FoundU.Infrastructure.Migrations
                         .HasColumnType("character(6)")
                         .IsFixedLength();
 
+                    b.Property<DateTime?>("HandedToSecurityAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -860,6 +919,12 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
@@ -885,6 +950,48 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("Status", "CategoryId", "ItemTypeId", "FoundLocationId");
 
                     b.ToTable("FoundReports", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.FoundReportMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("FoundReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("RecipientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("FoundReportId", "CreatedAt");
+
+                    b.HasIndex("FoundReportId", "SenderId");
+
+                    b.ToTable("FoundReportMessages", (string)null);
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.FoundReportStatusHistory", b =>
@@ -931,6 +1038,59 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("FoundReportId");
 
                     b.ToTable("FoundReportStatusHistories", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.HonorAward", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Detail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("FoundReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("LostReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoundReportId");
+
+                    b.HasIndex("LostReportId");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.HasIndex("UserId", "Reason", "FoundReportId")
+                        .IsUnique()
+                        .HasFilter("\"FoundReportId\" IS NOT NULL");
+
+                    b.HasIndex("UserId", "Reason", "LostReportId")
+                        .IsUnique()
+                        .HasFilter("\"LostReportId\" IS NOT NULL");
+
+                    b.ToTable("HonorAwards", (string)null);
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.ItemType", b =>
@@ -1517,6 +1677,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<string>("ParsedAttributesJson")
                         .HasColumnType("jsonb");
 
+                    b.Property<DateTime?>("PausedUntil")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("PrimaryColor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -1578,11 +1741,38 @@ namespace FoundU.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("CollectedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid?>("CollectedByStaffId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CollectionCheck")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
 
                     b.Property<Guid>("FinderId")
                         .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FoundReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("HandedInAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("HandoverCode")
+                        .HasMaxLength(6)
+                        .HasColumnType("character(6)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime?>("HandoverExpiresAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<DateTime?>("HandoverStartedAt")
+                        .HasColumnType("timestamptz");
 
                     b.Property<bool>("IsSeenByOwner")
                         .HasColumnType("boolean");
@@ -1590,15 +1780,40 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<Guid>("LostReportId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ReceivedByStaffId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("SeenAt")
                         .HasColumnType("timestamptz");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("CollectedByStaffId");
+
                     b.HasIndex("FinderId");
+
+                    b.HasIndex("FoundReportId");
+
+                    b.HasIndex("HandoverCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_LostReportFoundClaims_HandoverCode_Unique")
+                        .HasFilter("\"HandoverCode\" IS NOT NULL");
+
+                    b.HasIndex("ReceivedByStaffId");
 
                     b.HasIndex("LostReportId", "CreatedAt");
 
@@ -2038,6 +2253,107 @@ namespace FoundU.Infrastructure.Migrations
                     b.ToTable("StorageTransfers", (string)null);
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.SupportTicket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid?>("RelatedEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RelatedEntityType")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedToUserId");
+
+                    b.HasIndex("Status", "LastActivityAt");
+
+                    b.HasIndex("UserId", "LastActivityAt");
+
+                    b.ToTable("SupportTickets", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.SupportTicketMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsStaffReply")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SupportTicketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("SupportTicketId", "CreatedAt");
+
+                    b.ToTable("SupportTicketMessages", (string)null);
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.VerificationQuestion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2265,6 +2581,17 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("Claim");
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.DeviceRegistration", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "User")
+                        .WithMany("DeviceRegistrations")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.FoundItemPhoto", b =>
                 {
                     b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
@@ -2324,6 +2651,33 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("StorageLocation");
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.FoundReportMessage", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
+                        .WithMany()
+                        .HasForeignKey("FoundReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FoundReport");
+
+                    b.Navigation("Recipient");
+
+                    b.Navigation("Sender");
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.FoundReportStatusHistory", b =>
                 {
                     b.HasOne("FoundU.Domain.Entities.AppUser", "ChangedByUser")
@@ -2340,6 +2694,31 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("ChangedByUser");
 
                     b.Navigation("FoundReport");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.HonorAward", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
+                        .WithMany()
+                        .HasForeignKey("FoundReportId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FoundU.Domain.Entities.LostReport", "LostReport")
+                        .WithMany()
+                        .HasForeignKey("LostReportId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FoundReport");
+
+                    b.Navigation("LostReport");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.ItemType", b =>
@@ -2408,11 +2787,21 @@ namespace FoundU.Infrastructure.Migrations
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostReportFoundClaim", b =>
                 {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "CollectedByStaff")
+                        .WithMany()
+                        .HasForeignKey("CollectedByStaffId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("FoundU.Domain.Entities.AppUser", "Finder")
                         .WithMany()
                         .HasForeignKey("FinderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
+                        .WithMany()
+                        .HasForeignKey("FoundReportId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("FoundU.Domain.Entities.LostReport", "LostReport")
                         .WithMany("FoundClaims")
@@ -2420,9 +2809,20 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "ReceivedByStaff")
+                        .WithMany()
+                        .HasForeignKey("ReceivedByStaffId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CollectedByStaff");
+
                     b.Navigation("Finder");
 
+                    b.Navigation("FoundReport");
+
                     b.Navigation("LostReport");
+
+                    b.Navigation("ReceivedByStaff");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.LostReportMessage", b =>
@@ -2569,6 +2969,43 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("TransferredByUser");
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.SupportTicket", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "AssignedToUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedToUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedToUser");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.SupportTicketMessage", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoundU.Domain.Entities.SupportTicket", "SupportTicket")
+                        .WithMany("Messages")
+                        .HasForeignKey("SupportTicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Sender");
+
+                    b.Navigation("SupportTicket");
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.VerificationQuestion", b =>
                 {
                     b.HasOne("FoundU.Domain.Entities.Claim", "Claim")
@@ -2630,6 +3067,8 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("AuditLogs");
 
                     b.Navigation("Claims");
+
+                    b.Navigation("DeviceRegistrations");
 
                     b.Navigation("FoundReports");
 
@@ -2718,6 +3157,11 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("TransfersFrom");
 
                     b.Navigation("TransfersTo");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.SupportTicket", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.VerificationQuestion", b =>

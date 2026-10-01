@@ -10,6 +10,7 @@ from app.tools.models import ToolExecutionContext
 class AgentState(TypedDict, total=False):
     agent_run_id: UUID
     requested_agent: AgentName
+    objective: str
     payload: dict[str, Any]
     correlation_id: str | None
     plan: AgentPlan
@@ -20,8 +21,9 @@ class AgentState(TypedDict, total=False):
 
 def create_initial_state(request: AgentRunRequest) -> AgentState:
     return AgentState(
-        agent_run_id=uuid4(),
+        agent_run_id=request.workflow_id or uuid4(),
         requested_agent=request.agent,
+        objective=f"{request.agent.value}:execute_request",
         payload=request.payload,
         correlation_id=request.correlation_id,
         output={},

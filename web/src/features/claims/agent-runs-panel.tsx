@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { BotIcon, CircleAlertIcon, CircleCheckIcon, Loader2Icon, PauseIcon } from 'lucide-react'
 import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-panel'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/features/reports/reports-api'
 import { cn } from '@/lib/utils'
 import { getAgentRuns, type AgentRun } from './claims-api'
@@ -16,7 +17,7 @@ import { getAgentRuns, type AgentRun } from './claims-api'
  * decides.
  */
 export function AgentRunsPanel({ claimId }: { claimId: string }) {
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending, isError, refetch, isFetching } = useQuery({
     queryKey: ['claim-agent-runs', claimId],
     queryFn: () => getAgentRuns(claimId),
   })
@@ -25,7 +26,10 @@ export function AgentRunsPanel({ claimId }: { claimId: string }) {
     <DashboardPanel className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <BotIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-        <h2 className="font-heading text-base font-medium">What the agents did</h2>
+        <h2 className="flex-1 font-heading text-base font-medium">What the agents did</h2>
+        <Button variant="ghost" size="sm" disabled={isFetching} onClick={() => refetch()}>
+          {isFetching ? 'Refreshing…' : 'Refresh'}
+        </Button>
       </div>
 
       <PanelDivider />
@@ -36,11 +40,14 @@ export function AgentRunsPanel({ claimId }: { claimId: string }) {
           <Skeleton className="h-4 w-1/2" />
         </div>
       ) : isError ? (
-        <p className="text-sm text-muted-foreground">Could not load the agent trail.</p>
+        <div role="alert" className="flex flex-col items-start gap-2">
+          <p className="text-sm text-muted-foreground">Could not load the agent trail.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Try again</Button>
+        </div>
       ) : data.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No agent has touched this claim. The item was linked and the questions written by
-          hand.
+          No agent runs have been recorded yet. Generate verification questions to start an
+          agent trail, or continue reviewing the claim manually.
         </p>
       ) : (
         <ol className="flex flex-col">

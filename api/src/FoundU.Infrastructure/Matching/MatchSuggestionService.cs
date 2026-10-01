@@ -209,10 +209,15 @@ public class MatchSuggestionService : IMatchSuggestionService
         PaginationQuery query,
         CancellationToken cancellationToken = default)
     {
-        // Dismissed suggestions drop off the student's list - they already said no.
+        // Dismissed suggestions drop off the student's list - they already said no. So does
+        // anything that can no longer lead anywhere: a post the finder took down, an item
+        // already returned, one reserved for someone else, or a report the student closed.
         var suggestions = _db.MatchSuggestions
             .AsNoTracking()
             .Where(m => m.LostReport.StudentId == studentId && m.Status != MatchSuggestionStatus.Dismissed)
+            .Where(m => m.LostReport.Status != LostReportStatus.Withdrawn && m.LostReport.Status != LostReportStatus.Resolved)
+            .Where(m => m.FoundReport.Status != FoundReportStatus.Disposed && m.FoundReport.Status != FoundReportStatus.Returned)
+            .Where(m => m.Status == MatchSuggestionStatus.Confirmed || m.FoundReport.Status != FoundReportStatus.Claimed)
             .OrderByDescending(m => m.CreatedAt);
 
         var totalCount = await suggestions.CountAsync(cancellationToken);
@@ -308,6 +313,7 @@ public class MatchSuggestionService : IMatchSuggestionService
             Objective = "Recommend a possible item match.",
             PlanJson = JsonSerializer.Serialize(new { steps = new[] { "lookup_reports", "score_reports" } }),
             Status = result.IsSuccess ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            RetryCount = result.RetryCount,
             ErrorMessage = result.IsSuccess ? null : "Matching agent was unavailable.",
             FinalOutcomeJson = outcome,
             CompletedAt = DateTime.UtcNow,

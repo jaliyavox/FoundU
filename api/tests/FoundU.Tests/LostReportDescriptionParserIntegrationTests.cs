@@ -3,6 +3,7 @@ using FoundU.Application.Abstractions;
 using FoundU.Application.LostReports.Dtos;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
+using FoundU.Infrastructure.Honor;
 using FoundU.Infrastructure.Notifications;
 using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Reporting;
@@ -91,7 +92,7 @@ public sealed class LostReportDescriptionParserIntegrationTests
             db.AddRange(student, category, itemType, location);
             await db.SaveChangesAsync();
             var parser = new FakeParser();
-            var service = new LostReportService(db, new NoopPhotoStorage(), new NotificationService(db), parser);
+            var service = new LostReportService(db, new NoopPhotoStorage(), new NotificationService(db), parser, new HonorService(db));
             return new Fixture(db, service, parser, student, itemType,
                 new(category.Id, itemType.Id, location.Id, Description, "Red", null, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow));
         }

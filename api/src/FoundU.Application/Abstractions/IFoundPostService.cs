@@ -25,10 +25,18 @@ public interface IFoundPostService
     /// An owner saying "that is mine" from the feed. Creates the suggestion on their report and
     /// tells the finder to hand it in - it does not prove anything; the desk still does that.
     /// </summary>
+    /// <summary>Ask the finder about an item, or answer an enquirer. No lost report needed.</summary>
+    Task<FoundPostMessageDto> SendMessageAsync(Guid postId, Guid senderId, string body, Guid? recipientId, CancellationToken cancellationToken = default);
+
+    /// <summary>The reader's threads on a post: all of them for the finder, their own for an enquirer.</summary>
+    Task<IReadOnlyList<FoundPostMessageDto>> GetMessagesAsync(Guid postId, Guid requesterId, bool requesterIsStaff, CancellationToken cancellationToken = default);
+
     Task<FoundPostFeedItemDto> RecogniseAsync(Guid id, Guid ownerId, RecogniseFoundPostRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>The finder taking their post down before a desk sees it.</summary>
     Task<FoundPostFeedItemDto> WithdrawAsync(Guid id, Guid finderId, string? reason, CancellationToken cancellationToken = default);
+
+    Task<FoundPostFeedItemDto> DeclareHandedInAsync(Guid id, Guid finderId, CancellationToken cancellationToken = default);
 
     /// <summary>Staff pulling a post up by the code the finder quotes at the desk.</summary>
     Task<FoundReportDetailDto> GetByHandInCodeAsync(string code, CancellationToken cancellationToken = default);

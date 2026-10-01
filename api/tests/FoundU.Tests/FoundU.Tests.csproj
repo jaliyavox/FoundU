@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\FoundU.Application\FoundU.Application.csproj" />
     <ProjectReference Include="..\..\src\FoundU.Domain\FoundU.Domain.csproj" />
     <ProjectReference Include="..\..\src\FoundU.Api\FoundU.Api.csproj" />
+    <ProjectReference Include="..\..\src\FoundU.Infrastructure\FoundU.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

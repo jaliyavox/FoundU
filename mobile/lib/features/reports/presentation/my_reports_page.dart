@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 
 import '../data/report_models.dart';
 import 'providers/report_providers.dart';
+import '../../../core/theme/brand.dart';
+import '../../handover/presentation/handover_notice.dart';
+import '../../../core/widgets/pill_nav.dart';
 
 class MyReportsPage extends ConsumerStatefulWidget {
   const MyReportsPage({super.key});
@@ -100,6 +103,81 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
     );
   }
 
+  /// The good ending, and the opposite of withdrawing: the item is home.
+  void _showGotItBackDialog(BuildContext context, LostReportListItemModel item) {
+    final noteController = TextEditingController();
+    final name = item.itemTypeName.isNotEmpty ? item.itemTypeName : item.categoryName;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.volunteer_activism_rounded, color: Brand.forest, size: 24),
+            const SizedBox(width: 8),
+            Expanded(child: Text('You have your ${name.toLowerCase()} back?')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This closes the report and takes it off the lost feed. Anyone who said they '
+              'found it is told it got home and earns honor points for helping.',
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: noteController,
+              decoration: InputDecoration(
+                labelText: 'Where did it turn up? (Optional)',
+                hintText: 'e.g. Handed in at the library desk',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogCtx).pop(), child: const Text('Not yet')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Brand.forest,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              Navigator.of(dialogCtx).pop();
+              try {
+                await ref.read(reportControllerProvider.notifier).resolveReport(
+                      reportId: item.id,
+                      note: noteController.text.trim(),
+                    );
+                ref.invalidate(myReportsProvider);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Closed. Everyone who helped has been told it got home.'),
+                    backgroundColor: Colors.black87,
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not close the report: $e')),
+                );
+              }
+            },
+            child: const Text('Yes, close it'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusFilter = ref.watch(selectedStatusFilterProvider);
@@ -117,6 +195,7 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
           ),
         ],
       ),
+      floatingActionButtonLocation: const AboveNavFabLocation(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/reports/new'),
         backgroundColor: const Color(0xFF2E7D32),
@@ -279,13 +358,15 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
                   onRefresh: () async => ref.refresh(myReportsProvider),
                   color: const Color(0xFF2E7D32),
                   child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                    // Clear of the floating nav and the button raised above it.
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, AboveNavFabLocation.listEndPadding),
                     itemCount: items.length,
                     itemBuilder: (context, index) {
                       final item = items[index];
                       return _ReportCard(
                         item: item,
                         onWithdraw: () => _showWithdrawDialog(context, item),
+                        onGotItBack: () => _showGotItBackDialog(context, item),
                       );
                     },
                   ),
@@ -302,10 +383,12 @@ class _MyReportsPageState extends ConsumerState<MyReportsPage> {
 class _ReportCard extends StatelessWidget {
   final LostReportListItemModel item;
   final VoidCallback onWithdraw;
+  final VoidCallback onGotItBack;
 
   const _ReportCard({
     required this.item,
     required this.onWithdraw,
+    required this.onGotItBack,
   });
 
   Color _getStatusColor(String status) {
@@ -461,6 +544,10 @@ class _ReportCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
+              // A handover in flight outranks the found notice - same news, further along,
+              // with the code attached. Renders nothing when there is none.
+              if (!isWithdrawn) HandoverNotice(reportId: item.id, bottomGap: 10),
+
               // Found notice banner (matching Web UI)
               if (!isWithdrawn && item.foundClaimCount > 0) ...[
                 Container(
@@ -554,8 +641,13 @@ class _ReportCard extends StatelessWidget {
               const Divider(height: 1),
               const SizedBox(height: 8),
 
-              // Action Buttons Row (Web-like: Details, Edit, Withdraw, Matches)
-              Row(
+              // Actions - Details, I found this, Edit, Withdraw, Matches. A Wrap, not a Row:
+              // five controls do not fit one line on a phone, and a Row that overflows runs
+              // them off the edge of the card.
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   // Details Link Button
                   InkWell(
@@ -580,8 +672,28 @@ class _ReportCard extends StatelessWidget {
                     ),
                   ),
 
+                  if (item.status.toLowerCase() == 'active' || item.status.toLowerCase() == 'matched') ...[
+                    // "I found this" - the owner has it back, so the report closes.
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Brand.forest,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: const Size(0, 34),
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: onGotItBack,
+                      icon: const Icon(Icons.volunteer_activism_rounded, size: 15),
+                      label: const Text(
+                        'I found this',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+
                   if (isActive) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     // Edit Button
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -615,8 +727,6 @@ class _ReportCard extends StatelessWidget {
                       ),
                     ),
                   ],
-
-                  const Spacer(),
 
                   if (item.status.toLowerCase() == 'active' || item.status.toLowerCase() == 'matched')
                     TextButton.icon(
@@ -688,13 +798,24 @@ class _ReportCard extends StatelessWidget {
           }),
         ),
         const SizedBox(height: 4),
+        // Flexible labels: identical when there is room, and able to give way on a narrow
+        // phone or with a larger system text size instead of running off the card.
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Reported', style: TextStyle(fontSize: 10, color: currentStage >= 0 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Matched', style: TextStyle(fontSize: 10, color: currentStage >= 1 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Claimed', style: TextStyle(fontSize: 10, color: currentStage >= 2 ? const Color(0xFF2E7D32) : Colors.grey)),
-            Text('Resolved', style: TextStyle(fontSize: 10, color: currentStage >= 3 ? const Color(0xFF2E7D32) : Colors.grey)),
+            for (final (index, label) in stages.indexed)
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: currentStage >= index ? const Color(0xFF2E7D32) : Colors.grey,
+                  ),
+                ),
+              ),
           ],
         ),
       ],

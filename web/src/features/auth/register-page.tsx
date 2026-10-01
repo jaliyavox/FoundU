@@ -11,6 +11,7 @@ import { useAuth } from './use-auth'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { homeRouteForRole } from '@/routes/role-home'
+import { GoogleButton } from '@/features/account/google-button'
 
 /** Mirrors RegisterRequestValidator on the API, so the two never disagree. */
 const PASSWORD_RULES = [
@@ -91,6 +92,8 @@ export function RegisterPage() {
         </>
       }
     >
+      <GoogleButton label="signup_with" />
+
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
         <Field
           id="fullName"

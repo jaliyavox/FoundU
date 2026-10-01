@@ -3,15 +3,18 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BellRingIcon,
+  CheckCircle2Icon,
   ChevronLeftIcon,
   MessageSquareIcon,
   ChevronRightIcon,
   FileTextIcon,
+  HandHeartIcon,
   Loader2Icon,
   PencilIcon,
   PlusIcon,
   RotateCwIcon,
   SearchIcon,
+  XIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -25,11 +28,19 @@ import {
   getCategories,
   getLocations,
   getMyLostReports,
+  resolveLostReport,
   withdrawLostReport,
   type LostReportListItem,
   type LostReportQuery,
 } from './reports-api'
-import { timeAgo } from '@/features/feed/feed-api'
+import {
+  declareFoundPostHandedIn,
+  displayCode,
+  getMyFoundPosts,
+  invalidateFoundPosts,
+  timeAgo,
+  type FoundPostItem,
+} from '@/features/feed/feed-api'
 import { ItemIllustration } from '@/features/feed/item-illustration'
 import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
@@ -37,6 +48,8 @@ import { MessageThread } from '@/features/feed/message-thread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
+import { HandoverNotice } from './handover-notice'
+import { GotItBackDialog } from './got-it-back-dialog'
 import { EditLostReportDialog } from './edit-lost-report-dialog'
 import { LostReportDetailDialog } from './lost-report-detail-dialog'
 import { ApiError } from '@/lib/api/client'
@@ -54,6 +67,7 @@ export function MyReportsPage() {
   const [sortDirection, setSortDirection] = useState<string>('desc')
 
   const [withdrawTarget, setWithdrawTarget] = useState<LostReportListItem | null>(null)
+  const [gotItBackTarget, setGotItBackTarget] = useState<LostReportListItem | null>(null)
   const [messagesFor, setMessagesFor] = useState<LostReportListItem | null>(null)
   const [editTarget, setEditTarget] = useState<LostReportListItem | null>(null)
   const [detailTargetId, setDetailTargetId] = useState<string | null>(null)
@@ -84,6 +98,38 @@ export function MyReportsPage() {
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['my-lost-reports', query],
     queryFn: () => getMyLostReports(query),
+  })
+
+  const { data: foundPosts, isPending: foundPostsPending } = useQuery({
+    queryKey: ['my-found-posts'],
+    queryFn: () => getMyFoundPosts(1, 50),
+  })
+
+  const declareHandedIn = useMutation({
+    mutationFn: (id: string) => declareFoundPostHandedIn(id),
+    onSuccess: () => {
+      invalidateFoundPosts(queryClient)
+      toast.success('Saved. Security still needs to confirm receipt at the desk.')
+    },
+    onError: mutationError => {
+      toast.error(mutationError instanceof ApiError ? mutationError.message : 'Could not update the found item.')
+    },
+  })
+
+  const resolve = useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) => resolveLostReport(id, note || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-lost-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['lost-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['help-to-find'] })
+      toast.success('Closed. Everyone who helped has been told it got home.')
+      setGotItBackTarget(null)
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : 'Could not close the report.',
+      )
+    },
   })
 
   const withdraw = useMutation({
@@ -136,6 +182,39 @@ export function MyReportsPage() {
       {/* Matching suggestions panel */}
       <SuggestionsPanel />
 
+      <DashboardPanel className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-base font-medium">Found item reports</h2>
+            <p className="pt-1 text-sm text-muted-foreground">
+              Track items you found and tell security when you have handed one in.
+            </p>
+          </div>
+          <Button variant="outline" nativeButton={false} render={<Link to="/found/new" />}>
+            <PlusIcon aria-hidden="true" />
+            List a found item
+          </Button>
+        </div>
+
+        {foundPostsPending ? (
+          <Skeleton className="h-20 w-full" />
+        ) : foundPosts?.items.length ? (
+          <ul className="flex flex-col gap-3">
+            {foundPosts.items.map(post => (
+              <li key={post.id}>
+                <FoundPostCard
+                  post={post}
+                  isUpdating={declareHandedIn.isPending && declareHandedIn.variables === post.id}
+                  onHandedIn={() => declareHandedIn.mutate(post.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">You have not listed a found item yet.</p>
+        )}
+      </DashboardPanel>
+
       {/* Filters, Search, Sort Controls */}
       <div className={cn(panelSurface, 'flex flex-col gap-4 p-4')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -148,8 +227,21 @@ export function MyReportsPage() {
                 setPage(1)
               }}
               placeholder="Search description..."
-              className="pl-9"
+              className="pr-9 pl-9"
             />
+            {search && (
+              <button
+                type="button"
+                aria-label="Clear the search"
+                onClick={() => {
+                  setSearch('')
+                  setPage(1)
+                }}
+                className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <XIcon className="size-4" aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           <Select
@@ -305,6 +397,8 @@ export function MyReportsPage() {
                   onMessages={() => setMessagesFor(report)}
                   onWithdraw={() => setWithdrawTarget(report)}
                   isWithdrawing={withdraw.isPending && withdraw.variables === report.id}
+                  onGotItBack={() => setGotItBackTarget(report)}
+                  isResolving={resolve.isPending && resolve.variables?.id === report.id}
                 />
               </li>
             ))}
@@ -360,6 +454,13 @@ export function MyReportsPage() {
         </SheetContent>
       </Sheet>
 
+      <GotItBackDialog
+        report={gotItBackTarget}
+        onConfirm={note => gotItBackTarget && resolve.mutate({ id: gotItBackTarget.id, note })}
+        onClose={() => setGotItBackTarget(null)}
+        isResolving={resolve.isPending}
+      />
+
       <WithdrawDialog
         report={withdrawTarget}
         onConfirm={() => withdrawTarget && withdraw.mutate(withdrawTarget.id)}
@@ -389,6 +490,56 @@ export function MyReportsPage() {
   )
 }
 
+function FoundPostCard({
+  post,
+  isUpdating,
+  onHandedIn,
+}: {
+  post: FoundPostItem
+  isUpdating: boolean
+  onHandedIn: () => void
+}) {
+  const isPosted = post.status === 'Posted'
+  const isDeclared = Boolean(post.handedToSecurityAt)
+  const isConfirmedByStaff = post.status !== 'Posted'
+
+  return (
+    <article className="flex flex-col gap-3 rounded-xl border border-foreground/10 bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-sm font-medium">
+            {[post.primaryColor, post.itemTypeName].filter(Boolean).join(' ')}
+          </h3>
+          <Badge variant="outline">
+            {isConfirmedByStaff ? 'Gave to staff' : isDeclared ? 'Waiting for staff' : 'Still with you'}
+          </Badge>
+        </div>
+        <p className="pt-1 text-xs text-muted-foreground">
+          {post.categoryName} · found at {post.foundLocationName} · {timeAgo(post.createdAt)}
+        </p>
+        <p className="pt-2 text-sm text-muted-foreground">{post.description}</p>
+        {post.handInCode && isPosted && (
+          <p className="pt-2 text-xs text-muted-foreground">
+            Desk code: <span className="font-mono font-medium tracking-wider text-foreground">{displayCode(post.handInCode)}</span>
+          </p>
+        )}
+        {isDeclared && isPosted && (
+          <p className="pt-2 text-xs text-amber-700 dark:text-amber-300">
+            Pending staff confirmation. The item is not claimable until security logs receipt.
+          </p>
+        )}
+      </div>
+
+      {isPosted && !isDeclared && (
+        <Button className="shrink-0" disabled={isUpdating} onClick={onHandedIn}>
+          {isUpdating ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <CheckCircle2Icon aria-hidden="true" />}
+          I gave it to security
+        </Button>
+      )}
+    </article>
+  )
+}
+
 /** Knob position per stage. The ends stop short of the edges so they stay dots on a track
  *  rather than caps on it. */
 const STAGE_OFFSET = ['3%', '35%', '67%', '97%']
@@ -406,6 +557,8 @@ function ReportCard({
   onMessages,
   onWithdraw,
   isWithdrawing,
+  onGotItBack,
+  isResolving,
 }: {
   report: LostReportListItem
   onViewDetails: () => void
@@ -413,6 +566,8 @@ function ReportCard({
   onMessages: () => void
   onWithdraw: () => void
   isWithdrawing: boolean
+  onGotItBack: () => void
+  isResolving: boolean
 }) {
   const isWithdrawn = report.status === 'Withdrawn'
   const stage = stageOf(report)
@@ -486,6 +641,22 @@ function ReportCard({
               </Button>
             )}
 
+            {(report.status === 'Active' || report.status === 'Matched') && (
+              <Button
+                size="sm"
+                onClick={onGotItBack}
+                disabled={isResolving}
+                className="shrink-0 bg-brand-forest text-white hover:bg-brand-forest/90"
+              >
+                {isResolving ? (
+                  <Loader2Icon className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <HandHeartIcon className="size-3.5" aria-hidden="true" />
+                )}
+                I found this
+              </Button>
+            )}
+
             {report.status === 'Active' && (
               <>
                 <Button
@@ -512,9 +683,13 @@ function ReportCard({
           </div>
         </div>
 
+        {/* A handover in flight outranks the "someone found this" notice: it is the same
+            news, further along, and with the code attached. */}
+        {!isWithdrawn && <HandoverNotice reportId={report.id} />}
+
         {/* Found notice */}
         {!isWithdrawn && report.foundClaimCount > 0 && (
-          <p className="fu-reveal flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
+          <p className="fu-appear flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
             <BellRingIcon
               className="mt-0.5 size-4 shrink-0 text-brand-forest dark:text-brand-sage"
               aria-hidden="true"

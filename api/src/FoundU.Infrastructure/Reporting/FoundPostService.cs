@@ -24,6 +24,7 @@ public class FoundPostService : IFoundPostService
     private readonly IMatchSuggestionService _suggestions;
     private readonly IFoundReportService _foundReports;
     private readonly INotificationService _notifications;
+    private readonly IHonorService _honor;
     private readonly ILogger<FoundPostService> _logger;
 
     public FoundPostService(
@@ -31,12 +32,14 @@ public class FoundPostService : IFoundPostService
         IMatchSuggestionService suggestions,
         IFoundReportService foundReports,
         INotificationService notifications,
+        IHonorService honor,
         ILogger<FoundPostService> logger)
     {
         _db = db;
         _suggestions = suggestions;
         _foundReports = foundReports;
         _notifications = notifications;
+        _honor = honor;
         _logger = logger;
     }
 
@@ -205,6 +208,130 @@ public class FoundPostService : IFoundPostService
         return PagedResult<FoundPostFeedItemDto>.Create(items, query.Page, query.PageSize, totalCount);
     }
 
+    public async Task<FoundPostMessageDto> SendMessageAsync(
+        Guid postId,
+        Guid senderId,
+        string body,
+        Guid? recipientId,
+        CancellationToken cancellationToken = default)
+    {
+        var post = await _db.FoundReports
+            .AsNoTracking()
+            .Include(r => r.ItemType)
+            .FirstOrDefaultAsync(r => r.Id == postId && !r.IsDeleted, cancellationToken)
+            ?? throw new NotFoundAppException($"Found post '{postId}' was not found.");
+
+        if (post.FinderId is not { } finderId)
+            throw new ConflictAppException("This item was logged at a desk - ask the desk about it, not a finder.");
+
+        if (post.Status is FoundReportStatus.Returned or FoundReportStatus.Disposed)
+            throw new ConflictAppException("This item is no longer here to ask about.");
+
+        var isFinder = finderId == senderId;
+        Guid recipient;
+
+        if (isFinder)
+        {
+            // The finder answers an existing thread and never opens one: first contact belongs
+            // to the person who thinks it is theirs.
+            recipient = recipientId
+                ?? throw new ValidationAppException(nameof(SendFoundPostMessageRequest.RecipientId), "Say who the reply is to.");
+
+            var threadExists = await _db.FoundReportMessages.AnyAsync(
+                m => m.FoundReportId == postId && m.SenderId == recipient, cancellationToken);
+            if (!threadExists)
+                throw new ValidationAppException(nameof(SendFoundPostMessageRequest.RecipientId), "That person has not asked you about this item.");
+        }
+        else
+        {
+            if (recipientId is not null && recipientId != finderId)
+                throw new ValidationAppException(nameof(SendFoundPostMessageRequest.RecipientId), "You can only write to the person who found it.");
+
+            recipient = finderId;
+        }
+
+        var message = new FoundReportMessage
+        {
+            FoundReportId = postId,
+            SenderId = senderId,
+            RecipientId = recipient,
+            Body = body.Trim(),
+        };
+        _db.FoundReportMessages.Add(message);
+
+        _notifications.Queue(
+            recipient,
+            NotificationType.MessageReceived,
+            isFinder
+                ? $"A reply about the {post.ItemType.Name.ToLowerInvariant()} you asked about"
+                : $"Someone is asking about the {post.ItemType.Name.ToLowerInvariant()} you found",
+            // Quoted, not summarised - "you have a new message" makes someone open the app to
+            // learn something they could have been told.
+            message.Body.Length <= 140 ? message.Body : message.Body[..140] + "...",
+            nameof(FoundReport),
+            postId);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var names = await _db.Users.AsNoTracking()
+            .Where(u => u.Id == senderId || u.Id == recipient)
+            .Select(u => new { u.Id, u.FullName })
+            .ToListAsync(cancellationToken);
+
+        return new FoundPostMessageDto(
+            message.Id,
+            names.First(n => n.Id == senderId).FullName,
+            true,
+            recipient,
+            names.First(n => n.Id == recipient).FullName,
+            message.Body,
+            message.IsRead,
+            message.CreatedAt);
+    }
+
+    public async Task<IReadOnlyList<FoundPostMessageDto>> GetMessagesAsync(
+        Guid postId,
+        Guid requesterId,
+        bool requesterIsStaff,
+        CancellationToken cancellationToken = default)
+    {
+        var post = await _db.FoundReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == postId && !r.IsDeleted, cancellationToken)
+            ?? throw new NotFoundAppException($"Found post '{postId}' was not found.");
+
+        var finderId = post.FinderId;
+        var isFinder = finderId == requesterId;
+
+        var messages = _db.FoundReportMessages.AsNoTracking().Where(m => m.FoundReportId == postId);
+
+        // The finder reads every thread; staff read all to settle a dispute; an enquirer reads
+        // only their own. Someone who has never written has nothing here.
+        if (!isFinder && !requesterIsStaff)
+        {
+            var participates = await messages.AnyAsync(
+                m => m.SenderId == requesterId || m.RecipientId == requesterId, cancellationToken);
+            if (!participates)
+                throw new ForbiddenAppException("You can only read messages you are part of.");
+
+            messages = messages.Where(m => m.SenderId == requesterId || m.RecipientId == requesterId);
+        }
+
+        return await messages
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new FoundPostMessageDto(
+                m.Id,
+                m.Sender.FullName,
+                m.SenderId == requesterId,
+                // The counterpart is whoever is not the finder: the enquirer this thread is with.
+                m.SenderId == finderId ? m.RecipientId : m.SenderId,
+                m.SenderId == finderId ? m.Recipient.FullName : m.Sender.FullName,
+                m.Body,
+                m.IsRead,
+                m.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<FoundPostFeedItemDto> RecogniseAsync(
         Guid id,
         Guid ownerId,
@@ -238,10 +365,17 @@ public class FoundPostService : IFoundPostService
 
         // The suggestion is the same row a desk or the agent would write; the owner's word
         // carries no more weight than theirs, and the claim's questions still decide.
-        await _suggestions.CreateAsync(
-            new CreateMatchSuggestionRequest(report.Id, post.Id, "You recognised this on the feed."),
-            ownerId,
-            cancellationToken);
+        // The matching agent may already have paired them when the post went up. The owner
+        // saying "that's mine" is still news for the finder, so only the row is skipped.
+        var alreadySuggested = await _db.MatchSuggestions.AnyAsync(
+            m => m.LostReportId == report.Id && m.FoundReportId == post.Id, cancellationToken);
+        if (!alreadySuggested)
+        {
+            await _suggestions.CreateAsync(
+                new CreateMatchSuggestionRequest(report.Id, post.Id, "You recognised this on the feed."),
+                ownerId,
+                cancellationToken);
+        }
 
         if (post.FinderId is { } finderId)
         {
@@ -293,6 +427,36 @@ public class FoundPostService : IFoundPostService
         return await LoadAsync(post.Id, finderId, cancellationToken);
     }
 
+    public async Task<FoundPostFeedItemDto> DeclareHandedInAsync(
+        Guid id,
+        Guid finderId,
+        CancellationToken cancellationToken = default)
+    {
+        var post = await _db.FoundReports
+            .FirstOrDefaultAsync(f => f.Id == id && f.FinderId == finderId, cancellationToken)
+            ?? throw new NotFoundAppException($"Found post '{id}' was not found.");
+
+        if (post.Status != FoundReportStatus.Posted)
+            throw new ConflictAppException("This post has already been received by a desk.");
+
+        if (post.HandedToSecurityAt is null)
+        {
+            post.HandedToSecurityAt = DateTime.UtcNow;
+            post.UpdatedAt = DateTime.UtcNow;
+            _db.FoundReportStatusHistories.Add(new FoundReportStatusHistory
+            {
+                FoundReportId = post.Id,
+                FromStatus = FoundReportStatus.Posted,
+                ToStatus = FoundReportStatus.Posted,
+                ChangedByUserId = finderId,
+                Reason = "Finder declared that the item was handed to security.",
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        return await LoadAsync(post.Id, finderId, cancellationToken);
+    }
+
     public async Task<FoundReportDetailDto> GetByHandInCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         var normalised = code.Replace(" ", "");
@@ -316,7 +480,12 @@ public class FoundPostService : IFoundPostService
         ConfirmFoundPostRequest request,
         CancellationToken cancellationToken = default)
     {
-        var post = await _db.FoundReports.FirstOrDefaultAsync(f => f.Id == id, cancellationToken)
+        // The item type and place are read further down for the honor award's one-line
+        // description, so they are loaded here rather than lazily - there is no lazy loading.
+        var post = await _db.FoundReports
+            .Include(f => f.ItemType)
+            .Include(f => f.FoundLocation)
+            .FirstOrDefaultAsync(f => f.Id == id, cancellationToken)
             ?? throw new NotFoundAppException($"Found post '{id}' was not found.");
 
         if (post.Status != FoundReportStatus.Posted)
@@ -361,6 +530,19 @@ public class FoundPostService : IFoundPostService
                 "The item you posted is safely in storage. If its owner comes forward, they will collect it from there.",
                 nameof(FoundReport),
                 post.Id);
+
+            // A desk has the item in its hands: the one outcome nobody can award themselves -
+            // so a staff member confirming their own post earns nothing.
+            if (finderId != staffId)
+            {
+                await _honor.QueueAwardAsync(
+                    finderId,
+                    HonorAwardReason.HandedInAtDesk,
+                    null,
+                    post.Id,
+                    $"Handed in a {post.ItemType.Name.ToLowerInvariant()} at {post.FoundLocation.Name}",
+                    cancellationToken);
+            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -405,5 +587,6 @@ public class FoundPostService : IFoundPostService
             f.FoundAt,
             f.Status.ToString(),
             requesterId != null && f.FinderId == requesterId ? f.HandInCode : null,
+            requesterId != null && f.FinderId == requesterId ? f.HandedToSecurityAt : null,
             f.CreatedAt);
 }

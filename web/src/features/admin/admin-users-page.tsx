@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/table'
 import { FormSelect } from '@/features/reports/form-select'
 import { useAuth } from '@/features/auth/use-auth'
-import { formatDate, getUsers, reinstateUser, type AdminUser } from './admin-api'
+import { changeUserRole, formatDate, getUsers, reinstateUser, type AdminUser } from './admin-api'
 import { StatCards } from './stat-cards'
 import { SuspendDialog } from './suspend-dialog'
 import { ApiError } from '@/lib/api/client'
@@ -79,6 +79,20 @@ export function AdminUsersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] })
       toast.success(`${updated.fullName} can sign in again.`)
+    },
+    onError: (mutationError) => {
+      toast.error(
+        mutationError instanceof ApiError ? mutationError.message : 'Could not reach the server.',
+      )
+    },
+  })
+
+  const changeRole = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: AdminUser['role'] }) => changeUserRole(id, role),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] })
+      toast.success(`${updated.fullName} is now ${updated.role}.`)
     },
     onError: (mutationError) => {
       toast.error(
@@ -271,7 +285,28 @@ export function AdminUsersPage() {
                         </TableCell>
 
                         <TableCell>
-                          <Badge variant="secondary">{user.role}</Badge>
+                          {isSelf ? (
+                            <Badge variant="secondary" title="You cannot change your own role">
+                              {user.role}
+                            </Badge>
+                          ) : (
+                            <select
+                              aria-label={`Role for ${user.fullName}`}
+                              value={user.role}
+                              disabled={changeRole.isPending && changeRole.variables?.id === user.id}
+                              onChange={(event) => {
+                                const next = event.target.value as AdminUser['role']
+                                if (window.confirm(`Make ${user.fullName} ${next}? They will be signed out.`)) {
+                                  changeRole.mutate({ id: user.id, role: next })
+                                }
+                              }}
+                              className="h-8 rounded-md border bg-transparent px-2 text-sm"
+                            >
+                              <option value="Student">Student</option>
+                              <option value="Staff">Staff</option>
+                              <option value="Admin">Admin</option>
+                            </select>
+                          )}
                         </TableCell>
 
                         <TableCell>

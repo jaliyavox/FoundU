@@ -29,6 +29,9 @@ class AuthRepository {
 
   Future<AuthUser> login(
       {required String email, required String password}) async {
+    // A successful login replaces both tokens. Clearing first also ensures an in-flight
+    // role switch cannot keep attaching the previous account's bearer token.
+    await _tokenStorage.clear();
     try {
       final response = await _authDio.post<Map<String, dynamic>>(
         '/api/auth/login',
@@ -94,6 +97,14 @@ class AuthRepository {
       final auth = AuthResponse.fromJson(response.data!);
       await _saveTokens(auth);
       return true;
+    } on DioException catch (error) {
+      // Only the server saying no ends the session. A timeout on weak Wi-Fi keeps the tokens,
+      // so the next request can try again instead of sending the student back to login.
+      final status = error.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await _tokenStorage.clear();
+      }
+      return false;
     } on Object {
       await _tokenStorage.clear();
       return false;
@@ -121,6 +132,13 @@ class AuthRepository {
     final refreshToken = await _tokenStorage.readRefreshToken();
     return (accessToken != null && accessToken.isNotEmpty) ||
         (refreshToken != null && refreshToken.isNotEmpty);
+  }
+
+  /// Stores a token pair the app was handed outside login - a password change returns one,
+  /// because the change ends every other session and would otherwise end this one too.
+  Future<AuthUser> adoptSession(AuthResponse auth) async {
+    await _saveTokens(auth);
+    return auth.user;
   }
 
   Future<void> _saveTokens(AuthResponse auth) {

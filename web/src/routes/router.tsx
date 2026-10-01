@@ -19,6 +19,15 @@ import { MyReportsPage } from '@/features/reports/my-reports-page'
 import { ReportLostPage } from '@/features/reports/report-lost-page'
 import { ForbiddenPage } from '@/pages/forbidden-page'
 import { NotFoundPage } from '@/pages/not-found-page'
+import { AskFoundUPage } from '@/features/intake/ask-foundu-page'
+import { FoundBoardPage } from '@/features/feed/found-board-page'
+import { HelpToFindPage } from '@/features/help/help-to-find-page'
+import { SupportPage } from '@/features/support/support-page'
+import { AdminSupportPage } from '@/features/support/admin-support-page'
+import { AdminOverviewPage } from '@/features/admin/admin-overview-page'
+import { ReferencePage } from '@/features/admin/reference-page'
+import { HandoverDeskPage } from '@/features/items/handover-desk-page'
+import { AccountPage } from '@/features/account/account-page'
 
 export const router = createBrowserRouter([
   // Public. Signed-in visitors are redirected to their role's home from inside the page.
@@ -26,6 +35,8 @@ export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/feed', element: <FeedPage /> },
+  // The board behind the "Fresh finds" strip. Public, like the lost feed.
+  { path: '/found', element: <FoundBoardPage /> },
 
   {
     element: <ProtectedRoute />,
@@ -40,6 +51,9 @@ export const router = createBrowserRouter([
               { path: 'items/new', element: <LogItemPage /> },
               { path: 'items/:id', element: <ItemDetailPage /> },
               { path: 'claims', element: <ClaimQueuePage /> },
+              { path: 'handovers', element: <HandoverDeskPage /> },
+              { path: 'admin/support', element: <AdminSupportPage /> },
+              { path: 'admin/overview', element: <AdminOverviewPage /> },
             ],
           },
           {
@@ -48,11 +62,15 @@ export const router = createBrowserRouter([
               { path: 'my-reports', element: <MyReportsPage /> },
               { path: 'my-reports/new', element: <ReportLostPage /> },
               { path: 'my-claims', element: <MyClaimsPage /> },
+              { path: 'ask-foundu', element: <AskFoundUPage /> },
+              { path: 'help-to-find', element: <HelpToFindPage /> },
             ],
           },
 
           // Both sides read the same claim from opposite ends, and the API decides who may
           // see which - so this route is open to any signed-in user rather than duplicated.
+          { path: 'account', element: <AccountPage /> },
+          { path: 'support', element: <SupportPage /> },
           { path: 'claims/:id', element: <ClaimDetailPage /> },
 
           // Anyone signed in can post something they found - a staff member walking across
@@ -62,6 +80,7 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allow={['Admin']} />,
             children: [
               { path: 'admin', element: <AdminUsersPage /> },
+              { path: 'admin/reference', element: <ReferencePage /> },
               { path: 'admin/analytics', element: <AnalyticsPage /> },
               { path: 'admin/moderation', element: <ModerationPage /> },
             ],

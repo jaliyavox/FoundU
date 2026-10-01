@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/auth/auth_session.dart';
 import '../../data/claim_models.dart';
 import '../../data/claim_repository.dart';
 
@@ -41,11 +42,16 @@ class ClaimsPageState {
 }
 
 class ClaimsPager extends Notifier<ClaimsPageState> {
-  bool _isLoadingFirst = false;
+  int _sessionVersion = 0;
+  int? _loadingSessionVersion;
   int _generation = 0;
 
   @override
   ClaimsPageState build() {
+    // A logout/login can otherwise leave this non-auto-disposed pager showing a previous
+    // account's 403/error or data. The next session gets a fresh page-one request.
+    ref.watch(authSessionEpochProvider);
+    _sessionVersion++;
     Future.microtask(_loadFirst);
     return const ClaimsPageState.initial();
   }
@@ -53,22 +59,31 @@ class ClaimsPager extends Notifier<ClaimsPageState> {
   Future<void> refresh() => _loadFirst();
 
   Future<void> _loadFirst() async {
-    if (_isLoadingFirst) return;
-    _isLoadingFirst = true;
+    final sessionVersion = _sessionVersion;
+    if (_loadingSessionVersion == sessionVersion) return;
+    _loadingSessionVersion = sessionVersion;
     final requestGeneration = ++_generation;
     state = const ClaimsPageState.initial();
     try {
       final page = await ref
           .read(claimRepositoryProvider)
           .getMyClaims(page: 1, pageSize: claimsPageSize);
-      if (!ref.mounted || requestGeneration != _generation) return;
+      if (!ref.mounted ||
+          requestGeneration != _generation ||
+          sessionVersion != _sessionVersion) {
+        return;
+      }
       state = ClaimsPageState(
         items: page.items,
         page: page.page,
         totalPages: page.totalPages,
       );
     } catch (error) {
-      if (!ref.mounted || requestGeneration != _generation) return;
+      if (!ref.mounted ||
+          requestGeneration != _generation ||
+          sessionVersion != _sessionVersion) {
+        return;
+      }
       state = ClaimsPageState(
         items: const [],
         page: 0,
@@ -76,7 +91,9 @@ class ClaimsPager extends Notifier<ClaimsPageState> {
         initialError: error,
       );
     } finally {
-      _isLoadingFirst = false;
+      if (_loadingSessionVersion == sessionVersion) {
+        _loadingSessionVersion = null;
+      }
     }
   }
 

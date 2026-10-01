@@ -100,6 +100,29 @@ def build_matching_plan(match_reports: bool) -> AgentPlan:
     )
 
 
+def build_intake_plan() -> AgentPlan:
+    """Intake extracts search hints and recommends; it has no business-state tools."""
+    return AgentPlan(
+        agent=AgentName.INTAKE,
+        steps=[
+            _step("inspect-input", PlanActionType.INSPECT_INPUT, PlanPurpose.INSPECT_REQUEST, 1),
+            _step(
+                "call-model", PlanActionType.CALL_MODEL, PlanPurpose.GENERATE_STRUCTURED_OUTPUT, 2
+            ),
+            _step(
+                "validate-result", PlanActionType.VALIDATE_RESULT, PlanPurpose.VALIDATE_OUTPUT, 3
+            ),
+            _step(
+                "produce-recommendation",
+                PlanActionType.PRODUCE_RECOMMENDATION,
+                PlanPurpose.PREPARE_RECOMMENDATION,
+                4,
+            ),
+            _step("complete", PlanActionType.COMPLETE, PlanPurpose.COMPLETE, 5),
+        ],
+    )
+
+
 def build_verification_plan(use_llm: bool = False) -> AgentPlan:
     steps = [
         _step("inspect-input", PlanActionType.INSPECT_INPUT, PlanPurpose.INSPECT_REQUEST, 1),

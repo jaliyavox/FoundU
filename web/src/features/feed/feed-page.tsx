@@ -1,13 +1,16 @@
-import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
+import { Link, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  HandHeartIcon,
   PlusIcon,
   RotateCwIcon,
   SearchIcon,
   SearchXIcon,
+  XIcon,
 } from 'lucide-react'
 import { GradientDivider } from '@/components/landing/bento'
 import { SiteNav } from '@/components/landing/site-nav'
@@ -16,12 +19,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/use-auth'
-import { getFeed, type LostReportFeedItem } from './feed-api'
+import { getFeed, getFeedItem, type LostReportFeedItem } from './feed-api'
 import { FeedCard } from './feed-card'
 import { CardConnector } from './card-connector'
 import { FeedDetailPanel } from './feed-detail-panel'
 import { FeedSpotlight } from './feed-spotlight'
-import { FoundFeed } from './found-feed'
+import { FoundStrip } from './found-strip'
+import { AskBubble } from '@/features/intake/ask-bubble'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { homeRouteForRole } from '@/routes/role-home'
@@ -45,9 +49,6 @@ export function FeedPage() {
   const [confirming, setConfirming] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  // Two boards, one page: what people are looking for, and what people have found and not
-  // yet walked to a desk. The search applies to whichever is showing.
-  const [mode, setMode] = useState<'lost' | 'found'>('lost')
 
   const { data, isPending, isError, error, isFetching, refetch } = useQuery({
     // The signed-in user is part of the key because the response is: `isMine` is computed
@@ -57,6 +58,26 @@ export function FeedPage() {
     // Keeps the previous page on screen while the next one loads, instead of flashing skeletons.
     placeholderData: keepPreviousData,
   })
+
+  // A link straight to one report (Ask FoundU pointing a finder at its owner) opens it in the
+  // same panel a click on its card would.
+  const [params, setParams] = useSearchParams()
+  const linkedId = params.get('report')
+  const linked = useQuery({
+    queryKey: ['lost-feed-item', linkedId, user?.id ?? null],
+    queryFn: () => getFeedItem(linkedId!),
+    enabled: Boolean(linkedId),
+    retry: false,
+  })
+  useEffect(() => {
+    if (linked.data) setSelected(linked.data)
+  }, [linked.data])
+  useEffect(() => {
+    // Off the feed since the link was made - say so once, and drop the parameter.
+    if (!linked.isError) return
+    toast.error('That report is no longer on the feed - it may already be on its way back.')
+    setParams({}, { replace: true })
+  }, [linked.isError, setParams])
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -86,33 +107,15 @@ export function FeedPage() {
           </div>
 
           <div className="mx-auto w-full max-w-5xl px-6">
-            <div className="inline-flex rounded-full border border-white/12 bg-white/[0.06] p-1" role="tablist" aria-label="Which board">
-              {(['lost', 'found'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === m}
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
-                    mode === m ? 'bg-white text-brand-forest' : 'text-white/70 hover:text-white',
-                  )}
-                >
-                  {m === 'lost' ? 'Lost' : 'Found'}
-                </button>
-              ))}
-            </div>
-
-            <h1 className="pt-5 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              {mode === 'lost' ? 'What people are looking for' : 'What people have found'}
+            <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+              What people are looking for
             </h1>
             <p className="max-w-xl pt-3 text-sm text-pretty text-white/60 sm:text-base">
-              {mode === 'lost'
-                ? 'Every open report from across campus. Recognise something? Hand it in at the nearest desk and we will get it back to them.'
-                : 'Things students picked up and posted before reaching a desk. Recognise yours? Say so, and the finder is asked to hand it in.'}
+              Every open report from across campus. Recognise something? Hand it in at the
+              nearest desk and we will get it back to them.
             </p>
 
+            {user?.role === 'Student' && <Link to="/ask-foundu" className="mt-5 inline-block text-sm font-medium text-brand-sage underline underline-offset-4">Lost something? Ask FoundU to help you look.</Link>}
             <div className="flex flex-col gap-3 pt-8 sm:flex-row sm:items-center">
               <form onSubmit={handleSearch} className="flex flex-1 items-center gap-2">
                 <div className="relative flex-1">
@@ -128,8 +131,24 @@ export function FeedPage() {
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
                     placeholder="Search by item, colour or place"
-                    className="border-white/12 bg-white/[0.06] pl-9 text-white placeholder:text-white/35"
+                    className="border-white/12 bg-white/[0.06] pr-9 pl-9 text-white placeholder:text-white/35"
                   />
+                  {/* Clears the box and the results in one press - typing over a search you
+                      already ran and pressing Search again is two steps for one intent. */}
+                  {(searchInput || search) && (
+                    <button
+                      type="button"
+                      aria-label="Clear the search"
+                      onClick={() => {
+                        setSearchInput('')
+                        setSearch('')
+                        setPage(1)
+                      }}
+                      className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
+                    >
+                      <XIcon className="size-4" aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
                 <Button
                   type="submit"
@@ -143,11 +162,24 @@ export function FeedPage() {
               <Button
                 className="group rounded-xl bg-white text-brand-forest hover:bg-white/90"
                 nativeButton={false}
-                render={<Link to={mode === 'lost' ? postHref : user ? '/found/new' : '/login'} />}
+                render={<Link to={postHref} />}
               >
                 <PlusIcon aria-hidden="true" />
-                {mode === 'lost' ? postLabel : user ? 'Post a found item' : 'Sign in to post'}
+                {postLabel}
               </Button>
+              {/* The other half of the board. Without it a finder had to spot "See more" on
+                  the Fresh finds strip to learn that posting a find was possible at all. */}
+              {user?.role === 'Student' && (
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-white/25 bg-white/8 text-white hover:bg-white/15 hover:text-white"
+                  nativeButton={false}
+                  render={<Link to="/found/new" />}
+                >
+                  <HandHeartIcon aria-hidden="true" />
+                  Post a found item
+                </Button>
+              )}
             </div>
           </div>
         </section>
@@ -155,7 +187,7 @@ export function FeedPage() {
         <GradientDivider />
 
         <section
-          aria-label={mode === 'lost' ? 'Lost item reports' : 'Found item posts'}
+          aria-label="Lost item reports"
           className="relative overflow-hidden bg-brand-mist"
         >
           {/* Same light ground as the FAQ band, so the dark cards read as raised panels. */}
@@ -171,9 +203,9 @@ export function FeedPage() {
           </div>
 
           <div className="relative mx-auto w-full max-w-5xl px-6 py-12">
-          {mode === 'found' ? (
-            <FoundFeed search={search} />
-          ) : isPending ? (
+          <FoundStrip />
+
+          {isPending ? (
             <FeedSkeleton />
           ) : isError ? (
             <FeedError error={error} onRetry={() => refetch()} />
@@ -251,6 +283,8 @@ export function FeedPage() {
         </section>
       </main>
 
+      <AskBubble />
+
       <FeedDetailPanel
         item={selected}
         showHandIn={showHandIn}
@@ -262,6 +296,7 @@ export function FeedPage() {
           setSelected(null)
           setZoomed(false)
           setConfirming(false)
+          if (linkedId) setParams({}, { replace: true })
         }}
       />
       <FeedSpotlight

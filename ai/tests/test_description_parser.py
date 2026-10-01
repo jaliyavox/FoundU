@@ -340,3 +340,18 @@ def test_versioned_deterministic_golden_corpus():
         assert result.is_valid is case["isValid"]
         assert result.item_type == case["itemType"]
         assert result.primary_color == case["primaryColor"]
+
+
+def test_deterministic_features_respect_the_api_contract() -> None:
+    from app.agents.description_parser import (
+        MAX_IDENTIFYING_FEATURES,
+        _parse_item_description_deterministically,
+    )
+
+    result = _parse_item_description_deterministically(
+        "Black backpack, sticker on front, scratch on bottom, blue keychain, "
+        "patch, name tag, torn strap, Patch"
+    )
+    assert len(result.identifying_features) == MAX_IDENTIFYING_FEATURES
+    lowered = [f.casefold() for f in result.identifying_features]
+    assert len(lowered) == len(set(lowered))

@@ -36,6 +36,20 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>Exchanges a still-valid refresh token for a new access + refresh token pair (rotation).</summary>
+    /// <summary>
+    /// Signs in with the ID token Google's button produced. Creates the account on first use,
+    /// or links Google to an existing one when Google has verified the address.
+    /// </summary>
+    [HttpPost("google")]
+    public async Task<ActionResult<AuthResponse>> Google([FromBody] GoogleSignInRequest request)
+        => Ok(await _authService.GoogleSignInAsync(request, GetClientIp()));
+
+    /// <summary>Whether this server has Google sign-in configured, so clients can hide the button.</summary>
+    [HttpGet("google/status")]
+    [AllowAnonymous]
+    public ActionResult<object> GoogleStatus([FromServices] IGoogleTokenVerifier verifier)
+        => Ok(new { enabled = verifier.IsConfigured });
+
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request)

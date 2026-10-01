@@ -1,10 +1,13 @@
 from types import SimpleNamespace
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app.agents.checkpoint import WorkflowStateConfigurationError
+from app.agents.models import AgentName, AgentRunRequest
+from app.agents.state import create_initial_state
 from app.service_auth import SERVICE_KEY_HEADER
 
 client = TestClient(main.app)
@@ -19,6 +22,17 @@ def configured_service_key(monkeypatch: pytest.MonkeyPatch) -> None:
 STUB_AGENTS = {
     "matching": "Matching Agent foundation is ready.",
 }
+
+
+def test_lifespan_rejects_default_postgres_mode_without_a_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.delenv("WORKFLOW_STATE_STORE", raising=False)
+    monkeypatch.delenv("WORKFLOW_DATABASE_URL", raising=False)
+
+    with pytest.raises(WorkflowStateConfigurationError, match="not configured"):
+        with TestClient(main.app):
+            pass
 
 
 @pytest.mark.parametrize(("agent", "message"), STUB_AGENTS.items())
@@ -240,6 +254,182 @@ def test_each_request_generates_a_new_agent_run_id():
     first_id = UUID(first.json()["agent_run_id"])
     second_id = UUID(second.json()["agent_run_id"])
     assert first_id != second_id
+
+
+def test_authenticated_workflow_state_endpoint_loads_safe_completed_state():
+    with TestClient(main.app) as active_client:
+        created = active_client.post(
+            "/agents/run",
+            json={"agent": "matching", "payload": {}},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        workflow_id = created.json()["agent_run_id"]
+        state = active_client.get(
+            f"/agents/workflows/{workflow_id}?agent=matching",
+            headers=SERVICE_AUTH_HEADERS,
+        )
+
+    assert created.status_code == 200
+    assert state.status_code == 200
+    body = state.json()
+    assert body["agent_run_id"] == workflow_id
+    assert body["agent"] == "matching"
+    assert body["status"] == "completed"
+    assert body["plan"]["agent"] == "matching"
+    assert body["completed_step_ids"]
+    assert "payload" not in body
+    assert "prompt" not in body
+
+
+def test_repeated_durable_workflow_id_returns_saved_result_without_replaying():
+    workflow_id = str(uuid4())
+    with TestClient(main.app) as active_client:
+        first = active_client.post(
+            "/agents/run",
+            json={"agent": "matching", "payload": {}, "workflow_id": workflow_id},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        second = active_client.post(
+            "/agents/run",
+            json={"agent": "matching", "payload": {}, "workflow_id": workflow_id},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        saved = main.app.state.workflow_state_store.load(UUID(workflow_id), AgentName.MATCHING)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["agent_run_id"] == workflow_id
+    assert saved["state"]["trace"].count("executed:matching") == 1
+
+
+def test_in_progress_workflow_id_is_rejected_without_executing_a_second_graph_run():
+    workflow_id = uuid4()
+    with TestClient(main.app) as active_client:
+        state_store = main.app.state.workflow_state_store
+        initial_state = create_initial_state(
+            AgentRunRequest(agent=AgentName.MATCHING, workflow_id=workflow_id)
+        )
+        assert state_store.create(workflow_id, AgentName.MATCHING, initial_state)
+        state_store.update(workflow_id, AgentName.MATCHING, "executing", initial_state)
+
+        response = active_client.post(
+            "/agents/run",
+            json={"agent": "matching", "payload": {}, "workflow_id": str(workflow_id)},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        saved = state_store.load(workflow_id, AgentName.MATCHING)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Workflow is already in progress."}
+    assert "executed:matching" not in saved["state"].get("trace", [])
+
+
+def test_coordinator_workflow_truly_pauses_then_resumes_once_after_human_approval():
+    with TestClient(main.app) as active_client:
+        created = active_client.post(
+            "/agents/run",
+            json={
+                "agent": "coordinator",
+                "payload": {
+                    "workflow_id": "claim-1",
+                    "workflow_type": "claim_verification",
+                    "claim_status": "ManualReviewRequired",
+                    "verification_recommendation": "manual_review",
+                    "decision_status": "no_decision",
+                    "notification_state": "not_required",
+                },
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        workflow_id = created.json()["agent_run_id"]
+        pending = active_client.get(
+            f"/agents/workflows/{workflow_id}?agent=coordinator", headers=SERVICE_AUTH_HEADERS
+        )
+        approved = active_client.post(
+            f"/agents/workflows/{workflow_id}/approval",
+            json={
+                "agent": "coordinator",
+                "decision": "approved",
+                "decision_maker_id": str(uuid4()),
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        resumed = active_client.post(
+            f"/agents/workflows/{workflow_id}/resume",
+            json={"agent": "coordinator"},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        duplicate_resume = active_client.post(
+            f"/agents/workflows/{workflow_id}/resume",
+            json={"agent": "coordinator"},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+
+    assert created.status_code == 200
+    assert created.json()["status"] == "waiting_for_approval"
+    assert pending.json()["status"] == "waiting_for_approval"
+    assert pending.json()["approval_status"] == "pending"
+    assert "complete" not in pending.json()["completed_step_ids"]
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+    assert resumed.status_code == 200
+    assert resumed.json()["status"] == "completed"
+    assert resumed.json()["output"]["recommended_action"] == "await_authoritative_staff_decision"
+    assert duplicate_resume.status_code == 409
+
+
+def test_rejected_coordinator_workflow_cannot_resume_or_decide_a_claim():
+    with TestClient(main.app) as active_client:
+        created = active_client.post(
+            "/agents/run",
+            json={
+                "agent": "coordinator",
+                "payload": {
+                    "workflow_id": "claim-1",
+                    "workflow_type": "claim_verification",
+                    "claim_status": "ManualReviewRequired",
+                    "verification_recommendation": "manual_review",
+                    "decision_status": "no_decision",
+                    "notification_state": "not_required",
+                },
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        workflow_id = created.json()["agent_run_id"]
+        rejected = active_client.post(
+            f"/agents/workflows/{workflow_id}/approval",
+            json={
+                "agent": "coordinator",
+                "decision": "rejected",
+                "decision_maker_id": str(uuid4()),
+            },
+            headers=SERVICE_AUTH_HEADERS,
+        )
+        resumed = active_client.post(
+            f"/agents/workflows/{workflow_id}/resume",
+            json={"agent": "coordinator"},
+            headers=SERVICE_AUTH_HEADERS,
+        )
+
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "rejected"
+    assert resumed.status_code == 409
+    assert "approve_claim" not in rejected.text
+    assert "reject_claim" not in rejected.text
+
+
+def test_workflow_state_endpoint_requires_authentication_and_hides_missing_state():
+    workflow_id = "00000000-0000-0000-0000-000000000001"
+
+    unauthenticated = client.get(f"/agents/workflows/{workflow_id}?agent=matching")
+    missing = client.get(
+        f"/agents/workflows/{workflow_id}?agent=matching",
+        headers=SERVICE_AUTH_HEADERS,
+    )
+
+    assert unauthenticated.status_code == 401
+    assert missing.status_code == 404
+    assert missing.json() == {"detail": "Workflow state is unavailable."}
 
 
 def test_unexpected_graph_failure_returns_safe_error(monkeypatch: pytest.MonkeyPatch):

@@ -4,6 +4,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase is optional for local development - lib/main.dart already carries on without it.
+// The Google Services plugin, though, fails the entire build when its config file is absent,
+// and google-services.json is (rightly) gitignored. So it is applied only when the file is
+// there: with it, push works; without it, the app still builds and runs, push stays off.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.example.foundu"
     compileSdk = 36

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/theme/brand.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../../notifications/presentation/notification_button.dart';
 
 /// Who is signed in, and the way out. Deliberately small - the app's work happens on the
 /// other tabs.
@@ -22,7 +24,10 @@ class ProfilePage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
           children: [
-            Text('Profile', style: text.headlineSmall),
+            Row(children: [
+              Expanded(child: Text('Profile', style: text.headlineSmall)),
+              const NotificationButton(),
+            ]),
             const SizedBox(height: 18),
             Panel(
               color: Brand.ink,
@@ -51,6 +56,42 @@ class ProfilePage extends ConsumerWidget {
                     ),
                   ),
                   StatusChip(user?.role ?? '', tone: ChipTone.good),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            // The four things a student comes to their profile for, in one panel.
+            Panel(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _Link(
+                    icon: Icons.volunteer_activism_outlined,
+                    title: 'Help to find',
+                    subtitle: 'Your finding activity, desk codes and honor points',
+                    onTap: () => context.push('/profile/help-to-find'),
+                  ),
+                  const Divider(),
+                  _Link(
+                    icon: Icons.auto_awesome_outlined,
+                    title: 'Ask FoundU',
+                    subtitle: 'Describe what you lost and check what has been handed in',
+                    onTap: () => context.push('/ask'),
+                  ),
+                  const Divider(),
+                  _Link(
+                    icon: Icons.manage_accounts_outlined,
+                    title: 'Account settings',
+                    subtitle: 'Name, email and password',
+                    onTap: () => context.push('/profile/account'),
+                  ),
+                  const Divider(),
+                  _Link(
+                    icon: Icons.support_agent_outlined,
+                    title: 'Help & support',
+                    subtitle: 'Ask the desk when something is stuck',
+                    onTap: () => context.push('/profile/support'),
+                  ),
                 ],
               ),
             ),
@@ -111,6 +152,27 @@ class _Row extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Link extends StatelessWidget {
+  const _Link({required this.icon, required this.title, required this.subtitle, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      leading: Icon(icon, color: Brand.forest),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded, color: Brand.faint),
+      onTap: onTap,
     );
   }
 }

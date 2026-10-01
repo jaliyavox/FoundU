@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftIcon, HandIcon, HashIcon, Loader2Icon, RotateCwIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -12,8 +12,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/features/reports/date-time-picker'
 import { FormSelect } from '@/features/reports/form-select'
 import { defaultWindow, getCategories, getLocations, toUtcIso } from '@/features/reports/reports-api'
+import { useAuth } from '@/features/auth/use-auth'
+import { readIntakeHandoff } from '@/features/intake/intake-api'
 import { ApiError } from '@/lib/api/client'
-import { displayCode, postFound } from './feed-api'
+import { displayCode, invalidateFoundPosts, postFound } from './feed-api'
 
 /**
  * "I found something." One short form: what, where, when, and a line the owner would
@@ -23,15 +25,21 @@ import { displayCode, postFound } from './feed-api'
  */
 export function PostFoundPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  // Arrived from Ask FoundU with a draft: start from what the finder already said. Only a
+  // finder's draft for this account - an owner's lost-report draft is not a found post.
+  const handoff = readIntakeHandoff(useLocation().state, user?.id)
+  const draft = handoff?.response.slots.intent === 'found' ? handoff.response.draft : null
 
   const categories = useQuery({ queryKey: ['categories'], queryFn: getCategories })
   const locations = useQuery({ queryKey: ['locations'], queryFn: getLocations })
 
-  const [categoryId, setCategoryId] = useState('')
-  const [itemTypeId, setItemTypeId] = useState('')
-  const [foundLocationId, setFoundLocationId] = useState('')
-  const [description, setDescription] = useState('')
-  const [primaryColor, setPrimaryColor] = useState('')
+  const [categoryId, setCategoryId] = useState(draft?.categoryId ?? '')
+  const [itemTypeId, setItemTypeId] = useState(draft?.itemTypeId ?? '')
+  const [foundLocationId, setFoundLocationId] = useState(draft?.locationId ?? '')
+  const [description, setDescription] = useState(draft?.description ?? '')
+  const [primaryColor, setPrimaryColor] = useState(draft?.primaryColor ?? '')
   const [foundAt, setFoundAt] = useState(() => defaultWindow().to)
   const [lostCode, setLostCode] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
@@ -49,6 +57,7 @@ export function PostFoundPage() {
         lostReportHandInCode: lostCode.replace(/\s/g, '') || undefined,
       }),
     onSuccess: (post) => {
+      invalidateFoundPosts(queryClient)
       setPosted({ code: post.handInCode })
       toast.success('Posted. Thank you.')
     },

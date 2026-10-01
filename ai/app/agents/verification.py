@@ -27,6 +27,8 @@ from app.llm.models import StructuredGenerationRequest
 
 MAX_GENERATED_QUESTIONS = 3
 PARTIAL_MATCH_MIN_SCORE = 0.4
+# A paraphrase that names at least this share of the detail's meaningful words is a match.
+STRONG_MATCH_MIN_SCORE = 0.8
 
 # These intentionally ask only about an evidence category, never its staff-held value.
 QUESTION_TEMPLATES: tuple[tuple[tuple[str, ...], str], ...] = (
@@ -247,9 +249,20 @@ def generate_questions(
     return output
 
 
+# Words that carry no evidence. Counting them let "the a on and" earn partial credit against
+# any sentence, and made a faithful paraphrase fall short of a match.
+_FILLER_WORDS = frozenset(
+    "a an the and or but of on in at to by for from with near is are was it its my i me "
+    "there this that has have had one some".split()
+)
+
+
 def _normalize(value: str) -> tuple[str, set[str]]:
     normalized = re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
-    return normalized, set(normalized.split())
+    tokens = set(normalized.split())
+    meaningful = {token for token in tokens if token not in _FILLER_WORDS}
+    # A detail made only of filler words ("it is on") is still compared on its own words.
+    return normalized, meaningful or tokens
 
 
 def _evaluate_answer(
@@ -269,6 +282,11 @@ def _evaluate_answer(
         return VerificationAnswerEvaluation(question_id=question_id, result="match", score=1.0)
 
     score = len(answer_tokens.intersection(expected_tokens)) / len(expected_tokens)
+    # Listing every plausible word would otherwise cover the hidden detail by chance, so an
+    # answer much longer than the detail can never count as more than partial.
+    padded = len(answer_tokens) > 2 * len(expected_tokens) + 2
+    if score >= STRONG_MATCH_MIN_SCORE and not padded:
+        return VerificationAnswerEvaluation(question_id=question_id, result="match", score=score)
     if score >= PARTIAL_MATCH_MIN_SCORE:
         return VerificationAnswerEvaluation(
             question_id=question_id, result="partial_match", score=score

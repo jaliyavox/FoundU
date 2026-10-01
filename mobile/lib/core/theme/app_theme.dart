@@ -95,11 +95,16 @@ ThemeData buildFoundUTheme() {
         borderSide: const BorderSide(color: Brand.danger, width: 2),
       ),
     ),
+    // Buttons are 54 tall with a finite minimum width. Never Size.fromHeight here: that is
+    // Size(infinity, 54), and any button placed in a Row or a dialog's action bar - both lay
+    // out with unbounded width - then fails layout and takes its whole screen down with it,
+    // silently. That is how the report form went blank. Full width comes from the parent: a
+    // stretched Column, a ListView, or InkButton, which measures its space before asking.
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: Brand.forest,
         foregroundColor: Colors.white,
-        minimumSize: const Size.fromHeight(54),
+        minimumSize: const Size(64, 54),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Brand.radiusControl)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
       ),
@@ -109,7 +114,7 @@ ThemeData buildFoundUTheme() {
         backgroundColor: Brand.forest,
         foregroundColor: Colors.white,
         elevation: 0,
-        minimumSize: const Size.fromHeight(54),
+        minimumSize: const Size(64, 54),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Brand.radiusControl)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
       ),
@@ -117,7 +122,7 @@ ThemeData buildFoundUTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: Brand.text,
-        minimumSize: const Size.fromHeight(54),
+        minimumSize: const Size(64, 54),
         side: const BorderSide(color: Brand.line),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Brand.radiusControl)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),

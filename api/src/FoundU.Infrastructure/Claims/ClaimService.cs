@@ -27,19 +27,25 @@ public class ClaimService : IClaimService
     private readonly FoundUDbContext _db;
     private readonly INotificationService _notifications;
     private readonly IVerificationAgentClient _verificationAgent;
+    private readonly IHonorService _honor;
+    private readonly IAgentWorkflowClient? _workflows;
 
     public ClaimService(
         FoundUDbContext db,
         INotificationService notifications,
-        IVerificationAgentClient verificationAgent)
+        IVerificationAgentClient verificationAgent,
+        IHonorService honor,
+        IAgentWorkflowClient? workflows = null)
     {
         _db = db;
         _notifications = notifications;
         _verificationAgent = verificationAgent;
+        _honor = honor;
+        _workflows = workflows;
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
-    private static readonly ClaimStatus[] OpenStatuses =
+    internal static readonly ClaimStatus[] OpenStatuses =
     [
         ClaimStatus.Pending,
         ClaimStatus.WaitingForAnswer,
@@ -96,6 +102,15 @@ public class ClaimService : IClaimService
             throw new ConflictAppException("You already have an open claim for this item.");
         }
 
+        var reportAlreadyApproved = await _db.Claims.AnyAsync(
+            c => c.LostReportId == request.LostReportId && c.Status == ClaimStatus.Approved,
+            cancellationToken);
+
+        if (reportAlreadyApproved)
+        {
+            throw new ConflictAppException("An item has already been approved for this report. Collect it from the desk.");
+        }
+
         var claim = new Claim
         {
             StudentId = studentId,
@@ -138,6 +153,87 @@ public class ClaimService : IClaimService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
+    private async Task StartCoordinatorWorkflowAsync(Claim claim, string recommendation, CancellationToken cancellationToken)
+    {
+        if (_workflows is null) return;
+        var existing = await _db.AgentRuns
+            .Where(run => run.ClaimId == claim.Id
+                && run.Objective == "Coordinator claim verification workflow"
+                && (run.Status == AgentRunStatus.Running || run.Status == AgentRunStatus.PausedForApproval))
+            .OrderByDescending(run => run.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null) return;
+
+        var workflowId = Guid.NewGuid();
+        var run = new AgentRun
+        {
+            ClaimId = claim.Id,
+            TriggerEntityType = nameof(Claim),
+            TriggerEntityId = claim.Id,
+            Objective = "Coordinator claim verification workflow",
+            Status = AgentRunStatus.Running,
+            // This intentionally contains only an opaque remote workflow identifier.
+            FinalOutcomeJson = JsonSerializer.Serialize(new { remoteAgentRunId = workflowId }),
+        };
+        _db.AgentRuns.Add(run);
+        await _db.SaveChangesAsync(cancellationToken);
+        var planningStep = new AgentStep
+        {
+            AgentRunId = run.Id,
+            AgentName = AgentName.PlannerAgent,
+            StepOrder = 1,
+            Task = "Coordinator planning",
+            Status = AgentStepStatus.Running,
+            StartedAt = DateTime.UtcNow,
+        };
+        _db.AgentSteps.Add(planningStep);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var workflow = await _workflows.StartCoordinatorAsync(workflowId, claim.Status.ToString(), recommendation, cancellationToken);
+        if (workflow is null)
+        {
+            run.Status = AgentRunStatus.Failed;
+            run.ErrorMessage = "Coordinator workflow is unavailable; staff review continues.";
+            run.CompletedAt = DateTime.UtcNow;
+            CompleteCoordinatorStep(planningStep, AgentStepStatus.Failed, "Coordinator workflow start failed.");
+        }
+        else
+        {
+            run.Status = ToAgentRunStatus(workflow.Status);
+            run.RetryCount = workflow.RetryCount;
+            CompleteCoordinatorStep(planningStep, AgentStepStatus.Completed, null);
+            if (run.Status == AgentRunStatus.PausedForApproval)
+            {
+                _db.AgentSteps.Add(new AgentStep
+                {
+                    AgentRunId = run.Id,
+                    AgentName = AgentName.PlannerAgent,
+                    StepOrder = 2,
+                    Task = "Waiting for human approval",
+                    Status = AgentStepStatus.Running,
+                    StartedAt = DateTime.UtcNow,
+                });
+            }
+            if (run.Status is AgentRunStatus.Completed or AgentRunStatus.Failed) run.CompletedAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static AgentRunStatus ToAgentRunStatus(string workflowStatus) => workflowStatus switch
+    {
+        "waiting_for_approval" => AgentRunStatus.PausedForApproval,
+        "completed" => AgentRunStatus.Completed,
+        "failed" or "rejected" => AgentRunStatus.Failed,
+        _ => AgentRunStatus.Running,
+    };
+
+    private static void CompleteCoordinatorStep(AgentStep step, AgentStepStatus status, string? error)
+    {
+        step.Status = status;
+        step.ErrorMessage = error;
+        step.CompletedAt = DateTime.UtcNow;
     }
 
     public Task<PagedResult<ClaimListItemDto>> SearchForStudentAsync(
@@ -241,7 +337,7 @@ public class ClaimService : IClaimService
         if (privateDetails.Count == 0)
         {
             return await MoveToManualReviewAfterGenerationFailureAsync(
-                claim, staffId, correlationId, "Verification evidence is unavailable.", cancellationToken);
+                claim, staffId, correlationId, "Verification evidence is unavailable.", 0, cancellationToken);
         }
 
         var agentResult = await _verificationAgent.GenerateQuestionsAsync(
@@ -253,6 +349,7 @@ public class ClaimService : IClaimService
                 staffId,
                 correlationId,
                 agentResult.FailureReason ?? "Verification question generation failed safely.",
+                agentResult.RetryCount,
                 cancellationToken);
         }
 
@@ -264,7 +361,8 @@ public class ClaimService : IClaimService
             result.AgentRunId,
             result.Recommendation,
             success: true,
-            result.Questions);
+            result.Questions,
+            retryCount: agentResult.RetryCount);
         _db.AgentRuns.Add(audit);
 
         foreach (var question in result.Questions)
@@ -401,7 +499,8 @@ public class ClaimService : IClaimService
                 claim.Id,
                 "evaluate_answers",
                 correlationId,
-                agentResult.FailureReason ?? "Verification evaluation failed safely.");
+                agentResult.FailureReason ?? "Verification evaluation failed safely.",
+                agentResult.RetryCount);
             MoveClaim(claim, ClaimStatus.ManualReviewRequired, studentId, "Verification requires staff review.");
         }
         else
@@ -414,7 +513,8 @@ public class ClaimService : IClaimService
                 result.AgentRunId,
                 result.Recommendation,
                 success: true,
-                questions: null);
+                questions: null,
+                retryCount: agentResult.RetryCount);
             _db.AgentRuns.Add(audit);
 
             // Recommendations only choose the staff-review queue. They never call DecideAsync,
@@ -427,6 +527,13 @@ public class ClaimService : IClaimService
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        // The Coordinator is non-authoritative. It starts only after the verification audit and
+        // review status are persisted, and its opaque workflow ID is recorded before FastAPI.
+        if (agentResult.IsSuccess && agentResult.Value is { } successfulEvaluation)
+        {
+            await StartCoordinatorWorkflowAsync(claim, successfulEvaluation.Recommendation, cancellationToken);
+        }
+
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
 
@@ -436,7 +543,7 @@ public class ClaimService : IClaimService
         ClaimDecisionRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!Enum.TryParse<ApprovalDecisionType>(request.Decision, ignoreCase: true, out var decision))
+        if (!Enum.TryParse<ApprovalDecisionType>(request.Decision, ignoreCase: true, out var decision) || !Enum.IsDefined(decision))
         {
             throw new ValidationAppException(nameof(ClaimDecisionRequest.Decision), "Unknown decision.");
         }
@@ -451,6 +558,11 @@ public class ClaimService : IClaimService
         }
 
         var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+
+        if (decision == ApprovalDecisionType.Approved)
+        {
+            await EnsureApprovableAsync(claim, staffId, "The claim was approved.", cancellationToken);
+        }
 
         _db.ApprovalDecisions.Add(new ApprovalDecision
         {
@@ -510,15 +622,9 @@ public class ClaimService : IClaimService
             throw new ConflictAppException("Only a rejected claim can be overturned.");
         }
 
-        // The item may have gone to somebody else in the meantime - their approval stands.
-        var item = await _db.FoundReports
-            .AsNoTracking()
-            .FirstOrDefaultAsync(f => f.Id == claim.FoundReportId, cancellationToken);
-
-        if (item is null || item.Status != FoundReportStatus.Unclaimed)
-        {
-            throw new ConflictAppException("This item is no longer in storage, so the claim cannot be approved now.");
-        }
+        // The rejection put the owner's report back on the feed, and the item may have gone to
+        // somebody else since. The same checks as any approval.
+        await EnsureApprovableAsync(claim, adminId, "A rejected claim was overturned.", cancellationToken);
 
         var previous = await _db.ApprovalDecisions
             .Where(d => d.ClaimId == claim.Id)
@@ -643,6 +749,32 @@ public class ClaimService : IClaimService
             MoveLostReport(lostReport, LostReportStatus.Resolved, staffId, "Collected from the desk.");
         }
 
+        // The person who brought it in gets the credit now that it is actually home. A staff
+        // member logging an item they found themselves is not a finder for this purpose.
+        if (foundReport?.FinderId is { } finderId && finderId != claim.StudentId)
+        {
+            var itemName = await _db.ItemTypes
+                .Where(t => t.Id == foundReport.ItemTypeId)
+                .Select(t => t.Name)
+                .FirstOrDefaultAsync(cancellationToken) ?? "item";
+
+            _notifications.Queue(
+                finderId,
+                NotificationType.ItemReturnedToOwner,
+                "It got home",
+                $"The {itemName.ToLowerInvariant()} you handed in went home with its owner. Thank you.",
+                nameof(FoundReport),
+                foundReport.Id);
+
+            await _honor.QueueAwardAsync(
+                finderId,
+                HonorAwardReason.HelpedReturn,
+                claim.LostReportId,
+                foundReport.Id,
+                $"A {itemName.ToLowerInvariant()} you found reached its owner",
+                cancellationToken);
+        }
+
         // Once. The code is gone the moment the item is.
         claim.CollectionCode = null;
         claim.CollectedAt = DateTime.UtcNow;
@@ -654,12 +786,27 @@ public class ClaimService : IClaimService
             FromStatus = claim.Status,
             ToStatus = claim.Status,
             ChangedByUserId = staffId,
-            Reason = "Collected.",
+            Reason = "Collected. Student ID checked against the owner's name.",
         });
 
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
+    public async Task<ClaimDetailDto> GetByCollectionCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        var normalised = code.Replace(" ", "");
+        var claimId = await _db.Claims
+            .AsNoTracking()
+            .Where(c => c.CollectionCode == normalised && c.Status == ClaimStatus.Approved)
+            .Select(c => (Guid?)c.Id)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundAppException("No approved claim has that code.");
+
+        return ForStaff(await LoadDetailAsync(claimId, cancellationToken));
     }
 
     /// <summary>
@@ -699,7 +846,13 @@ public class ClaimService : IClaimService
             throw new ConflictAppException("This claim has already been decided.");
         }
 
-        MoveClaim(claim, ClaimStatus.Cancelled, studentId, string.IsNullOrWhiteSpace(reason) ? null : reason.Trim());
+        var cancelReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (cancelReason is { Length: > 500 })
+        {
+            throw new ValidationAppException("Reason", "Keep the reason under 500 characters.");
+        }
+
+        MoveClaim(claim, ClaimStatus.Cancelled, studentId, cancelReason);
         await ReopenLostReportIfNothingElsePendingAsync(claim, studentId, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -712,9 +865,10 @@ public class ClaimService : IClaimService
         Guid staffId,
         string correlationId,
         string failureReason,
+        int retryCount,
         CancellationToken cancellationToken)
     {
-        RecordVerificationAgentFailure(claim.Id, "generate_questions", correlationId, failureReason);
+        RecordVerificationAgentFailure(claim.Id, "generate_questions", correlationId, failureReason, retryCount);
         MoveClaim(claim, ClaimStatus.ManualReviewRequired, staffId, "Verification requires staff review.");
         await _db.SaveChangesAsync(cancellationToken);
         return await LoadDetailAsync(claim.Id, cancellationToken);
@@ -805,7 +959,8 @@ public class ClaimService : IClaimService
         Guid claimId,
         string operation,
         string correlationId,
-        string failureReason)
+        string failureReason,
+        int retryCount = 0)
     {
         _db.AgentRuns.Add(CreateVerificationAgentRun(
             claimId,
@@ -815,7 +970,8 @@ public class ClaimService : IClaimService
             recommendation: "manual_review",
             success: false,
             questions: null,
-            failureReason));
+            failureReason,
+            retryCount));
     }
 
     private static AgentRun CreateVerificationAgentRun(
@@ -826,7 +982,8 @@ public class ClaimService : IClaimService
         string recommendation,
         bool success,
         IReadOnlyList<VerificationAgentQuestion>? questions,
-        string? failureReason = null)
+        string? failureReason = null,
+        int retryCount = 0)
         => new()
         {
             ClaimId = claimId,
@@ -834,6 +991,7 @@ public class ClaimService : IClaimService
             TriggerEntityId = claimId,
             Objective = $"Verification Agent {operation}",
             Status = success ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            RetryCount = retryCount,
             ErrorMessage = success ? null : "Verification agent interaction requires staff review.",
             FinalOutcomeJson = JsonSerializer.Serialize(new VerificationAuditOutcome(
                 operation,
@@ -857,6 +1015,47 @@ public class ClaimService : IClaimService
         IReadOnlyList<VerificationAgentQuestion>? Questions);
 
     /* ------------------------------------------------------------------ internals */
+
+    /// <summary>
+    /// What must be true before anyone - staff or an admin overturning - can approve a claim:
+    /// the item is still on the shelf and unreserved, and the owner has not closed their
+    /// report. A report back on the feed after a rejection comes off it again.
+    /// </summary>
+    private async Task EnsureApprovableAsync(Claim claim, Guid actorId, string reason, CancellationToken cancellationToken)
+    {
+        var item = await _db.FoundReports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == claim.FoundReportId, cancellationToken);
+
+        if (item is null || item.Status != FoundReportStatus.Unclaimed)
+        {
+            throw new ConflictAppException("This item is no longer in storage, so the claim cannot be approved now.");
+        }
+
+        var lostReport = await _db.LostReports
+            .FirstOrDefaultAsync(r => r.Id == claim.LostReportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{claim.LostReportId}' was not found.");
+
+        if (lostReport.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
+        {
+            throw new ConflictAppException("The owner has closed their report, so the claim cannot be approved now.");
+        }
+
+        // One lost item is one found item. A second approval against the same report would
+        // put two items on hold for one person.
+        var alreadyApproved = await _db.Claims.AnyAsync(
+            c => c.LostReportId == claim.LostReportId && c.Id != claim.Id && c.Status == ClaimStatus.Approved,
+            cancellationToken);
+        if (alreadyApproved)
+        {
+            throw new ConflictAppException("Another item has already been approved for this report.");
+        }
+
+        if (lostReport.Status == LostReportStatus.Active)
+        {
+            MoveLostReport(lostReport, LostReportStatus.Matched, actorId, reason);
+        }
+    }
 
     /// <summary>
     /// Approval is the only path that closes anything: the item is handed over, the search is
@@ -932,6 +1131,19 @@ public class ClaimService : IClaimService
 
             await ReopenLostReportIfNothingElsePendingAsync(rival, staffId, cancellationToken);
         }
+
+        // The owner's other claims on the same report were for other candidate items. Theirs
+        // has been found, so those can stop taking up a place in the queue.
+        var siblings = await _db.Claims
+            .Where(c => c.LostReportId == claim.LostReportId
+                && c.Id != claim.Id
+                && OpenStatuses.Contains(c.Status))
+            .ToListAsync(cancellationToken);
+
+        foreach (var sibling in siblings)
+        {
+            MoveClaim(sibling, ClaimStatus.Cancelled, staffId, "Another item was approved for this report.");
+        }
     }
 
     /// <summary>
@@ -948,11 +1160,18 @@ public class ClaimService : IClaimService
 
         if (lostReport is null || lostReport.Status != LostReportStatus.Matched) return;
 
+        // Still spoken for if another claim is open, an approved one is waiting to be collected,
+        // or a finder's handover is on its way or already at a desk. Any of those means the
+        // item may well be found; putting the notice back on the feed would say it is not.
         var stillOpen = await _db.Claims.AnyAsync(
             c => c.LostReportId == claim.LostReportId
                 && c.Id != claim.Id
-                && OpenStatuses.Contains(c.Status),
-            cancellationToken);
+                && (OpenStatuses.Contains(c.Status) || (c.Status == ClaimStatus.Approved && c.CollectedAt == null)),
+            cancellationToken)
+            || await _db.LostReportFoundClaims.AnyAsync(
+                h => h.LostReportId == claim.LostReportId
+                    && (h.Status == HandoverStatus.AwaitingHandIn || h.Status == HandoverStatus.InCustody),
+                cancellationToken);
 
         if (!stillOpen)
         {
@@ -1001,7 +1220,7 @@ public class ClaimService : IClaimService
 
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            if (!Enum.TryParse<ClaimStatus>(query.Status, ignoreCase: true, out var status))
+            if (!Enum.TryParse<ClaimStatus>(query.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {
                 throw new ValidationAppException(nameof(ClaimQuery.Status), $"Unknown claim status '{query.Status}'.");
             }

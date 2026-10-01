@@ -19,10 +19,12 @@ namespace FoundU.Api.Controllers;
 public class ClaimsController : ControllerBase
 {
     private readonly IClaimService _claims;
+    private readonly IClaimWorkflowService _workflows;
 
-    public ClaimsController(IClaimService claims)
+    public ClaimsController(IClaimService claims, IClaimWorkflowService workflows)
     {
         _claims = claims;
+        _workflows = workflows;
     }
 
     [HttpPost]
@@ -113,6 +115,24 @@ public class ClaimsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<AgentRunDto>>> AgentRuns(Guid id, CancellationToken cancellationToken)
         => Ok(await _claims.GetAgentRunsAsync(id, cancellationToken));
 
+    /// <summary>Safe durable coordinator status. Staff-only; the workflow remains recommendation-only.</summary>
+    [HttpGet("{id:guid}/agent-workflows/{workflowId:guid}")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<AgentWorkflowStateDto>> WorkflowStatus(
+        Guid id, Guid workflowId, CancellationToken cancellationToken)
+        => Ok(await _workflows.GetAsync(id, workflowId, cancellationToken));
+
+    /// <summary>
+    /// Records a staff decision for a paused coordinator workflow. Approving resumes only safe
+    /// coordination; it never approves or rejects the FoundU claim.
+    /// </summary>
+    [HttpPost("{id:guid}/agent-workflows/{workflowId:guid}/approval")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<AgentWorkflowStateDto>> DecideWorkflow(
+        Guid id, Guid workflowId, [FromBody] AgentWorkflowDecisionRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _workflows.DecideAsync(id, workflowId, request.Decision, User.GetUserId(), cancellationToken));
+
     /// <summary>
     /// The desk handing an item over. The owner quotes their collection code; staff type it.
     /// A wrong or already-used code is 404 - it must not confirm a right one exists.
@@ -123,6 +143,12 @@ public class ClaimsController : ControllerBase
         [FromBody] CollectClaimRequest request,
         CancellationToken cancellationToken)
         => Ok(await _claims.CollectAsync(request.Code, User.GetUserId(), cancellationToken));
+
+    /// <summary>Staff: whose item a collection code is for, shown before the ID check.</summary>
+    [HttpGet("by-code/{code}")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<ClaimDetailDto>> GetByCollectionCode(string code, CancellationToken cancellationToken)
+        => Ok(await _claims.GetByCollectionCodeAsync(code, cancellationToken));
 
     [HttpPost("{id:guid}/cancel")]
     [Authorize(Policy = PolicyNames.Student)]

@@ -71,24 +71,33 @@ class InkButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: Brand.ink,
-        minimumSize: const Size.fromHeight(58),
-        shape: const StadiumBorder(),
-      ),
-      onPressed: busy ? null : onPressed,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (busy)
-            const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-          else if (icon != null)
-            Icon(icon, size: 20),
-          if (busy || icon != null) const SizedBox(width: 10),
-          Text(label),
-        ],
-      ),
+    // Full width wherever there is a width to fill, and its own size where there is not -
+    // a Row or a dialog's action bar. Asking for infinite width there fails layout and blanks
+    // the whole screen, so it measures first rather than assuming.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bounded = constraints.hasBoundedWidth;
+        return FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Brand.ink,
+            minimumSize: Size(bounded ? constraints.maxWidth : 64, 58),
+            shape: const StadiumBorder(),
+          ),
+          onPressed: busy ? null : onPressed,
+          child: Row(
+            mainAxisSize: bounded ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (busy)
+                const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              else if (icon != null)
+                Icon(icon, size: 20),
+              if (busy || icon != null) const SizedBox(width: 10),
+              Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+        );
+      },
     );
   }
 }

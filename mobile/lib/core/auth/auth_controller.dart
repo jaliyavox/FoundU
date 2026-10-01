@@ -4,11 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/data/auth_models.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/notifications/data/push_notification_manager.dart';
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
+import 'auth_session.dart';
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthUser?>(AuthController.new);
+
+/// The app is the student side of FoundU; staff and admins work from the web dashboard, and
+/// every tab here calls a Student-only endpoint.
+const staffUseWebMessage =
+    'The FoundU app is for students. Staff and admins sign in on the web dashboard.';
 
 class AuthController extends AsyncNotifier<AuthUser?> {
   StreamSubscription<void>? _invalidationSubscription;
@@ -18,6 +25,7 @@ class AuthController extends AsyncNotifier<AuthUser?> {
   @override
   Future<AuthUser?> build() async {
     _invalidationSubscription = _repository.sessionInvalidated.listen((_) {
+      ref.read(authSessionEpochProvider.notifier).advance();
       state = const AsyncData(null);
     });
     ref.onDispose(() => _invalidationSubscription?.cancel());
@@ -25,7 +33,13 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     if (!await _repository.hasStoredSession()) return null;
 
     try {
-      return await _repository.getCurrentUser();
+      final user = await _repository.getCurrentUser();
+      if (user.role != 'Student') {
+        await _repository.clearSession();
+        return null;
+      }
+      unawaited(ref.read(pushNotificationManagerProvider).start());
+      return user;
     } on ApiException catch (error) {
       if (error.statusCode != 401) rethrow;
       await _repository.clearSession();
@@ -34,10 +48,24 @@ class AuthController extends AsyncNotifier<AuthUser?> {
   }
 
   Future<void> login({required String email, required String password}) async {
+    // The login screen is a new identity boundary. Clear credentials before any new
+    // authenticated list work can run, then invalidate account-scoped provider state.
+    await _repository.clearSession();
+    ref.read(authSessionEpochProvider.notifier).advance();
     state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => _repository.login(email: email.trim(), password: password),
-    );
+    state = await AsyncValue.guard(() async {
+      final user = await _repository.login(email: email.trim(), password: password);
+      if (user.role != 'Student') {
+        try {
+          await _repository.logout();
+        } on Object {
+          // The repository clears local credentials in a finally block.
+        }
+        throw const ApiException(staffUseWebMessage, statusCode: 403);
+      }
+      return user;
+    });
+    if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
   }
 
   /// Returns the ApiException rather than putting the whole app into an error state: the
@@ -62,13 +90,28 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     }
   }
 
+  /// Swaps in the tokens a password change handed back, keeping this device signed in.
+  Future<void> adoptSession(AuthResponse auth) async {
+    state = AsyncData(await _repository.adoptSession(auth));
+  }
+
+  /// Reflects a profile edit straight away: the access token still carries the old name until
+  /// it is next refreshed, so what is on screen comes from here.
+  void applyProfile({String? fullName, String? email}) {
+    final user = state.value;
+    if (user == null) return;
+    state = AsyncData(user.copyWith(fullName: fullName, email: email));
+  }
+
   Future<void> logout() async {
     state = const AsyncLoading();
+    await ref.read(pushNotificationManagerProvider).unregister();
     try {
       await _repository.logout();
     } on Object {
       // The repository clears local credentials in a finally block.
     }
+    ref.read(authSessionEpochProvider.notifier).advance();
     state = const AsyncData(null);
   }
 }

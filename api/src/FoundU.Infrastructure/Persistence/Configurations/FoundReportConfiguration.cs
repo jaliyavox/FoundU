@@ -10,6 +10,7 @@ public class FoundReportConfiguration : IEntityTypeConfiguration<FoundReport>
     {
         builder.ToTable("FoundReports");
         builder.HasKey(r => r.Id);
+        builder.HasRowVersion();
 
         builder.Property(r => r.GeneralDescription).HasMaxLength(1000).IsRequired();
 

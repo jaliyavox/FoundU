@@ -41,6 +41,30 @@ void main() {
     expect(await storage.readRefreshToken(), 'refresh-2');
   });
 
+  test('a new login replaces a prior role session before storing student tokens',
+      () async {
+    final storage = MemoryTokenStorage(
+      const AuthTokens(accessToken: 'admin-access', refreshToken: 'admin-refresh'),
+    );
+    final authDio = Dio()
+      ..httpClientAdapter = CallbackAdapter((options) {
+        expect(options.path, '/api/auth/login');
+        expect(options.headers.containsKey('Authorization'), isFalse);
+        return jsonResponse(200, authResponseJson());
+      });
+    final repository = AuthRepository(
+      authDio: authDio,
+      authenticatedDio: Dio(),
+      tokenStorage: storage,
+    );
+
+    await repository.login(email: 'student@foundu.test', password: 'Password123');
+
+    expect(await storage.readAccessToken(), 'access-2');
+    expect(await storage.readRefreshToken(), 'refresh-2');
+    expect(storage.clearCalls, 1);
+  });
+
   test('startup refreshes one invalid access token and validates me', () async {
     final storage = MemoryTokenStorage(
       const AuthTokens(accessToken: 'expired', refreshToken: 'refresh-1'),
@@ -203,6 +227,62 @@ void main() {
     expect(await storage.readAccessToken(), isNull);
     expect(await storage.readRefreshToken(), isNull);
   });
+
+  test('a refresh that fails on the network keeps the session', () async {
+    final storage = MemoryTokenStorage(
+      const AuthTokens(accessToken: 'expired', refreshToken: 'refresh-1'),
+    );
+    final authDio = Dio()
+      ..httpClientAdapter = CallbackAdapter((options) {
+        throw DioException.connectionTimeout(
+          timeout: const Duration(seconds: 5),
+          requestOptions: options,
+        );
+      });
+    final repository = AuthRepository(
+      authDio: authDio,
+      authenticatedDio: Dio(),
+      tokenStorage: storage,
+    );
+
+    expect(await repository.refreshSession(), isFalse);
+    expect(await storage.readRefreshToken(), 'refresh-1');
+  });
+
+  test('staff and admin accounts are sent to the web dashboard', () async {
+    final storage = MemoryTokenStorage();
+    var loggedOut = false;
+    final authDio = Dio()
+      ..httpClientAdapter = CallbackAdapter((options) {
+        if (options.path == '/api/auth/logout') {
+          loggedOut = true;
+          return ResponseBody.fromString('', 204);
+        }
+        final body = authResponseJson();
+        (body['user'] as Map<String, dynamic>)['role'] = 'Staff';
+        return jsonResponse(200, body);
+      });
+    final repository = AuthRepository(
+      authDio: authDio,
+      authenticatedDio: Dio(),
+      tokenStorage: storage,
+    );
+    final container = ProviderContainer(
+      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    await container.read(authControllerProvider.future);
+
+    await container
+        .read(authControllerProvider.notifier)
+        .login(email: 'priya@foundu.test', password: 'Password123');
+
+    final state = container.read(authControllerProvider);
+    expect(state.hasError, isTrue);
+    expect(state.error.toString(), staffUseWebMessage);
+    expect(loggedOut, isTrue);
+    expect(await storage.readAccessToken(), isNull);
+  });
 }
 
 Map<String, dynamic> authResponseJson() => {
@@ -255,9 +335,11 @@ class MemoryTokenStorage implements TokenStorage {
 
   String? _accessToken;
   String? _refreshToken;
+  int clearCalls = 0;
 
   @override
   Future<void> clear() async {
+    clearCalls++;
     _accessToken = null;
     _refreshToken = null;
   }

@@ -29,7 +29,16 @@ public interface ILostReportService
     /// </summary>
     Task<PagedResult<LostReportFeedItemDto>> GetPublicFeedAsync(LostReportQuery query, Guid? requesterId = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// One report exactly as the feed shows it, for a link straight to it (Ask FoundU pointing a
+    /// finder at the owner). Not found when the feed would not show it either.
+    /// </summary>
+    Task<LostReportFeedItemDto> GetPublicFeedItemAsync(Guid id, Guid? requesterId = null, CancellationToken cancellationToken = default);
+
     Task<LostReportDetailDto> WithdrawAsync(Guid id, Guid studentId, string? reason, CancellationToken cancellationToken = default);
+
+    /// <summary>"I got it back": the author closes the report, thanks the finders and credits them.</summary>
+    Task<LostReportDetailDto> ResolveAsync(Guid id, Guid studentId, string? note, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Raises a flag for staff attention. The report's owner may flag their own; Staff/Admin

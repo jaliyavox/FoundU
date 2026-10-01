@@ -173,6 +173,10 @@ service that changes something a person is waiting on - a claim decided, an item
 a message sent - queues the notification in the same method, before saving. Do not send
 notifications from a controller or after the fact.
 
+When Firebase Cloud Messaging is configured, the EF Core post-commit notification dispatcher
+uses that persisted row to attempt a minimal push. Push delivery is best-effort and never joins
+or rolls back the business transaction; the in-app row remains the authoritative notification.
+
 ---
 
 ## Dates

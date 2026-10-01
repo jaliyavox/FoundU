@@ -6,7 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { getMessages, sendMessage, timeAgo, type LostReportMessage } from './feed-api'
+import {
+  getFoundPostMessages,
+  getMessages,
+  sendFoundPostMessage,
+  sendMessage,
+  timeAgo,
+  type LostReportMessage,
+} from './feed-api'
 
 /**
  * One conversation on a lost report, laid out as a chat: the reader's messages on the right.
@@ -20,22 +27,35 @@ import { getMessages, sendMessage, timeAgo, type LostReportMessage } from './fee
 export function MessageThread({
   reportId,
   isAuthor,
-  tone = 'light',
+  source = 'lost',
+  tone = 'app',
   className,
 }: {
   reportId: string
-  /** The author replies into threads; anyone else writes to the author. */
+  /** The hub of the conversation - the author of a lost report, or the finder of a found post. */
   isAuthor: boolean
-  tone?: 'light' | 'dark'
+  /**
+   * Which board the conversation belongs to. The two are the same conversation with the roles
+   * swapped: on a lost report the finder writes first, on a found post the person who thinks
+   * it is theirs does.
+   */
+  source?: 'lost' | 'found'
+  /**
+   * Which surface this is sitting on. "app" follows the theme and is what the dashboard
+   * needs; "light" and "dark" are for the public sheets, which are the same colour whatever
+   * the theme is set to.
+   */
+  tone?: 'app' | 'light' | 'dark'
   className?: string
 }) {
+  const isFound = source === 'found'
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
 
   const { data, isPending, isError, error } = useQuery({
-    queryKey: ['report-messages', reportId],
-    queryFn: () => getMessages(reportId),
+    queryKey: [isFound ? 'found-post-messages' : 'report-messages', reportId],
+    queryFn: () => (isFound ? getFoundPostMessages(reportId) : getMessages(reportId)),
     // A finder who has not written yet gets 403; that is an empty thread, not a failure.
     retry: false,
   })
@@ -52,10 +72,15 @@ export function MessageThread({
   const activeThread = isAuthor ? (replyTo ?? threads.keys().next().value ?? null) : (threads.keys().next().value ?? null)
 
   const send = useMutation({
-    mutationFn: () => sendMessage(reportId, body.trim(), isAuthor ? (activeThread ?? undefined) : undefined),
+    mutationFn: () => {
+      const recipient = isAuthor ? (activeThread ?? undefined) : undefined
+      return isFound
+        ? sendFoundPostMessage(reportId, body.trim(), recipient)
+        : sendMessage(reportId, body.trim(), recipient)
+    },
     onSuccess: () => {
       setBody('')
-      queryClient.invalidateQueries({ queryKey: ['report-messages', reportId] })
+      queryClient.invalidateQueries({ queryKey: [isFound ? 'found-post-messages' : 'report-messages', reportId] })
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Could not reach the server.'),
   })
@@ -66,7 +91,8 @@ export function MessageThread({
   }
 
   const dark = tone === 'dark'
-  const muted = dark ? 'text-white/55' : 'text-neutral-500'
+  const themed = tone === 'app'
+  const muted = themed ? 'text-muted-foreground' : dark ? 'text-white/55' : 'text-neutral-500'
 
   if (isPending) return <p className={cn('text-sm', muted)}>Loading messages…</p>
 
@@ -79,7 +105,11 @@ export function MessageThread({
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       {isAuthor && threads.size === 0 && (
-        <p className={cn('text-sm', muted)}>Nobody has written about this yet. When a finder does, you can reply here.</p>
+        <p className={cn('text-sm', muted)}>
+          {isFound
+            ? 'Nobody has asked about this yet. When someone does, you can answer here.'
+            : 'Nobody has written about this yet. When a finder does, you can reply here.'}
+        </p>
       )}
 
       {isAuthor && threads.size > 1 && (
@@ -94,8 +124,10 @@ export function MessageThread({
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                 id === activeThread
-                  ? dark ? 'bg-white text-brand-forest' : 'bg-neutral-900 text-white'
-                  : dark ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-neutral-900/6 text-neutral-700 hover:bg-neutral-900/10',
+                  ? themed ? 'bg-foreground text-background' : dark ? 'bg-white text-brand-forest' : 'bg-neutral-900 text-white'
+                  : themed
+                    ? 'bg-foreground/8 text-foreground/80 hover:bg-foreground/12'
+                    : dark ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-neutral-900/6 text-neutral-700 hover:bg-neutral-900/10',
               )}
             >
               {thread.name}
@@ -113,7 +145,11 @@ export function MessageThread({
                   'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed text-pretty',
                   message.isMine
                     ? 'rounded-br-md bg-brand-forest text-white'
-                    : dark ? 'rounded-bl-md bg-white/10 text-white' : 'rounded-bl-md bg-neutral-900/6 text-neutral-900',
+                    // The incoming bubble has to flip with the theme. Pinned to light-mode
+                    // colours it was dark text on a dark panel - present, and unreadable.
+                    : themed
+                      ? 'rounded-bl-md bg-muted text-foreground'
+                      : dark ? 'rounded-bl-md bg-white/10 text-white' : 'rounded-bl-md bg-neutral-900/6 text-neutral-900',
                 )}
               >
                 {message.body}
@@ -137,7 +173,9 @@ export function MessageThread({
             placeholder={
               isAuthor
                 ? `Reply to ${threads.get(activeThread!)?.name.split(' ')[0] ?? 'them'}`
-                : 'I found this and handed it in at the library desk this morning.'
+                : isFound
+                  ? 'I think this is mine - is there a name inside the front pocket?'
+                  : 'I found this and handed it in at the library desk this morning.'
             }
             aria-label={isAuthor ? 'Your reply' : 'Your message'}
             className={cn(dark && 'border-white/15 bg-white/[0.06] text-white placeholder:text-white/35')}

@@ -1,14 +1,22 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3Icon,
+  BotIcon,
   ChevronsUpDownIcon,
   FileTextIcon,
   FlagIcon,
+  HandHeartIcon,
   GavelIcon,
+  HashIcon,
+  LayoutDashboardIcon,
+  LifeBuoyIcon,
   LogOutIcon,
+  MapPinnedIcon,
   MoonIcon,
+  PackagePlusIcon,
   PackageSearchIcon,
   ShieldQuestionIcon,
+  UserRoundCogIcon,
   UsersIcon,
   SunIcon,
 } from 'lucide-react'
@@ -61,12 +69,20 @@ const isActivePath = (item: NavItem, pathname: string) =>
   item.exact ? pathname === item.to : pathname.startsWith(item.to)
 
 const NAV_ITEMS: NavItem[] = [
+  { to: '/ask-foundu', label: 'Ask FoundU', icon: BotIcon, allow: ['Student'] },
+  { to: '/admin/overview', label: 'Overview', icon: LayoutDashboardIcon, allow: ['Staff', 'Admin'], exact: true },
   { to: '/items', label: 'Found items', icon: PackageSearchIcon, allow: ['Staff', 'Admin'] },
   { to: '/claims', label: 'Claims', icon: GavelIcon, allow: ['Staff', 'Admin'] },
+  { to: '/handovers', label: 'Handover code', icon: HashIcon, allow: ['Staff', 'Admin'] },
+  { to: '/admin/support', label: 'Support queue', icon: LifeBuoyIcon, allow: ['Staff', 'Admin'] },
   { to: '/my-reports', label: 'My reports', icon: FileTextIcon, allow: ['Student'] },
+  { to: '/found/new', label: 'Post a found item', icon: PackagePlusIcon, allow: ['Student'] },
+  { to: '/help-to-find', label: 'Help to find', icon: HandHeartIcon, allow: ['Student'] },
+  { to: '/support', label: 'Help & support', icon: LifeBuoyIcon, allow: ['Student'] },
   { to: '/my-claims', label: 'My claims', icon: ShieldQuestionIcon, allow: ['Student'] },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3Icon, allow: ['Admin'] },
   { to: '/admin/moderation', label: 'Moderation', icon: FlagIcon, allow: ['Admin'] },
+  { to: '/admin/reference', label: 'Places & categories', icon: MapPinnedIcon, allow: ['Admin'] },
   { to: '/admin', label: 'Users', icon: UsersIcon, allow: ['Admin'], exact: true },
 ]
 
@@ -202,6 +218,14 @@ export function AppLayout() {
                       </div>
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    render={<Link to="/account" />}
+                    nativeButton={false}
+                  >
+                    <UserRoundCogIcon aria-hidden="true" />
+                    Account settings
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOutIcon aria-hidden="true" />

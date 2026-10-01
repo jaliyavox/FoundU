@@ -60,6 +60,22 @@ jobs:
     defaults:
       run:
         working-directory: ai
+    # A throwaway database so the durable workflow-state tests run for real instead of
+    # skipping. Nothing here talks to Ollama or any other outside service.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: foundu
+          POSTGRES_PASSWORD: ci-workflow-state
+          POSTGRES_DB: foundu_workflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U foundu"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -68,3 +84,5 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: pytest
+        env:
+          TEST_WORKFLOW_DATABASE_URL: postgresql://foundu:ci-workflow-state@localhost:5432/foundu_workflow

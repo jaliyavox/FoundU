@@ -62,6 +62,10 @@ ai/venv/
 .env
 .env.*
 !.env.example
+firebase-service-account*.json
+firebase-credentials*.json
+google-services.json
+GoogleService-Info.plist
 
 # ---------- Docker / data ----------
 pgdata/

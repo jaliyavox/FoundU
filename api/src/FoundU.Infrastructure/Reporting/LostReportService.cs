@@ -20,17 +20,20 @@ public class LostReportService : ILostReportService
     private readonly IPhotoStorage _photoStorage;
     private readonly INotificationService _notifications;
     private readonly IDescriptionParserAgentClient _descriptionParser;
+    private readonly IHonorService _honor;
 
     public LostReportService(
         FoundUDbContext db,
         IPhotoStorage photoStorage,
         INotificationService notifications,
-        IDescriptionParserAgentClient descriptionParser)
+        IDescriptionParserAgentClient descriptionParser,
+        IHonorService honor)
     {
         _db = db;
         _photoStorage = photoStorage;
         _notifications = notifications;
         _descriptionParser = descriptionParser;
+        _honor = honor;
     }
 
     public async Task<LostReportDetailDto> CreateAsync(
@@ -259,10 +262,7 @@ public class LostReportService : ILostReportService
         Guid? requesterId = null,
         CancellationToken cancellationToken = default)
     {
-        // Active only: a withdrawn or resolved report is no longer something to look out for.
-        var reports = _db.LostReports
-            .AsNoTracking()
-            .Where(r => r.Status == LostReportStatus.Active);
+        var reports = OnPublicFeed();
 
         if (query.CategoryId is { } categoryId) reports = reports.Where(r => r.CategoryId == categoryId);
         if (query.ItemTypeId is { } itemTypeId) reports = reports.Where(r => r.ItemTypeId == itemTypeId);
@@ -285,27 +285,49 @@ public class LostReportService : ILostReportService
 
         var totalCount = await reports.CountAsync(cancellationToken);
 
-        var items = await reports
-            .Skip(query.Skip)
-            .Take(query.PageSize)
-            .Select(r => new LostReportFeedItemDto(
-                r.Id,
-                r.HandInCode,
-                r.Student.FullName,
-                requesterId != null && r.StudentId == requesterId,
-                r.Category.Name,
-                r.ItemType.Name,
-                r.LastSeenLocation.Name,
-                r.Description,
-                r.PrimaryColor,
-                r.EstimatedLostFromAt,
-                r.EstimatedLostToAt,
-                r.Photos.Select(p => p.Url).ToList(),
-                r.CreatedAt))
+        var items = await ToFeedItems(reports.Skip(query.Skip).Take(query.PageSize), requesterId)
             .ToListAsync(cancellationToken);
 
         return PagedResult<LostReportFeedItemDto>.Create(items, query.Page, query.PageSize, totalCount);
     }
+
+    public async Task<LostReportFeedItemDto> GetPublicFeedItemAsync(
+        Guid id,
+        Guid? requesterId = null,
+        CancellationToken cancellationToken = default)
+        => await ToFeedItems(OnPublicFeed().Where(r => r.Id == id), requesterId).FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundAppException("That report is no longer on the feed.");
+
+    /// <summary>
+    /// What the public feed may show. Active only: a withdrawn or resolved report is no longer
+    /// something to look out for. Paused reports are out too - somebody is already walking that
+    /// item to a desk, and a second finder setting off after it helps nobody. The pause lapses
+    /// on its own, so this is a comparison against now rather than a flag somebody has to clear.
+    /// </summary>
+    private IQueryable<LostReport> OnPublicFeed()
+    {
+        var now = DateTime.UtcNow;
+        return _db.LostReports
+            .AsNoTracking()
+            .Where(r => r.Status == LostReportStatus.Active)
+            .Where(r => r.PausedUntil == null || r.PausedUntil < now);
+    }
+
+    private static IQueryable<LostReportFeedItemDto> ToFeedItems(IQueryable<LostReport> reports, Guid? requesterId)
+        => reports.Select(r => new LostReportFeedItemDto(
+            r.Id,
+            r.HandInCode,
+            r.Student.FullName,
+            requesterId != null && r.StudentId == requesterId,
+            r.Category.Name,
+            r.ItemType.Name,
+            r.LastSeenLocation.Name,
+            r.Description,
+            r.PrimaryColor,
+            r.EstimatedLostFromAt,
+            r.EstimatedLostToAt,
+            r.Photos.Select(p => p.Url).ToList(),
+            r.CreatedAt));
 
     public async Task<LostReportDetailDto> GetByIdAsync(
         Guid id,
@@ -348,8 +370,23 @@ public class LostReportService : ILostReportService
             throw new ConflictAppException("A resolved report cannot be withdrawn.");
         }
 
+        // An item already on a shelf for this owner - an approved claim or a finder's hand-in -
+        // would otherwise sit reserved for someone who has said they no longer want it.
+        var itemWaiting = await _db.Claims.AnyAsync(
+                c => c.LostReportId == report.Id && c.Status == ClaimStatus.Approved && c.CollectedAt == null,
+                cancellationToken)
+            || await _db.LostReportFoundClaims.AnyAsync(
+                h => h.LostReportId == report.Id && h.Status == HandoverStatus.InCustody,
+                cancellationToken);
+        if (itemWaiting)
+        {
+            throw new ConflictAppException(
+                "An item is waiting for you at the desk. Collect it, or open a support ticket if it is not yours.");
+        }
+
         var previousStatus = report.Status;
 
+        await CloseOpenWorkAsync(report, studentId, "The owner withdrew the report.", cancellationToken);
         report.Status = LostReportStatus.Withdrawn;
         report.WithdrawReason = Normalize(reason);
         report.WithdrawnAt = DateTime.UtcNow;
@@ -363,6 +400,132 @@ public class LostReportService : ILostReportService
             ChangedByUserId = studentId,
             Reason = report.WithdrawReason ?? "Withdrawn by student",
         });
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await LoadDetailAsync(report.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// A closed report has nothing to hand in to and nothing to claim against: finders still
+    /// walking it to a desk are released (their codes stop working, so the desk cannot reopen
+    /// the report), and claims still waiting on staff leave the queue.
+    /// </summary>
+    private async Task CloseOpenWorkAsync(LostReport report, Guid ownerId, string reason, CancellationToken cancellationToken)
+    {
+        var openClaims = await _db.Claims
+            .Where(c => c.LostReportId == report.Id && Claims.ClaimService.OpenStatuses.Contains(c.Status))
+            .ToListAsync(cancellationToken);
+
+        foreach (var claim in openClaims)
+        {
+            _db.ClaimStatusHistories.Add(new ClaimStatusHistory
+            {
+                ClaimId = claim.Id,
+                FromStatus = claim.Status,
+                ToStatus = ClaimStatus.Cancelled,
+                ChangedByUserId = ownerId,
+                Reason = reason,
+            });
+            claim.Status = ClaimStatus.Cancelled;
+            claim.UpdatedAt = DateTime.UtcNow;
+        }
+
+        var walking = await _db.LostReportFoundClaims
+            .Where(c => c.LostReportId == report.Id && c.Status == HandoverStatus.AwaitingHandIn)
+            .ToListAsync(cancellationToken);
+
+        foreach (var handover in walking)
+        {
+            handover.Status = HandoverStatus.Cancelled;
+            handover.HandoverCode = null;
+            handover.HandoverExpiresAt = null;
+            handover.UpdatedAt = DateTime.UtcNow;
+        }
+
+        report.PausedUntil = null;
+    }
+
+    /// <summary>
+    /// "I got it back." The author closes their own report: it leaves the feed, the finders
+    /// who offered to help are thanked, and the ones who actually helped are credited.
+    ///
+    /// Separate from withdrawing, which means the opposite - a report the author gave up on.
+    /// A report that ends here is the good ending, and the honor points follow from it.
+    /// </summary>
+    public async Task<LostReportDetailDto> ResolveAsync(
+        Guid id,
+        Guid studentId,
+        string? note,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _db.LostReports
+            .Include(r => r.ItemType)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken)
+            ?? throw new NotFoundAppException($"Lost report '{id}' was not found.");
+
+        if (report.StudentId != studentId)
+            throw new ForbiddenAppException("You can only close your own lost reports.");
+
+        if (report.Status == LostReportStatus.Resolved)
+            throw new ConflictAppException("This report is already closed.");
+
+        if (report.Status == LostReportStatus.Withdrawn)
+            throw new ConflictAppException("A withdrawn report cannot be closed - it is already off the feed.");
+
+        var previousStatus = report.Status;
+        var itemName = report.ItemType.Name.ToLowerInvariant();
+
+        report.Status = LostReportStatus.Resolved;
+        report.UpdatedAt = DateTime.UtcNow;
+
+        _db.LostReportStatusHistories.Add(new LostReportStatusHistory
+        {
+            LostReportId = report.Id,
+            FromStatus = previousStatus,
+            ToStatus = LostReportStatus.Resolved,
+            ChangedByUserId = studentId,
+            Reason = Normalize(note) ?? "The owner has the item back",
+        });
+
+        // Everyone who said they found it hears how it ended. Only the finder who actually
+        // helped is credited: one who took it to a desk, or - when it was handed over in
+        // person - the only person who said they had it. Pressing "I found this" on every
+        // report must not earn points when some other owner gets their item back.
+        var finders = await _db.LostReportFoundClaims
+            .Where(c => c.LostReportId == report.Id)
+            .Select(c => new { c.FinderId, c.Status })
+            .ToListAsync(cancellationToken);
+        var finderIds = finders.Select(f => f.FinderId).Distinct().ToList();
+        var creditedIds = finders
+            .Where(f => f.Status is HandoverStatus.AwaitingHandIn or HandoverStatus.InCustody or HandoverStatus.Collected)
+            .Select(f => f.FinderId)
+            .ToHashSet();
+        if (creditedIds.Count == 0 && finderIds.Count == 1) creditedIds.Add(finderIds[0]);
+
+        foreach (var finderId in finderIds)
+        {
+            _notifications.Queue(
+                finderId,
+                NotificationType.ItemReturnedToOwner,
+                "It got home",
+                $"The {itemName} you helped with made it back to its owner. Thank you.",
+                nameof(LostReport),
+                report.Id);
+
+            if (!creditedIds.Contains(finderId)) continue;
+
+            await _honor.QueueAwardAsync(
+                finderId,
+                HonorAwardReason.HelpedReturn,
+                report.Id,
+                null,
+                $"Helped return a {itemName}",
+                cancellationToken);
+        }
+
+        // After crediting: a finder still walking it to a desk may be the one who helped.
+        await CloseOpenWorkAsync(report, studentId, "The owner has the item back.", cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -626,7 +789,7 @@ public class LostReportService : ILostReportService
     {
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            if (!Enum.TryParse<LostReportStatus>(query.Status, ignoreCase: true, out var status))
+            if (!Enum.TryParse<LostReportStatus>(query.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {
                 throw new ValidationAppException(nameof(query.Status),
                     $"Unknown status '{query.Status}'. Expected one of: {string.Join(", ", Enum.GetNames<LostReportStatus>())}.");
@@ -782,6 +945,7 @@ public class LostReportService : ILostReportService
             Objective = "Enrich a lost report with parsed attributes.",
             PlanJson = JsonSerializer.Serialize(new { steps = new[] { "parse_description", "validate_attributes" } }),
             Status = parse.IsSuccess ? AgentRunStatus.Completed : AgentRunStatus.Failed,
+            RetryCount = parse.RetryCount,
             ErrorMessage = parse.IsSuccess ? null : "Description parser was unavailable.",
             // Never duplicate student description text or raw provider content in the audit.
             FinalOutcomeJson = parse.IsSuccess && parse.Value is not null

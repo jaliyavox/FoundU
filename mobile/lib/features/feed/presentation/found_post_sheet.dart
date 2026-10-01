@@ -14,6 +14,7 @@ import '../data/feed_models.dart';
 import '../data/feed_repository.dart';
 import 'feed_controller.dart';
 import 'found_feed_controller.dart';
+import 'message_thread.dart';
 
 final _myOpenReportsProvider = FutureProvider.autoDispose<List<LostReportListItemModel>>(
   (ref) async => (await ref.watch(reportRepositoryProvider).getMyReports(status: 'Active', pageSize: 50)).items,
@@ -24,6 +25,9 @@ final _myOpenReportsProvider = FutureProvider.autoDispose<List<LostReportListIte
 Future<void> showFoundPostDetail(BuildContext context, FoundPost post) {
   return showModalBottomSheet<void>(
     context: context,
+    // On the root navigator, so the sheet covers the floating nav. Opened from a tab it
+    // would otherwise live inside that tab, underneath the nav, hiding its bottom.
+    useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Brand.paper,
@@ -142,6 +146,10 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
             ),
             const SizedBox(height: 12),
           ],
+          Text('People asking about this', style: text.titleMedium),
+          const SizedBox(height: 10),
+          MessageThread(reportId: post.id, isAuthor: true, source: MessageSource.foundPost),
+          const SizedBox(height: 18),
           OutlinedButton.icon(
             onPressed: _busy ? null : _withdraw,
             icon: const Icon(Icons.delete_outline_rounded, size: 18),
@@ -152,22 +160,35 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
         else if (!canRecognise)
           Text("Staff can pull this post up at the desk by the finder's code.",
               style: text.bodyMedium?.copyWith(color: Brand.muted))
-        else if (_done)
-          Panel(
-            color: Brand.mist,
-            child: Text(
-              'Done. ${post.postedByName.split(' ').first} has been asked to hand it in, and it now shows on your report. '
-              'You will be able to claim it once it reaches a desk.',
-              style: text.bodyMedium?.copyWith(color: Brand.forest, height: 1.45),
-            ),
-          )
-        else
-          _RecognisePanel(
-            reportId: _reportId,
-            onChanged: (id) => setState(() => _reportId = id),
-            busy: _busy,
-            onConfirm: _recognise,
+        else ...[
+          // Asking comes first and needs no report of your own: a question is not a claim,
+          // and a detail only the owner would know settles it faster than a form.
+          Text('Think it is yours?', style: text.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            'Ask ${post.postedByName.split(' ').first} about it. Nothing is claimed by asking.',
+            style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4),
           ),
+          const SizedBox(height: 12),
+          MessageThread(reportId: post.id, isAuthor: false, source: MessageSource.foundPost),
+          const SizedBox(height: 18),
+          if (_done)
+            Panel(
+              color: Brand.mist,
+              child: Text(
+                'Done. ${post.postedByName.split(' ').first} has been asked to hand it in, and it now shows on your report. '
+                'You will be able to claim it once it reaches a desk.',
+                style: text.bodyMedium?.copyWith(color: Brand.forest, height: 1.45),
+              ),
+            )
+          else
+            _RecognisePanel(
+              reportId: _reportId,
+              onChanged: (id) => setState(() => _reportId = id),
+              busy: _busy,
+              onConfirm: _recognise,
+            ),
+        ],
       ],
     );
   }

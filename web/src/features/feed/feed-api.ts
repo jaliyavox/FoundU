@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api/client'
 import type { PagedResult } from '@/lib/api/types'
 
@@ -30,6 +31,9 @@ export interface FeedQuery {
  * Public feed. Readable without an account, but the token goes along when there is one so
  * the API can mark the caller's own posts - see `optionalAuth`.
  */
+/** One report as the feed shows it - for a link straight to it. 404 once it is off the feed. */
+export const getFeedItem = (id: string) => api.get<LostReportFeedItem>(`/api/lost-reports/feed/${id}`)
+
 export function getFeed({ page, pageSize, search }: FeedQuery) {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
   if (search?.trim()) params.set('search', search.trim())
@@ -138,6 +142,7 @@ export interface FoundPostItem {
   status: 'Posted' | 'Unclaimed' | 'Claimed' | 'Returned' | 'Disposed'
   /** Only on your own post - what you quote at the desk. */
   handInCode: string | null
+  handedToSecurityAt: string | null
   createdAt: string
 }
 
@@ -167,5 +172,31 @@ export const recogniseFoundPost = (id: string, lostReportId: string) =>
 export const withdrawFoundPost = (id: string, reason?: string) =>
   api.post<FoundPostItem>(`/api/found-posts/${id}/withdraw`, { reason })
 
+export const declareFoundPostHandedIn = (id: string) =>
+  api.post<FoundPostItem>(`/api/found-posts/${id}/hand-in`)
+
 export const getMyFoundPosts = (page = 1, pageSize = 20) =>
   api.get<PagedResult<FoundPostItem>>(`/api/found-posts/mine?page=${page}&pageSize=${pageSize}`)
+
+/**
+ * Messages about a found post - the same shape as a lost-report thread, with the roles the
+ * other way round: the finder is the one being written to.
+ */
+export type FoundPostMessage = LostReportMessage
+
+/** An enquirer leaves recipientId empty; the finder names the enquirer they are answering. */
+export const sendFoundPostMessage = (postId: string, body: string, recipientId?: string) =>
+  api.post<FoundPostMessage>(`/api/found-posts/${postId}/messages`, { body, recipientId })
+
+/** 403 for somebody who is in none of the threads - that is an empty thread, not a failure. */
+export const getFoundPostMessages = (postId: string) =>
+  api.get<FoundPostMessage[]>(`/api/found-posts/${postId}/messages`)
+
+/**
+ * A found post shows in three lists: the Found board, the Fresh finds strip on the lost feed,
+ * and the finder's own My reports. Anything that changes a post refreshes all three.
+ */
+export const invalidateFoundPosts = (queryClient: QueryClient) =>
+  Promise.all(
+    ['found-feed', 'found-strip', 'my-found-posts'].map(key => queryClient.invalidateQueries({ queryKey: [key] })),
+  )

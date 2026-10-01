@@ -1,5 +1,5 @@
 import { useMemo, useState, type ComponentType } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, Loader2Icon, RotateCwIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -28,6 +28,8 @@ import {
   toUtcIso,
 } from './reports-api'
 import { ApiError } from '@/lib/api/client'
+import { useAuth } from '@/features/auth/use-auth'
+import { readIntakeHandoff } from '@/features/intake/intake-api'
 
 /**
  * Report a lost item, as a four-step wizard.
@@ -73,6 +75,9 @@ const STEPS: StepDefinition[] = [
 
 export function ReportLostPage() {
   const navigate = useNavigate()
+  const route = useLocation()
+  const { user } = useAuth()
+  const intake = readIntakeHandoff(route.state, user?.id)
   const queryClient = useQueryClient()
   const initialWindow = useMemo(defaultWindow, [])
 
@@ -82,11 +87,11 @@ export function ReportLostPage() {
   const [step, setStep] = useState(0)
   const [direction, setDirection] = useState<'forward' | 'back'>('forward')
 
-  const [categoryId, setCategoryId] = useState('')
-  const [itemTypeId, setItemTypeId] = useState('')
-  const [locationId, setLocationId] = useState('')
-  const [description, setDescription] = useState('')
-  const [primaryColor, setPrimaryColor] = useState('')
+  const [categoryId, setCategoryId] = useState(intake?.response.draft.categoryId ?? '')
+  const [itemTypeId, setItemTypeId] = useState(intake?.response.draft.itemTypeId ?? '')
+  const [locationId, setLocationId] = useState(intake?.response.draft.locationId ?? '')
+  const [description, setDescription] = useState(intake?.response.draft.description ?? '')
+  const [primaryColor, setPrimaryColor] = useState(intake?.response.draft.primaryColor ?? '')
   const [from, setFrom] = useState(initialWindow.from)
   const [to, setTo] = useState(initialWindow.to)
   const [photos, setPhotos] = useState<File[]>([])
@@ -116,7 +121,10 @@ export function ReportLostPage() {
       queryClient.invalidateQueries({ queryKey: ['my-lost-reports'] })
       queryClient.invalidateQueries({ queryKey: ['lost-feed'] })
       toast.success('Report posted. We will tell you if something matching turns up.')
-      navigate('/my-reports')
+      if (intake?.response.match) {
+        queryClient.invalidateQueries({ queryKey: ['intake-reports'] })
+        navigate('/ask-foundu', { state: { intake } })
+      } else navigate('/my-reports')
     },
     onError: (error) => {
       if (error instanceof ApiError) {

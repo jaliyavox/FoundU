@@ -45,6 +45,10 @@ public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<HonorAward> HonorAwards => Set<HonorAward>();
+    public DbSet<FoundReportMessage> FoundReportMessages => Set<FoundReportMessage>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+    public DbSet<SupportTicketMessage> SupportTicketMessages => Set<SupportTicketMessage>();
 
     public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
     public DbSet<AgentStep> AgentSteps => Set<AgentStep>();
@@ -52,6 +56,7 @@ public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<DeviceRegistration> DeviceRegistrations => Set<DeviceRegistration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeftIcon,
+  CheckCircle2Icon,
   ClockIcon,
   EyeOffIcon,
   LinkIcon,
@@ -11,6 +12,7 @@ import {
   PackageCheckIcon,
   PackageIcon,
   RotateCwIcon,
+  ShieldCheckIcon,
   UserIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -127,9 +129,16 @@ export function ItemDetailPage() {
           <Fact icon={PackageIcon} label="Kept at" value={item.storageLocationName ?? 'Not at a desk yet'} />
           <Fact icon={UserIcon} label={item.finderName ? 'Found by' : 'Logged by'} value={item.finderName ?? item.staffName ?? '-'} />
         </dl>
+        {item.handedToSecurityAt && item.status === 'Posted' && (
+          <p className="rounded-xl border border-amber-500/30 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            Finder declared this item was handed to security. Confirm the code and physical item below before logging receipt.
+          </p>
+        )}
       </DashboardPanel>
 
       {item.status === 'Posted' && <ConfirmPostPanel item={item} />}
+
+      <CustodyTracker item={item} />
 
       {/* Set apart deliberately: this is the one thing on the screen that must not be read
           out to whoever is standing at the counter. */}
@@ -218,6 +227,46 @@ export function ItemDetailPage() {
   )
 }
 
+function CustodyTracker({ item }: { item: FoundReportDetail }) {
+  const steps = [
+    { label: 'Found item posted', done: true },
+    { label: 'Received by security', done: item.status !== 'Posted' },
+    { label: item.status === 'Returned' ? 'Returned to owner' : 'Held for verified claim', done: item.status === 'Returned' },
+  ]
+
+  return (
+    <DashboardPanel className="flex flex-col gap-4">
+      <div className="flex items-start gap-3">
+        <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-brand-green" aria-hidden="true" />
+        <div>
+          <h2 className="font-heading text-base font-medium">Security desk tracker</h2>
+          <p className="pt-1 text-sm text-muted-foreground">
+            Track the item from the finder&apos;s post to a verified collection. Each step is recorded against this item.
+          </p>
+        </div>
+      </div>
+
+      <ol className="grid gap-3 sm:grid-cols-3">
+        {steps.map((step, index) => (
+          <li key={step.label} className="flex items-start gap-2 text-sm">
+            <span
+              className={cn(
+                'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-medium',
+                step.done
+                  ? 'border-brand-green bg-brand-green text-white'
+                  : 'border-foreground/15 text-muted-foreground',
+              )}
+            >
+              {step.done ? <CheckCircle2Icon className="size-4" aria-hidden="true" /> : index + 1}
+            </span>
+            <span className={step.done ? 'text-foreground' : 'text-muted-foreground'}>{step.label}</span>
+          </li>
+        ))}
+      </ol>
+    </DashboardPanel>
+  )
+}
+
 function Fact({
   icon: Icon,
   label,
@@ -272,14 +321,14 @@ function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
   return (
     <DashboardPanel className="flex flex-col gap-4 border-amber-500/30 from-amber-500/8 via-amber-500/4 to-transparent dark:from-amber-500/12">
       <div>
-        <h2 className="font-heading text-base font-medium">Confirm it at the desk</h2>
+          <h2 className="font-heading text-base font-medium">Receive it at the security desk</h2>
         <p className="pt-1 text-sm text-muted-foreground">
-          {item.finderName ?? 'A student'} posted this and has now handed it in. Say where it is kept and
-          record one detail the finder did not publish. From then on it can be claimed.
+          {item.finderName ?? 'A student'} posted this item. Confirm that you physically received it,
+          choose where it is kept, and record one private detail before it can be claimed.
         </p>
         {item.handInCode && (
           <p className="pt-2 text-xs text-muted-foreground">
-            Their code: <span className="font-mono font-medium tracking-wider text-foreground">{item.handInCode.slice(0, 3)} {item.handInCode.slice(3)}</span>
+            Finder code: <span className="font-mono font-medium tracking-wider text-foreground">{item.handInCode.slice(0, 3)} {item.handInCode.slice(3)}</span>
           </p>
         )}
       </div>
@@ -316,7 +365,7 @@ function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
         onClick={() => confirm.mutate()}
       >
         {confirm.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <PackageCheckIcon aria-hidden="true" />}
-        Confirm and shelve it
+        I received it at the security desk
       </Button>
     </DashboardPanel>
   )

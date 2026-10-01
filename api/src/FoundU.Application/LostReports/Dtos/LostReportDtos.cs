@@ -94,6 +94,9 @@ public record LostReportDetailDto(
 
 public record WithdrawLostReportRequest(string? Reason);
 
+/// <summary>"I got it back." The note is optional - where it turned up, or who handed it in.</summary>
+public record ResolveLostReportRequest(string? Note);
+
 /// <summary>
 /// Anonymous public feed projection. Carries the poster's display name because the feed is a
 /// community board, but deliberately nothing else identifying - no email, no student number,

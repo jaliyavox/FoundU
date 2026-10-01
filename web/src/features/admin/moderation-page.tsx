@@ -1,6 +1,15 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckIcon, FlagIcon, GavelIcon, Loader2Icon, RotateCwIcon } from 'lucide-react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FlagIcon,
+  GavelIcon,
+  Loader2Icon,
+  RotateCwIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-panel'
@@ -33,11 +42,18 @@ export function ModerationPage() {
 
 function FlaggedReports() {
   const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
 
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['flagged-reports'],
-    queryFn: () => getFlaggedReports(),
+    queryKey: ['flagged-reports', page],
+    queryFn: () => getFlaggedReports(page),
+    placeholderData: keepPreviousData,
   })
+
+  // Clearing the last flag on a later page would leave it empty; step back instead.
+  useEffect(() => {
+    if (data && page > 1 && page > data.totalPages) setPage(Math.max(1, data.totalPages))
+  }, [data, page])
 
   const clear = useMutation({
     mutationFn: clearFlag,
@@ -117,6 +133,24 @@ function FlaggedReports() {
             </li>
           ))}
         </ul>
+      )}
+
+      {data && data.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span className="tabular-nums">
+            Page {data.page} of {data.totalPages}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={!data.hasPreviousPage} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeftIcon aria-hidden="true" />
+              Previous
+            </Button>
+            <Button variant="outline" size="sm" disabled={!data.hasNextPage} onClick={() => setPage(p => p + 1)}>
+              Next
+              <ChevronRightIcon aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
       )}
     </DashboardPanel>
   )

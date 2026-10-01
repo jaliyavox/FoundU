@@ -26,9 +26,9 @@ public record EvaluateVerificationAnswersResult(
 /// A deliberately generic failure result. It is safe to persist in audit metadata and never
 /// contains the outgoing hidden evidence, student answer text, or AI response body.
 /// </summary>
-public record VerificationAgentCallResult<T>(bool IsSuccess, T? Value, string? FailureReason)
+public record VerificationAgentCallResult<T>(bool IsSuccess, T? Value, string? FailureReason, int RetryCount = 0)
 {
-    public static VerificationAgentCallResult<T> Success(T value) => new(true, value, null);
+    public static VerificationAgentCallResult<T> Success(T value, int retryCount = 0) => new(true, value, null, retryCount);
 
-    public static VerificationAgentCallResult<T> Failure(string reason) => new(false, default, reason);
+    public static VerificationAgentCallResult<T> Failure(string reason, int retryCount = 0) => new(false, default, reason, retryCount);
 }

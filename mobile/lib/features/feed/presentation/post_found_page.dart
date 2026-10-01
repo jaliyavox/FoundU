@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/theme/brand.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../../intake/data/intake_repository.dart';
 import '../../reference/data/reference_models.dart';
 import '../../reports/presentation/providers/report_providers.dart';
 import '../data/feed_models.dart';
@@ -16,7 +17,10 @@ import 'found_feed_controller.dart';
 /// nothing that proves ownership. The hint says why: a finder who lists every detail out of
 /// helpfulness hands a fraudulent claimant the answers.
 class PostFoundPage extends ConsumerStatefulWidget {
-  const PostFoundPage({super.key});
+  const PostFoundPage({super.key, this.draft});
+
+  /// What the finder already told Ask FoundU. Only a starting point - they review every field.
+  final IntakeDraft? draft;
 
   @override
   ConsumerState<PostFoundPage> createState() => _PostFoundPageState();
@@ -33,6 +37,19 @@ class _PostFoundPageState extends ConsumerState<PostFoundPage> {
   DateTime _foundAt = DateTime.now();
   bool _busy = false;
   FoundPost? _posted;
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = widget.draft;
+    if (draft != null) {
+      _categoryId = draft.categoryId;
+      _itemTypeId = draft.itemTypeId;
+      _locationId = draft.locationId;
+      _description.text = draft.description;
+      _colour.text = draft.primaryColor ?? '';
+    }
+  }
 
   @override
   void dispose() {

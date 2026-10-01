@@ -12,8 +12,14 @@ using FoundU.Infrastructure.Notifications;
 using FoundU.Infrastructure.Identity;
 using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Storage;
+using FoundU.Infrastructure.Support;
 using FoundU.Infrastructure.Reporting;
 using FoundU.Infrastructure.Verification;
+using FoundU.Application.Intake;
+using FoundU.Infrastructure.Handovers;
+using FoundU.Infrastructure.Honor;
+using FoundU.Infrastructure.Intake;
+using FoundU.Infrastructure.Workflow;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -32,8 +38,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddFoundUInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<FoundUDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("FoundUDatabase")));
+        services.AddScoped<NotificationPushSaveChangesInterceptor>();
+        services.AddScoped<NotificationPushDispatcher>();
+        services.AddDbContext<FoundUDbContext>((serviceProvider, options) =>
+            options.UseNpgsql(configuration.GetConnectionString("FoundUDatabase"))
+                .AddInterceptors(serviceProvider.GetRequiredService<NotificationPushSaveChangesInterceptor>()));
 
         services.AddIdentityCore<AppUser>(options =>
             {
@@ -87,6 +96,35 @@ public static class DependencyInjection
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
+                // A signature proves who the token was issued to, not that they may still act.
+                // Suspension, or a role change by an admin, takes effect on the next request
+                // rather than when the 15-minute token happens to run out.
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var principal = context.Principal;
+                        var subject = principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                            ?? principal?.FindFirst("sub")?.Value;
+                        if (!Guid.TryParse(subject, out var userId))
+                        {
+                            context.Fail("The token names no user.");
+                            return;
+                        }
+
+                        var db = context.HttpContext.RequestServices.GetRequiredService<FoundUDbContext>();
+                        var user = await db.Users.AsNoTracking()
+                            .Where(u => u.Id == userId)
+                            .Select(u => new { u.IsSuspended, u.Role })
+                            .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+
+                        var tokenRole = principal!.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                        if (user is null || user.IsSuspended || tokenRole != user.Role.ToString())
+                        {
+                            context.Fail("This session is no longer valid.");
+                        }
+                    }
+                };
             });
 
         services.AddAuthorizationBuilder()
@@ -100,6 +138,12 @@ public static class DependencyInjection
 
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IProfileService, ProfileService>();
+        services.AddMemoryCache();
+        services.AddOptions<GoogleAuthOptions>().Bind(configuration.GetSection(GoogleAuthOptions.SectionName));
+        // Typed client: Google's key set is fetched over HTTP and cached, never bundled.
+        services.AddHttpClient<IGoogleTokenVerifier, GoogleTokenVerifier>(client =>
+            client.Timeout = TimeSpan.FromSeconds(10));
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IFoundReportService, FoundReportService>();
         services.AddScoped<IFoundPostService, FoundPostService>();
@@ -107,8 +151,25 @@ public static class DependencyInjection
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
         services.AddScoped<IClaimService, ClaimService>();
+        services.AddScoped<IIntakeService, IntakeService>();
+        services.AddHttpClient<IIntakeAgentClient, IntakeAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var address)) client.BaseAddress = address;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
         services.AddScoped<IMatchSuggestionService, MatchSuggestionService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IHonorService, HonorService>();
+        services.AddScoped<IHelpToFindService, HelpToFindService>();
+        services.AddScoped<ISupportService, SupportService>();
+        services.AddScoped<IHandoverService, HandoverService>();
+        services.AddScoped<IAdminOverviewService, AdminOverviewService>();
+        services.AddScoped<IReferenceAdminService, ReferenceAdminService>();
+        services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
+        services.AddOptions<FirebaseOptions>()
+            .Bind(configuration.GetSection(FirebaseOptions.SectionName));
+        services.AddSingleton<IPushNotificationService, FirebasePushNotificationService>();
         services.AddOptions<AiServiceOptions>()
             .Bind(configuration.GetSection(AiServiceOptions.SectionName));
         services.AddHttpClient<IVerificationAgentClient, VerificationAgentClient>((serviceProvider, client) =>
@@ -120,6 +181,15 @@ public static class DependencyInjection
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
         });
+        services.AddHttpClient<IAgentWorkflowClient, AgentWorkflowClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress))
+                throw new InvalidOperationException("AiService:BaseUrl must be an absolute URL.");
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
+        services.AddScoped<IClaimWorkflowService, ClaimWorkflowService>();
         services.AddHttpClient<IMatchingAgentClient, MatchingAgentClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;

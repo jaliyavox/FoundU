@@ -108,7 +108,7 @@ public class FoundReportService : IFoundReportService
 
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            if (!Enum.TryParse<FoundReportStatus>(query.Status, ignoreCase: true, out var status))
+            if (!Enum.TryParse<FoundReportStatus>(query.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {
                 throw new ValidationAppException(nameof(query.Status),
                     $"Unknown status '{query.Status}'. Expected one of: {string.Join(", ", Enum.GetNames<FoundReportStatus>())}.");
@@ -155,6 +155,7 @@ public class FoundReportService : IFoundReportService
                 r.Status.ToString(),
                 r.PrivateVerificationDetails != null,
                 r.Finder == null ? null : r.Finder.FullName,
+                r.HandedToSecurityAt,
                 r.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -186,6 +187,7 @@ public class FoundReportService : IFoundReportService
                 r.Staff == null ? null : r.Staff.FullName,
                 r.Finder == null ? null : r.Finder.FullName,
                 r.HandInCode,
+                r.HandedToSecurityAt,
                 r.CreatedAt,
                 r.UpdatedAt))
             .FirstOrDefaultAsync(cancellationToken);

@@ -48,9 +48,8 @@ public sealed class VerificationAgentClientTests
         var client = new VerificationAgentClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://ai.test/") },
             ServiceOptions(serviceKey));
-
         var result = await client.GenerateQuestionsAsync(
-            ClaimId, new Dictionary<string, string> { ["distinctive_mark"] = "anything" }, "correlation-1");
+            ClaimId, new Dictionary<string, string> { ["detail"] = "private detail" }, "correlation-1");
 
         Assert.False(result.IsSuccess);
         Assert.False(handler.WasCalled);

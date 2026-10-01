@@ -9,7 +9,8 @@ import { AuthLayout } from './auth-layout'
 import { AuthLoading } from './auth-loading'
 import { useAuth } from './use-auth'
 import { ApiError } from '@/lib/api/client'
-import { homeRouteForRole } from '@/routes/role-home'
+import { canRoleOpen, homeRouteForRole } from '@/routes/role-home'
+import { GoogleButton } from '@/features/account/google-button'
 
 export function LoginPage() {
   const { user, isInitializing, login } = useAuth()
@@ -41,7 +42,17 @@ export function LoginPage() {
       const from = (location.state as {
         from?: { pathname: string; search?: string; hash?: string }
       } | null)?.from
-      const destination = from
+      // Someone who started typing in the Ask FoundU bubble arrives with their sentence
+      // still in hand, rather than having to write it again on the other side of a form.
+      const asked = (location.state as { askFoundU?: string } | null)?.askFoundU
+      if (asked && signedIn.role === 'Student') {
+        navigate('/ask-foundu', { replace: true, state: { askFoundU: asked } })
+        return
+      }
+
+      // Only back to where they were if their role can open it; a staff member following a
+      // student's link would otherwise land on Forbidden straight after signing in.
+      const destination = from && canRoleOpen(signedIn.role, from.pathname)
         ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
         : homeRouteForRole(signedIn.role)
       navigate(destination, { replace: true })
@@ -74,6 +85,8 @@ export function LoginPage() {
         </>
       }
     >
+      <GoogleButton label="signin_with" />
+
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email address</Label>

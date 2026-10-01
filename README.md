@@ -51,6 +51,8 @@ $env:LLM_PROVIDER = "ollama"
 $env:LLM_MODEL = "<installed-model-name>"
 $env:OLLAMA_BASE_URL = "http://localhost:11434"
 $env:LLM_TIMEOUT_SECONDS = "30"
+$env:WORKFLOW_STATE_STORE = "postgres"
+$env:WORKFLOW_DATABASE_URL = "postgresql://foundu:<local-db-password>@localhost:5434/foundu"
 uvicorn app.main:app --reload --port 8000
 
 # Terminal 2 — ASP.NET Core API
@@ -76,6 +78,49 @@ flutter run --dart-define=FOUND_U_API_BASE_URL=http://10.0.2.2:5292
 only: React and Flutter never receive it. Protected FastAPI endpoints require
 `X-FoundU-Service-Key`; browser/mobile clients call ASP.NET only.
 
+## Third-party integration: Firebase Cloud Messaging
+
+FoundU uses Firebase Cloud Messaging (FCM) to complement its persisted in-app notification
+centre. A possible match, claim verification/revision, approval/rejection, collection update, or
+message event first creates the normal PostgreSQL `Notification`; after that transaction commits,
+ASP.NET Core may send a minimal push to the recipient's registered device. This helps students
+act on recovery updates without repeatedly opening the app. A push never makes a business
+decision, and the app fetches full authorized details from FoundU after a tap.
+
+```text
+Flutter device → authenticated token registration → ASP.NET Core → PostgreSQL
+business event → persisted FoundU notification → ASP.NET Core → FCM → device
+```
+
+### Firebase setup (manual, no credentials are committed)
+
+1. Create a Firebase project and add Android package `com.example.foundu` (replace this package
+   before production if the team changes the application ID).
+2. Download `google-services.json` to `mobile/android/app/google-services.json`. It is ignored by
+   Git. For iOS, add the Firebase iOS app and place `GoogleService-Info.plist` in `ios/Runner`
+   following the Firebase Flutter documentation.
+3. In Firebase Console, create a service account JSON key and keep it outside the repository.
+   Set backend-only environment variables before starting ASP.NET Core:
+
+```powershell
+$env:Firebase__ProjectId = "your-firebase-project-id"
+$env:Firebase__CredentialsPath = "C:\secure\foundu-firebase-service-account.json"
+$env:Firebase__TimeoutSeconds = "5"
+```
+
+`CredentialsPath` and the FCM token are never returned by FoundU APIs or sent to browsers. The
+backend only sends `title`, `body`, `type`, `notificationId`, and when applicable `entityId`; it
+never sends verification evidence/answers, credentials, AI prompts, private notes, or user
+contact details. Device registration and unregistration require the caller's FoundU JWT and are
+owner-scoped.
+
+FCM is best-effort: the backend uses a bounded 5-second delivery timeout and no unbounded retry.
+Provider outage, auth/configuration errors, malformed responses, and rate limiting are logged
+safely and leave the committed FoundU operation plus its in-app notification intact. Firebase
+unregistered/invalid tokens are deactivated so delivery is not repeatedly attempted. A real
+Firebase project, service-account credentials, and platform client files remain required for
+live delivery; automated tests use fakes and never contact Firebase.
+
 ## Live AI demo flow
 
 1. A student creates a lost report. ASP.NET preserves the user's data and optionally stores
@@ -90,8 +135,51 @@ only: React and Flutter never receive it. Protected FastAPI endpoints require
 6. Staff alone approves or rejects the claim; AI never decides ownership, transfers custody, or
    resolves an item.
 
-The Coordinator is a real deterministic workflow-recommendation agent callable through FastAPI.
-It is not yet wired into the ASP.NET workflow and has no authority to mutate business state.
+The Coordinator is a deterministic workflow-recommendation agent invoked by ASP.NET after a
+verification recommendation. ASP.NET creates a claim-linked audit run with the stable opaque
+workflow ID before calling FastAPI; staff discover its durable pause state through ASP.NET only.
+It has no authority to mutate business state.
+
+### AI observability and bounded resilience
+
+Each AI operation has an opaque server-generated correlation ID. It travels from the ASP.NET
+AgentRun/client request to FastAPI and its workflow logs. Coordinator durable workflows use their
+stable workflow ID as the correlation identifier. `AgentRun` records the safe outcome, timestamps,
+and `RetryCount`; Coordinator runs also record real plan, human-wait, and terminal audit steps.
+No prompts, raw model responses, ownership evidence, answers, service keys, or reasoning are
+recorded.
+
+Recommendation-only Description Parser, Matching, Verification, and Coordinator-start calls make
+at most two short retries after a transient network failure, timeout, or HTTP 408/429/502/503/504.
+Validation, malformed responses, 400/401/403/404/409 responses, and business failures are never
+retried. Approval and resume are deliberately single-shot because their durable transition status
+is the idempotency boundary; staff can safely check state and explicitly retry through ASP.NET.
+Timeouts remain configured by `AiService:TimeoutSeconds` (bounded to 1–30 seconds). Exhaustion
+uses the existing safe manual-review/fallback behavior and preserves the underlying business work.
+
+Demo evidence: submit a verification answer, open the staff claim’s Agent trail to show the
+Coordinator run/workflow ID and retry count, simulate a transient AI 503, then show the bounded
+retry or manual fallback. A waiting workflow shows the staff approval panel; approving resumes
+safe coordination only—the existing ASP.NET claim decision remains authoritative.
+
+### PostgreSQL integration tests
+
+The fast ASP.NET suite uses EF Core InMemory for most service-level coverage. A small, separate
+PostgreSQL category proves provider-specific migration, JSONB, foreign-key, and unique-index
+behaviour against the production provider. It is opt-in and will skip unless `TEST_DATABASE_URL`
+is configured. Its database name must contain `test` (for example `foundu_test`); the guard rejects
+all other names to avoid touching development or production data. Tests use migrations and unique
+test rows, never `EnsureCreated` or destructive database cleanup.
+
+Create an empty dedicated database in your local PostgreSQL instance, then run:
+
+```powershell
+$env:TEST_DATABASE_URL = "Host=localhost;Port=5432;Database=foundu_test;Username=<user>;Password=<password>"
+dotnet test api/FoundU.sln --filter "Category=PostgreSql"
+```
+
+No connection string is committed. CI currently leaves this category opt-in; it does not require a
+database service for normal pull-request validation.
 
 ## Safe fallback demonstrations
 
@@ -101,6 +189,21 @@ It is not yet wired into the ASP.NET workflow and has no authority to mutate bus
 - Call `POST /agents/run` without `X-FoundU-Service-Key`: FastAPI returns `401 Unauthorized`.
 - The Verification tests demonstrate that unsafe drafted wording is rejected for deterministic
   safe templates.
+
+## Local integration smoke test
+
+With PostgreSQL, FastAPI and ASP.NET running, set `FOUNDU_SMOKE_ADMIN_PASSWORD` to a local
+development admin password and run `ai/.venv/bin/python scripts/smoke_full_stack.py` from the
+repository root (Windows: `ai\.venv\Scripts\python.exe scripts\smoke_full_stack.py`). The
+script uses the AI environment's `httpx` dependency. Optional `FOUNDU_SMOKE_ADMIN_EMAIL` and
+`FOUNDU_SMOKE_API_URL` override `admin@foundu.com` and `http://localhost:5292/api`.
+
+This opt-in test **creates** a uniquely labelled test student, report, item and claim. It checks
+AI matching and verification, staff approval, collection, used-code rejection, private evidence
+and agent-history authorization, and notification read counts against real PostgreSQL. Records
+remain in the local database, with the test item returned and report resolved on success. Use
+the deterministic AI provider for a repeatable baseline; this does not validate real Ollama
+quality or Firebase delivery. Do not point it at a production environment.
 
 ## Working agreements
 

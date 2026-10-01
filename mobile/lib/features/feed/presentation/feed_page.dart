@@ -6,16 +6,18 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/theme/brand.dart';
+import '../../../core/widgets/flame_mark.dart';
 import '../../../core/widgets/foundu_mark.dart';
+import '../../../core/widgets/pill_nav.dart';
 import '../../../core/widgets/surfaces.dart';
 import '../../reference/data/reference_models.dart';
 import '../../reference/data/reference_repository.dart';
+import '../../notifications/presentation/notification_button.dart';
 import 'feed_card.dart';
 import 'feed_controller.dart';
 import 'feed_detail_sheet.dart';
 import 'found_feed_controller.dart';
-import 'found_post_card.dart';
-import 'found_post_sheet.dart';
+import 'fresh_finds_strip.dart';
 
 final _categoriesProvider = FutureProvider<List<CategoryModel>>(
   (ref) => ref.watch(referenceRepositoryProvider).getCategories(),
@@ -33,45 +35,19 @@ class FeedPage extends ConsumerStatefulWidget {
   ConsumerState<FeedPage> createState() => _FeedPageState();
 }
 
-enum _Board { lost, found }
-
 class _FeedPageState extends ConsumerState<FeedPage> {
   final _scroll = ScrollController();
   final _search = TextEditingController();
   Timer? _debounce;
-  // Two boards, one page: what people are looking for, and what people have found and not
-  // yet walked to a desk. Search and category apply to whichever is showing.
-  _Board _board = _Board.lost;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(() {
       if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 600) {
-        if (_board == _Board.lost) {
-          ref.read(feedControllerProvider.notifier).loadMore();
-        } else {
-          ref.read(foundFeedControllerProvider.notifier).loadMore();
-        }
+        ref.read(feedControllerProvider.notifier).loadMore();
       }
     });
-  }
-
-  void _switchBoard(_Board board) {
-    if (board == _board) return;
-    setState(() => _board = board);
-    // Carry the search and category across so switching does not lose what you typed.
-    final search = _search.text;
-    final category = board == _Board.lost ? ref.read(foundFeedControllerProvider).categoryId : ref.read(feedControllerProvider).categoryId;
-    if (board == _Board.lost) {
-      ref.read(feedControllerProvider.notifier)
-        ..setSearch(search)
-        ..setCategory(category);
-    } else {
-      ref.read(foundFeedControllerProvider.notifier)
-        ..setSearch(search)
-        ..setCategory(category);
-    }
   }
 
   @override
@@ -85,19 +61,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () {
-      if (_board == _Board.lost) {
-        ref.read(feedControllerProvider.notifier).setSearch(value);
-      } else {
-        ref.read(foundFeedControllerProvider.notifier).setSearch(value);
-      }
+      ref.read(feedControllerProvider.notifier).setSearch(value);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(feedControllerProvider);
-    final found = ref.watch(foundFeedControllerProvider);
-    final showingFound = _board == _Board.found;
     final categories = ref.watch(_categoriesProvider).value ?? const <CategoryModel>[];
     final user = ref.watch(authControllerProvider).value;
     final text = Theme.of(context).textTheme;
@@ -106,9 +76,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     return Scaffold(
       body: RefreshIndicator(
         color: Brand.forest,
-        onRefresh: () => showingFound
-            ? ref.read(foundFeedControllerProvider.notifier).refresh()
-            : ref.read(feedControllerProvider.notifier).refresh(),
+        onRefresh: () async {
+          // The strip rides along: both boards are on this screen now.
+          await Future.wait([
+            ref.read(feedControllerProvider.notifier).refresh(),
+            ref.read(foundFeedControllerProvider.notifier).refresh(),
+          ]);
+        },
         child: CustomScrollView(
           controller: _scroll,
           physics: const AlwaysScrollableScrollPhysics(),
@@ -127,18 +101,37 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                             Text(firstName == null ? 'The board' : 'Hello, $firstName', style: text.headlineSmall),
                             const SizedBox(height: 2),
                             Text(
-                              showingFound ? 'What people have found, not yet at a desk' : 'What people have lost around campus',
+                              'What people have lost around campus',
                               style: text.bodyMedium?.copyWith(color: Brand.muted),
                             ),
                           ],
                         ),
                       ),
+                      const NotificationButton(),
                       const FoundUMark(size: 44),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _BoardToggle(board: _board, onChanged: _switchBoard),
-                  const SizedBox(height: 14),
+                  const _AskBanner(),
+                  const SizedBox(height: 10),
+                  // The other half of the board. The Post button's chooser offered it, but a
+                  // finder had no reason to open a menu to learn that posting a find existed.
+                  const _FoundSomethingBanner(),
+                  const SizedBox(height: 18),
+                ]),
+              ),
+            ),
+            // The newest finds sit above the reports, edge to edge so the row can scroll out
+            // past the page padding.
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 0, 18),
+                child: FreshFindsStrip(),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              sliver: SliverList.list(children: [
                   TextField(
                     controller: _search,
                     onChanged: _onSearchChanged,
@@ -158,26 +151,21 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Text('Browse by category', style: text.titleMedium),
-                  const SizedBox(height: 10),
-                ]),
-              ),
+                const SizedBox(height: 18),
+                Text('Browse by category', style: text.titleMedium),
+                const SizedBox(height: 10),
+              ]),
             ),
             SliverToBoxAdapter(
               child: ChipRow<String?>(
                 options: [null, ...categories.map((c) => c.id)],
-                selected: showingFound ? found.categoryId : feed.categoryId,
-                onSelect: (id) => showingFound
-                    ? ref.read(foundFeedControllerProvider.notifier).setCategory(id)
-                    : ref.read(feedControllerProvider.notifier).setCategory(id),
+                selected: feed.categoryId,
+                onSelect: (id) => ref.read(feedControllerProvider.notifier).setCategory(id),
                 labelOf: (id) => id == null ? 'All' : categories.firstWhere((c) => c.id == id).name,
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            if (showingFound)
-              ..._foundSlivers(found, text)
-            else if (feed.error != null)
+            if (feed.error != null)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -229,15 +217,15 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                child: (showingFound ? found.isLoading : feed.isLoading)
+                child: feed.isLoading
                     ? const Center(child: SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2)))
-                    : (showingFound ? found.items.isNotEmpty && !found.hasNextPage : feed.items.isNotEmpty && !feed.hasNextPage)
+                    : feed.items.isNotEmpty && !feed.hasNextPage
                         ? Center(child: Text('That is everything.', style: text.bodySmall?.copyWith(color: Brand.faint)))
                         : const SizedBox.shrink(),
               ),
             ),
-            // Room for the floating nav.
-            const SliverToBoxAdapter(child: SizedBox(height: 96)),
+            // Room for the floating nav and the Post button raised above it.
+            const SliverToBoxAdapter(child: SizedBox(height: AboveNavFabLocation.listEndPadding)),
           ],
         ),
       ),
@@ -251,70 +239,19 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         icon: const Icon(Icons.add_rounded),
         label: const Text('Post'),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButtonLocation: const AboveNavFabLocation(),
     );
   }
 }
 
 
 extension on _FeedPageState {
-  List<Widget> _foundSlivers(FoundFeedState found, TextTheme text) {
-    if (found.error != null) {
-      return [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Could not load the board', style: text.titleMedium),
-                  const SizedBox(height: 4),
-                  Text('Check the API is running, then pull to refresh.', style: text.bodyMedium?.copyWith(color: Brand.muted)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ];
-    }
-    if (found.isEmpty) {
-      return [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-            child: Column(
-              children: [
-                const Icon(Icons.front_hand_outlined, size: 36, color: Brand.faint),
-                const SizedBox(height: 10),
-                Text('Nothing posted yet', style: text.titleMedium),
-                const SizedBox(height: 4),
-                Text('When someone finds something and posts it, it shows here until they hand it in.',
-                    textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: Brand.muted)),
-              ],
-            ),
-          ),
-        ),
-      ];
-    }
-    return [
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        sliver: SliverList.separated(
-          itemCount: found.items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
-          itemBuilder: (context, index) {
-            final post = found.items[index];
-            return FoundPostCard(post: post, onOpen: () => showFoundPostDetail(context, post));
-          },
-        ),
-      ),
-    ];
-  }
-
   void _showPostChooser(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      // On the root navigator, so the sheet covers the floating nav. Opened from a tab it
+      // would otherwise live inside that tab, underneath the nav, hiding its bottom.
+      useRootNavigator: true,
       backgroundColor: Brand.paper,
       builder: (sheet) => SafeArea(
         child: Padding(
@@ -325,6 +262,13 @@ extension on _FeedPageState {
             children: [
               Text('What happened?', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 14),
+              _ChooserTile(
+                icon: Icons.auto_awesome_rounded,
+                title: 'Ask FoundU first',
+                body: 'Describe it and I will check what has already been handed in.',
+                onTap: () { Navigator.of(sheet).pop(); context.push('/ask'); },
+              ),
+              const SizedBox(height: 10),
               _ChooserTile(
                 icon: Icons.search_rounded,
                 title: 'I lost something',
@@ -385,39 +329,105 @@ class _ChooserTile extends StatelessWidget {
 }
 
 /// Lost · Found. A pill pair rather than tabs, to match the category chips beneath it.
-class _BoardToggle extends StatelessWidget {
-  const _BoardToggle({required this.board, required this.onChanged});
-  final _Board board;
-  final ValueChanged<_Board> onChanged;
+
+/// The way in to Ask FoundU from the feed - the first thing someone who has just lost
+/// something should see, above the reports of what other people have lost.
+class _FoundSomethingBanner extends StatelessWidget {
+  const _FoundSomethingBanner();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: Brand.surfaceTint, borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        children: [
-          for (final option in _Board.values)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(option),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: board == option ? Brand.ink : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    option == _Board.lost ? 'Lost' : 'Found',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: board == option ? Colors.white : Brand.text),
-                  ),
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Brand.radiusCard),
+        side: BorderSide(color: Brand.forest.withValues(alpha: .18)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/home/found/new'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Brand.forest.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.front_hand_outlined, color: Brand.forest),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Found something?', style: text.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Post a found item so the owner can spot it.',
+                      style: text.bodySmall?.copyWith(color: Brand.muted),
+                    ),
+                  ],
                 ),
               ),
-            ),
-        ],
+              const Icon(Icons.add_rounded, color: Brand.forest),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AskBanner extends StatelessWidget {
+  const _AskBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Brand.forest,
+      borderRadius: BorderRadius.circular(Brand.radiusCard),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/ask'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const FlameMark(size: 32),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Lost something?', style: text.titleMedium?.copyWith(color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Ask FoundU - it checks what has been handed in.',
+                      style: text.bodySmall?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_rounded, color: Colors.white70),
+            ],
+          ),
+        ),
       ),
     );
   }

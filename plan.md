@@ -9,18 +9,23 @@ scaffolded as we need them.
 
 ---
 
-## Environment status (re-checked 2026-08-18)
+## Environment status (re-checked 2026-09-27)
 
 | Tool | Required | Installed | Note |
 |------|----------|-----------|------|
 | Node / npm | 20+ | Yes 24.13.1 / 11.8.0 | ready for `/web` |
 | .NET SDK | 8 | Yes 8.0.423 (+ `dotnet ef` 8.0.11) | ready for `/api` |
 | Docker | any | Yes, Desktop installed | Postgres 16 + Ollama running |
-| Python | 3.11 | No, have 3.9.6 | upgrade before `/ai` |
-| Flutter | stable | No, not installed | install before mobile phase |
+| Python | 3.11 | Yes, venv at `ai/.venv` | gitignored; built from `/opt/homebrew/opt/python@3.11` |
+| Flutter | stable | Yes 3.47.5 (brew) | Android only on this machine - see `mobile/README.md` |
 
-**Action items before later phases:** install Flutter (`brew install --cask flutter`)
-and Python 3.11 (`brew install python@3.11`).
+**Two things that waste an afternoon if you do not know them:**
+
+- **The AI service refuses to start** without `WORKFLOW_STATE_STORE=postgres` and
+  `WORKFLOW_DATABASE_URL` (durable agent state, PR #37). The full recipe is in the README.
+- **A running API does not pick up new endpoints.** Every new controller needs the `dotnet run`
+  process restarted, or the client gets a 404 and the page looks broken when it is not. This
+  has cost us twice; check the process start time before debugging the page.
 
 ### Local ports (this machine)
 
@@ -88,15 +93,25 @@ We can build the web dashboard's structure now and wire it to the API as the API
 
 ### A3 · Feature screens (built as API endpoints come online)
 - [x] Found-item log form + items table (staff sees private fields) — DONE 2026-09-09
-- [ ] Student: report-lost form + my-reports list with withdraw - needs Step 6 API **<- in progress**
+- [x] Student: report-lost form + my-reports list with edit and withdraw
 - [x] Claims review queue + claim detail (approve/reject) — DONE 2026-09-09
 - [x] Notification bell + list (both roles) — DONE 2026-09-09
 - [x] Admin: users table, analytics (Recharts), dispute review — DONE 2026-09-15
-- [ ] Agent-run panel on claim detail — the AgentRun trail is written by the API but nothing reads it
+- [x] Staff agent-run panel on claim detail — verified against the live API; refresh and retry controls added 2026-09-26
+- [x] Ask FoundU conversation (`/ask-foundu`) + the bubble on the landing page and feed — 2026-09-27
+- [x] Help to find: honor points, finding activity, the desk codes still owed — 2026-09-27
+- [x] Account settings (name, email, password) from the sidebar user chip — 2026-09-27
+- [x] Support: student tickets (`/support`) and the desk queue (`/admin/support`) — 2026-09-27
+- [x] Admin overview (`/admin/overview`) — the queues that need a person — 2026-09-27
+- [x] Handover desk (`/handovers`): one code in, item taken or released — 2026-09-27
+- [x] Found board as "Fresh finds" + `/found`, and asking a finder without a lost report — 2026-09-27
 
 ### A4 · Web polish
-- [ ] Loading / empty / error states on every list, form, detail view
-- [ ] Keyboard nav, focus rings, labelled fields, aria-live, 4.5:1 contrast
+- [~] Loading / empty / error states — done on every screen built since 2026-09-22 (each has
+      skeletons, an empty state and a retry); the older screens have not been swept
+- [ ] Keyboard nav, focus rings, labelled fields, aria-live, 4.5:1 contrast — spot-fixed where
+      found (dark-mode message bubbles 2026-09-27), never audited as a pass
+- [ ] The 500 kB bundle warning on `npm run build`
 
 ---
 
@@ -112,7 +127,15 @@ We can build the web dashboard's structure now and wire it to the API as the API
 ### B2 · Feature screens
 - [x] Report-lost form — Parami, PR #13
 - [x] Claim, answer-question screen, claim status — Braveena, PR #16
-- [ ] FCM setup, inbox with unread badges + deep links (Step 8)
+- [x] Mobile inbox with unread badges, paging, mark-read actions and navigation — 2026-09-26
+- [x] FCM client/server integration — PR #36
+- [x] Feed parity: Fresh finds row, the found board, found-post chat — 2026-09-27
+- [x] Help to find under Profile; "I found this" closing a report — 2026-09-27
+- [ ] Account screen — repository and controller done 2026-09-27, the screen is not built
+- [ ] Ask FoundU screen (web has it; mobile has no entry point yet)
+- [ ] Handover flow on mobile (the API is shared; the finder's choice and the owner's code are web-only)
+- [ ] Google sign-in (needs the `google_sign_in` package and a registered SHA-1)
+- [ ] Configure Firebase credentials and verify foreground/background/closed-app delivery on a device
 
 ### B3 · Mobile polish
 - [ ] Loading/empty/error states, 48dp touch targets, semantic labels, offline retry
@@ -132,6 +155,14 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 - [x] **Step 9** — Admin + analytics + dispute API — DONE 2026-09-15
 - [x] **Step 5** — AI service + LangGraph graph + `POST /agents/run` — Braveena, PR #11 (every node is a stub)
 - [x] **Steps 10–13** — description parser, matching, verification, coordinator; Ollama LLM provider; .NET clients for all three with service auth — Braveena + Parami, PRs #14–#35 (2026-09-20/22)
+- [x] **Intake agent** — Python node + .NET orchestration + `POST /api/intake` — 2026-09-22/27
+- [x] **Handovers** — `POST /api/lost-reports/{id}/handover`, the desk's receive/release by code — 2026-09-27
+- [x] **Honor + Help to find** — the award ledger and `GET /api/help-to-find` — 2026-09-27
+- [x] **Support tickets** — student and desk endpoints, queue stats — 2026-09-27
+- [x] **Profile + Google sign-in** — `/api/profile`, `/api/auth/google` — 2026-09-27
+- [x] **Admin overview** — `GET /api/admin/overview` — 2026-09-27
+- [ ] **Coordinator** — the agent exists in `ai/app/agents/coordinator.py`; nothing in .NET, web or
+      mobile calls it. Decide whether it is in scope, or say so in the report
 
 ---
 
@@ -149,6 +180,7 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 10. **B1–B3** — Flutter app (login -> features -> polish)
 11. **Step 5 / 10–13** — AI agents + integration
 12. **Steps 14–17** — tests, docs, seed data, demo
+    *(seed data landed early: `scripts/demo_seed.py`, 2026-09-27)*
 
 ---
 
@@ -157,6 +189,106 @@ The web app needs real endpoints to be more than a shell. Minimum to unblock Tra
 ## Progress log
 
 Newest first. Record what landed, and anything a teammate would otherwise trip over.
+
+### 2026-09-27 - the handover, support, the admin panel and the agent's way in
+
+Nine days of work in one place, all of it verified against local PostgreSQL and driven
+through the real endpoints rather than written into tables.
+
+**Handover: one code, two people, a desk that checks.** "I found this" now opens a choice
+rather than a code - write to the owner, or walk it to a desk. Choosing the walk mints six
+digits both sides quote, pauses the notice off the feed so nobody else sets out after an item
+already on its way, and tells the owner with the code attached. The desk types that code in
+twice at `/handovers`: once when the finder arrives, which logs the item to a shelf like
+anything else in custody, and once when the owner collects. The second time it must confirm it
+checked the collector's student ID against the owner's name, and who checked is stored - a
+code says which item, never which person. The code dies with the collection.
+
+A walk nobody finishes lapses after 48 hours and the notice returns by itself, cleaned up
+where it is noticed rather than by a background job. The finder can call it off until a desk
+has the item. Two people cannot carry the same item at once. Signed out, the confirmation
+reads the same and then asks for an account.
+
+**Ask FoundU, end to end.** The Python intake agent (`ai/app/agents/intake.py`) gained its
+.NET half: one message at a time with the slots riding along, so there is no server session to
+lose. When there is enough to search, the API queries what has been found - Posted and
+Unclaimed, never the asker's own posts - and asks the agent to rank five candidates. It
+suggests; the student acts through the ordinary endpoints. An unreachable agent says so and
+hands back a draft built from the person's own words. `/ask-foundu` on web, plus a floating
+bubble on the landing page and the feed that carries the first sentence through sign-in.
+
+**Honor points and Help to find.** A ledger, not a counter: 10 when a desk confirms an item
+you handed in, 25 when something you helped with reaches its owner, nothing for pressing a
+button. The same outcome never pays twice. `/help-to-find` is the read side and doubles as
+where a finder re-reads the code they still owe a desk.
+
+**Support tickets.** A conversation with the institution rather than with another student, so
+it outlives the item. One thread, two sets of powers. A staff answer moves it to waiting and
+auto-assigns; the person writing back reopens it, including after resolution. Closed stays
+closed. Unread counts only ever count the other side's messages.
+
+**Admin panel.** `/admin/overview` is the front page: only numbers somebody can act on, each
+linking to the page that acts on it, with recent activity underneath. Historical figures stay
+on analytics.
+
+**Also landed:** account settings (name, email guarded by the password, password change that
+ends every other session); Google sign-in verified against Google's published keys, hidden
+until a client id is configured on both halves; asking a finder about a found post without a
+lost report; the found board moved out of a tab into a "Fresh finds" row with an animated
+flame, full board at `/found`; owner closing their own report; search clear buttons; mobile
+parity for the feed, found board, Help to find, notifications inbox and found-post chat.
+
+**Bugs this work exposed, all fixed:**
+- Refresh treated a *deliberately* revoked token (logout, password change) as stolen, so one
+  stale client retrying would revoke the session the person had just re-established. Only a
+  rotated token coming back is evidence of theft now - `ReplacedByTokenHash` tells them apart.
+- Confirming a found post threw a NullReferenceException: the honor award reads an item type
+  the query never loaded. The demo seeder walked straight into it.
+- A cancelled or lapsed handover left the notice paused, because the unpause check queried the
+  database while the status change was still only in the change tracker.
+- The message thread's incoming bubble was pinned to light-mode colours - dark text on a dark
+  panel in the dashboard. It follows the theme now; the public sheets say `tone="light"`.
+
+**Migrations** (anyone pulling needs `dotnet ef database update`): AddHonorAwards,
+AddFoundReportMessages, AddGoogleSubjectId, AddSupportTickets, AddHandovers.
+
+**Demo data.** `scripts/demo_seed.py` wipes local activity and rebuilds every state by driving
+the real endpoints - open reports, a live conversation, a handover in flight, one waiting at a
+desk, one collected, a withdrawal, found posts with and without desk confirmation, support
+tickets in three states. Five accounts, password `Demo!Pass2026`. Destructive and local-only.
+
+**Tests:** API 130, web 34, mobile 47, AI 284 (+1 PostgreSQL recovery test now running in CI,
+which brings up its own database rather than skipping).
+
+**Still open:** mobile account screen (repository and controller done, screen is not), Google
+on mobile (needs the `google_sign_in` package and a registered SHA-1), browser end-to-end
+tests, Flutter integration tests, API tests against real PostgreSQL rather than EF in-memory,
+migration tests, real Firebase and Ollama device checks, the Coordinator agent's application
+integration, and the 500 kB web bundle warning.
+
+### 2026-09-26 — local startup, notification inbox and regression checks
+
+- Fixed a production DI cycle: database options resolved the push interceptor, which resolved
+  the dispatcher, which requested the same database context. Push dispatcher resolution now
+  occurs after the context is constructed. Added a test using real production registrations;
+  the older HTTP tests replace the database registration and did not cover this failure.
+- Mobile notifications now have Feed/Profile entry points, unread counts polled every minute,
+  paginated inbox, mark-one/mark-all, retry and pull-to-refresh. Navigation allows only known
+  entity routes; session changes invalidate cached data and suppress stale navigation.
+- Staff agent history already existed. Added retry/manual refresh and invalidate its query
+  after staff question generation. Checked admin login and claim history in headless Chrome.
+- Live PostgreSQL/FastAPI smoke: report, AI match, claim, generated questions, answers, approval,
+  collection, reused-code rejection and notifications. AI used the deterministic provider;
+  Ollama is running but has no model installed. The smoke exposed a mark-all response that
+  returned rows changed as `unread`; it now returns the actual remaining count.
+- Automated checks: API 99, web 34, mobile 43, AI 285 tests. The AI PostgreSQL recovery test
+  ran against local PostgreSQL rather than being skipped. Web build and Flutter analysis pass.
+- Still needed: owner-facing intake API/UI, Coordinator application integration, real Ollama
+  and Firebase device checks, broader browser/mobile journey coverage, accessibility/polish,
+  diagrams and deployment work. This is a completed first slice, not full project sign-off.
+- Timestamp follow-up: a smoke request using a `+00:00` offset was rejected as future on this
+  machine; the same request in the clients' `Z` UTC format passed. Verify offset normalization
+  in report validation before claiming support for arbitrary ISO timestamp offsets.
 
 ### 2026-09-22 - the product model: codes, finder posts, two-way threads (steps 1-4 of 5)
 

@@ -24,6 +24,8 @@ public class FoundReport : BaseEntity, ISoftDeletable
     /// </summary>
     public string? HandInCode { get; set; }
 
+    public DateTime? HandedToSecurityAt { get; set; }
+
     public Guid CategoryId { get; set; }
     public Category Category { get; set; } = default!;
 

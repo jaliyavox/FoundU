@@ -60,6 +60,12 @@ public interface IClaimService
     /// </summary>
     Task<ClaimDetailDto> CollectAsync(string code, Guid staffId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Staff: the approved, uncollected claim a collection code belongs to, so the desk sees
+    /// whose item it is before checking ID. 404 for a wrong or used code.
+    /// </summary>
+    Task<ClaimDetailDto> GetByCollectionCodeAsync(string code, CancellationToken cancellationToken = default);
+
     /// <summary>The student giving up on their own claim. Nothing is deleted - it is recorded.</summary>
     Task<ClaimDetailDto> CancelAsync(Guid claimId, Guid studentId, string? reason, CancellationToken cancellationToken = default);
 }

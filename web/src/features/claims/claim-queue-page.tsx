@@ -20,7 +20,7 @@ import { timeAgo } from '@/features/feed/feed-api'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { collectClaim, getClaimQueue } from './claims-api'
+import { collectClaim, getClaimByCode, getClaimQueue, type ClaimDetail } from './claims-api'
 import { ClaimStatusChip } from './claim-status-chip'
 
 const PAGE_SIZE = 15
@@ -206,19 +206,34 @@ export function ClaimQueuePage() {
 
 
 /**
- * The hand-over. The owner quotes six digits, staff type them, the item leaves the shelf.
- * Kept at the top of the queue because it is the one thing the desk does with someone
- * standing in front of it.
+ * The hand-over. The owner quotes six digits, staff type them and see whose item it is, check
+ * the student ID against that name, and only then does the item leave the shelf - the same
+ * two steps as the handover desk. Kept at the top of the queue because it is the one thing the
+ * desk does with someone standing in front of it.
  */
 function CollectBox() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [code, setCode] = useState('')
+  const [match, setMatch] = useState<ClaimDetail | null>(null)
+  const [idChecked, setIdChecked] = useState(false)
+  const digits = code.replace(/\s/g, '')
+
+  const lookup = useMutation({
+    mutationFn: () => getClaimByCode(digits),
+    onSuccess: (claim) => {
+      setMatch(claim)
+      setIdChecked(false)
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.'),
+  })
 
   const collect = useMutation({
-    mutationFn: () => collectClaim(code.replace(/\s/g, '')),
+    mutationFn: () => collectClaim(digits, idChecked),
     onSuccess: (claim) => {
       setCode('')
+      setMatch(null)
       queryClient.invalidateQueries({ queryKey: ['claim-queue'] })
       queryClient.invalidateQueries({ queryKey: ['found-items'] })
       toast.success(`${claim.foundItem.itemTypeName} handed to ${claim.studentName}.`)
@@ -228,13 +243,50 @@ function CollectBox() {
       toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.'),
   })
 
-  const ready = code.replace(/\s/g, '').length === 6
+  const ready = digits.length === 6
+
+  if (match) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">
+          <strong>{match.foundItem.itemTypeName}</strong> for <strong>{match.studentName}</strong>.
+          The code says which item, not who this person is. Check their student ID against that name.
+        </p>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={idChecked}
+            onChange={event => setIdChecked(event.target.checked)}
+            className="mt-0.5 size-4 accent-[var(--color-brand-forest)]"
+          />
+          I checked their student ID and the name matches
+        </label>
+        <div className="flex gap-2">
+          <Button
+            className="bg-brand-forest text-white hover:bg-brand-forest/90"
+            disabled={!idChecked || collect.isPending}
+            onClick={() => collect.mutate()}
+          >
+            {collect.isPending ? (
+              <Loader2Icon className="animate-spin" aria-hidden="true" />
+            ) : (
+              <PackageCheckIcon aria-hidden="true" />
+            )}
+            Hand it over
+          </Button>
+          <Button variant="ghost" onClick={() => setMatch(null)}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault()
-        if (ready) collect.mutate()
+        if (ready) lookup.mutate()
       }}
       className="flex flex-col gap-3 sm:flex-row sm:items-end"
     >
@@ -253,14 +305,14 @@ function CollectBox() {
       <Button
         type="submit"
         className="bg-brand-forest text-white hover:bg-brand-forest/90"
-        disabled={!ready || collect.isPending}
+        disabled={!ready || lookup.isPending}
       >
-        {collect.isPending ? (
+        {lookup.isPending ? (
           <Loader2Icon className="animate-spin" aria-hidden="true" />
         ) : (
           <PackageCheckIcon aria-hidden="true" />
         )}
-        Mark collected
+        Find the item
       </Button>
     </form>
   )
