@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { formatWindow, timeAgo } from '../../../src/features/feed/feed-api'
+import { formatWindow, postStage, timeAgo } from '../../../src/features/feed/feed-api'
 
 /** Pin the clock so every assertion is about the function, not the wall time. */
 function at(nowIso: string, run: () => void) {
@@ -44,5 +44,24 @@ describe('formatWindow', () => {
     const text = formatWindow('2026-09-14T07:00:00', '2026-09-14T09:30:00')
     expect(text).toMatch(/Sep 14/)
     expect(text).toMatch(/7 AM-9:30 AM$/)
+  })
+})
+
+describe('postStage', () => {
+  const post = { isMine: false, handedToSecurityAt: null }
+
+  it('says where a found post has got to, from the finder to the owner collecting it', () => {
+    expect(postStage({ ...post, status: 'Posted' }).badge).toBe('Not at a desk yet')
+    expect(postStage({ ...post, status: 'Unclaimed' }).badge).toBe('At the security desk')
+    expect(postStage({ ...post, status: 'Claimed' }).badge).toBe('Owner on the way')
+  })
+
+  it('tells the finder their own post apart, and that they handed it in', () => {
+    expect(postStage({ ...post, isMine: true, status: 'Posted' }).badge).toBe('Your post')
+    expect(postStage({ ...post, isMine: true, status: 'Posted', handedToSecurityAt: '2026-10-02T08:00:00Z' }).badge)
+      .toBe('Handed to security')
+    // Once the desk confirms it, the desk's word replaces the finder's.
+    expect(postStage({ ...post, isMine: true, status: 'Unclaimed', handedToSecurityAt: '2026-10-02T08:00:00Z' }).badge)
+      .toBe('At the security desk')
   })
 })

@@ -20,6 +20,9 @@ import {
   timeAgo,
   withdrawFoundPost,
   type FoundPostItem,
+  postStage,
+  STAGE_BADGE,
+  STAGE_NOTE,
 } from './feed-api'
 import { ItemIllustration } from './item-illustration'
 import { MessageThread } from './message-thread'
@@ -79,7 +82,7 @@ export function FoundFeed({ search }: { search: string }) {
   return (
     <>
       <p className="pb-5 text-xs text-brand-forest/60">
-        {data.totalCount} {data.totalCount === 1 ? 'item' : 'items'} waiting to reach a desk
+        {data.totalCount} {data.totalCount === 1 ? 'item' : 'items'} waiting for {data.totalCount === 1 ? 'its owner' : 'their owners'}
         {search && ` matching “${search}”`}
       </p>
 
@@ -126,13 +129,9 @@ export function FoundPostCard({ item, onOpen }: { item: FoundPostItem; onOpen: (
           category={item.categoryName}
           className="absolute inset-0 m-auto size-20 text-brand-sage/70 transition-transform duration-300 group-hover:scale-105"
         />
-        {/* Says plainly what a teaser is: not yet in anyone's custody. */}
-        <span className="absolute top-3 left-3 rounded-full bg-amber-400/90 px-2.5 py-1 text-[11px] font-semibold text-neutral-900">
-          {item.isMine && item.handedToSecurityAt
-            ? 'Handed to security'
-            : item.isMine
-              ? 'Your post'
-              : 'Not at a desk yet'}
+        {/* Says plainly where the item is: with the finder, at a desk, or spoken for. */}
+        <span className={cn('absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold', STAGE_BADGE[postStage(item).tone])}>
+          {postStage(item).badge}
         </span>
       </div>
 
@@ -163,7 +162,8 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
     setSelectedPostState(item)
   }, [item])
 
-  const canRecognise = user?.role === 'Student' && item !== null && !item.isMine
+  // Spoken for once a claim is approved - nobody else can say it is theirs then.
+  const canRecognise = user?.role === 'Student' && item !== null && !item.isMine && item.status !== 'Claimed'
 
   const myReports = useQuery({
     queryKey: ['my-lost-reports', { page: 1, pageSize: 50, status: 'Active' }],
@@ -229,10 +229,8 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
               </SheetDescription>
             </SheetHeader>
 
-            <p className="rounded-xl border border-amber-500/30 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              {item.isMine && displayedItem?.handedToSecurityAt
-                ? 'You marked this as handed to security. It can be claimed after security confirms receipt.'
-                : 'Not at a desk yet. It can be claimed once the finder hands it in.'}
+            <p className={cn('rounded-xl border px-3 py-2 text-sm', STAGE_NOTE[postStage(displayedItem ?? item).tone])}>
+              {postStage(displayedItem ?? item).note}
             </p>
 
             <p className="text-sm leading-relaxed text-pretty text-neutral-700">{item.description}</p>
@@ -285,6 +283,8 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
                     I gave it to security
                   </Button>
                 )}
+                {/* Once a desk has it, it is the desk's to deal with - not the finder's to take down. */}
+                {displayedItem?.status === 'Posted' && (
                 <Button
                   variant="outline"
                   className="border-neutral-900/15 bg-white/70 text-neutral-800 hover:bg-white"
@@ -294,6 +294,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
                   {withdraw.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <Trash2Icon aria-hidden="true" />}
                   Take this post down
                 </Button>
+                )}
               </div>
             ) : !user ? (
               <Button className="bg-brand-forest text-white hover:bg-brand-forest/90" nativeButton={false} render={<Link to="/login" />}>
@@ -316,8 +317,9 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
 
                 {done ? (
                   <p className="rounded-xl border border-brand-green/30 bg-brand-green/10 p-4 text-sm text-neutral-700">
-                    Done. {item.postedByName.split(' ')[0]} has been asked to hand it in, and it now shows on your
-                    report. You will be able to claim it once it reaches a desk.
+                    {item.status === 'Unclaimed'
+                      ? 'Done. It now shows on your report - open it from My reports and claim it. The desk checks it is yours before handing it over.'
+                      : `Done. ${item.postedByName.split(' ')[0]} has been asked to hand it in, and it now shows on your report. You will be able to claim it once it reaches a desk.`}
                   </p>
                 ) : (myReports.data?.items.length ?? 0) > 0 ? (
                   <details className="rounded-xl border border-neutral-900/8 bg-white/70 p-4">
@@ -326,8 +328,9 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
                     </summary>
                     <div className="flex flex-col gap-3 pt-3">
                       <p className="text-xs text-neutral-500">
-                        The finder is asked to hand it in with your report's code. The desk will still check it is
-                        yours.
+                        {item.status === 'Unclaimed'
+                          ? 'It becomes a possible match on your report, ready to claim. The desk will still check it is yours.'
+                          : "The finder is asked to hand it in with your report's code. The desk will still check it is yours."}
                       </p>
                       <div className="flex flex-col gap-2">
                         <Label htmlFor="recognise-report" className="text-sm text-neutral-900">Your report</Label>

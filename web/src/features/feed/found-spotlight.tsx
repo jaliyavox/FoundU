@@ -1,7 +1,8 @@
 import { createPortal } from 'react-dom'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { ItemIllustration } from './item-illustration'
-import { timeAgo, type FoundPostItem } from './feed-api'
+import { postStage, STAGE_BADGE, timeAgo, type FoundPostItem } from './feed-api'
+import { cn } from '@/lib/utils'
 
 /**
  * The found post lifted out of the board while its panel is open - the same composition the
@@ -70,8 +71,8 @@ export function FoundSpotlight({ item }: { item: FoundPostItem | null }) {
             category={item.categoryName}
             className="absolute inset-0 m-auto size-20 text-brand-sage/70"
           />
-          <span className="absolute top-3 left-3 rounded-full bg-amber-400/90 px-2.5 py-1 text-[11px] font-semibold text-neutral-900">
-            {item.isMine ? 'Your post' : 'Not at a desk yet'}
+          <span className={cn('absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold', STAGE_BADGE[postStage(item).tone])}>
+            {postStage(item).badge}
           </span>
         </div>
 

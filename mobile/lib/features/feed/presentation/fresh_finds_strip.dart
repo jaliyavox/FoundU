@@ -134,11 +134,11 @@ class _FindTile extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF2C14E),
+                    color: Color(post.stageColour),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    post.isMine ? 'Your post' : 'Not at a desk yet',
+                    post.stageLabel,
                     style: text.labelSmall?.copyWith(color: Brand.ink, fontWeight: FontWeight.w600),
                   ),
                 ),

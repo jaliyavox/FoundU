@@ -165,9 +165,17 @@ public class FoundPostService : IFoundPostService
         Guid? requesterId,
         CancellationToken cancellationToken = default)
     {
+        // A post stays up until its owner has it back: while the finder still holds it, once it
+        // is in storage at a desk, and once a claim is approved and the owner is on their way.
+        // Only collection (Returned) or the finder withdrawing (Disposed) takes it down.
+        // "Started as a post" is its history, not its finder: items received from a handover
+        // also name their finder, and they were never on this board.
         var posts = _db.FoundReports
             .AsNoTracking()
-            .Where(f => f.Status == FoundReportStatus.Posted);
+            .Where(f => f.Status == FoundReportStatus.Posted
+                || f.Status == FoundReportStatus.Unclaimed
+                || f.Status == FoundReportStatus.Claimed)
+            .Where(f => f.StatusHistory.Any(h => h.ToStatus == FoundReportStatus.Posted));
 
         if (query.CategoryId is { } categoryId) posts = posts.Where(f => f.CategoryId == categoryId);
 
@@ -343,10 +351,13 @@ public class FoundPostService : IFoundPostService
             .FirstOrDefaultAsync(f => f.Id == id, cancellationToken)
             ?? throw new NotFoundAppException($"Found post '{id}' was not found.");
 
-        if (post.Status != FoundReportStatus.Posted)
+        // Still with the finder, or already in storage: either way the owner's word becomes a
+        // suggestion they can claim from. Once a claim is approved it is spoken for.
+        if (post.Status is not (FoundReportStatus.Posted or FoundReportStatus.Unclaimed))
         {
-            throw new ConflictAppException("This item has reached a desk - claim it from your reports instead.");
+            throw new ConflictAppException("Someone has already proved this is theirs.");
         }
+        var atDesk = post.Status == FoundReportStatus.Unclaimed;
 
         if (post.FinderId == ownerId)
         {
@@ -377,7 +388,8 @@ public class FoundPostService : IFoundPostService
                 cancellationToken);
         }
 
-        if (post.FinderId is { } finderId)
+        // Once it is at a desk the finder has done their part - nothing more to ask of them.
+        if (post.FinderId is { } finderId && !atDesk)
         {
             _notifications.Queue(
                 finderId,

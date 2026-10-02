@@ -55,8 +55,8 @@ export function FoundBoardPage() {
               What people have found
             </h1>
             <p className="max-w-xl pt-3 text-sm text-pretty text-white/60 sm:text-base">
-              Things students picked up and posted before reaching a desk. Recognise yours? Say
-              so, and the finder is asked to hand it in.
+              Things students picked up and posted. Each stays here until its owner has it back -
+              while the finder has it, at a security desk, and until it is collected.
             </p>
 
             <div className="flex flex-col gap-3 pt-8 sm:flex-row sm:items-center">

@@ -113,6 +113,31 @@ class FoundPost {
   final String? handInCode;
   final DateTime createdAt;
 
+  /// A post stays on the board until its owner has the item back, so it says where it is.
+  bool get isAtDesk => status == 'Unclaimed';
+  bool get isSpokenFor => status == 'Claimed';
+
+  String get stageLabel => isAtDesk
+      ? 'At the security desk'
+      : isSpokenFor
+          ? 'Owner on the way'
+          : isMine
+              ? 'Your post'
+              : 'Not at a desk yet';
+
+  String get stageNote => isAtDesk
+      ? 'In storage at a security desk. Think it is yours? Link it to your report below and claim it - staff check before handing it over.'
+      : isSpokenFor
+          ? 'Its owner has proved it is theirs and is collecting it from security.'
+          : 'Not at a desk yet. It can be claimed once the finder hands it in.';
+
+  /// Badge colour: amber while the finder has it, green at a desk, blue once spoken for.
+  int get stageColour => isAtDesk
+      ? 0xFF9FD3A1
+      : isSpokenFor
+          ? 0xFF9ED6F0
+          : 0xFFFFC94A;
+
   factory FoundPost.fromJson(Map<String, dynamic> json) => FoundPost(
         id: json['id'] as String,
         postedByName: json['postedByName'] as String,
