@@ -91,6 +91,7 @@ Singapore.
 
 | Service | Setting | Value |
 |---|---|---|
+| foundu-ai | `HF_TOKEN` | a Hugging Face access token (Settings -> Access Tokens -> fine-grained, "Make calls to Inference Providers") |
 | foundu-api | `AiService__BaseUrl` | `https://foundu-ai.onrender.com` |
 | foundu-api | `Seed__DevAdminPassword` | a strong password for `admin@foundu.com` |
 | foundu-api | `Cors__AllowedOrigins__0` | `https://foundu-web.onrender.com` |
@@ -116,8 +117,10 @@ What to expect on the free plan:
   restarts or redeploys. To keep them, move the API to a paid instance and uncomment the
   `disk` block in `render.yaml`.
 - The free database is deleted 30 days after it is created unless it is upgraded.
-- The AI service uses the built-in offline model (Ollama cannot run on Render). Every agent
-  still works, using keyword understanding instead of a language model.
+- The AI service's language model runs on Hugging Face's Inference Providers (Ollama cannot
+  run on Render). Free Hugging Face accounts get a small monthly credit; FoundU's calls are
+  short, but check your usage at huggingface.co/settings/billing. If the credit runs out or
+  Hugging Face is down, every agent falls back to keyword understanding by itself.
 - The admin account is created on the first start with `Seed__DevAdminPassword`; the
   demo students are not. Create accounts by signing up, or run `scripts/demo_seed.py` against
   the deployed API.

@@ -13,11 +13,13 @@ from app.llm.errors import (
     LlmTimeoutError,
 )
 from app.llm.fake import FakeLlmClient
+from app.llm.huggingface import HuggingFaceLlmClient
 from app.llm.models import StructuredGenerationRequest
 from app.llm.ollama import OllamaLlmClient
 
 __all__ = [
     "FakeLlmClient",
+    "HuggingFaceLlmClient",
     "LlmClient",
     "LlmConfigurationError",
     "LlmProviderError",

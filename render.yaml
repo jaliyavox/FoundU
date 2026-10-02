@@ -11,8 +11,10 @@ databases:
     region: singapore
 
 services:
-  # FastAPI + LangGraph. Ollama cannot run here, so the deterministic built-in model is used:
-  # every agent works, with keyword understanding instead of a language model.
+  # FastAPI + LangGraph. The language model is on Hugging Face's Inference Providers (Ollama
+  # cannot run on Render). HF_TOKEN is required - the service will not start without it (set
+  # LLM_PROVIDER to fake to run on keywords alone). Once running, any request Hugging Face
+  # fails, times out or has no credit for falls back to the agent's keyword path.
   - type: web
     name: foundu-ai
     runtime: docker
@@ -25,9 +27,14 @@ services:
       - key: AI_SERVICE_KEY
         generateValue: true
       - key: LLM_PROVIDER
-        value: fake
+        value: huggingface
+      # Any chat model with Inference Providers listed on its Hugging Face page.
       - key: LLM_MODEL
-        value: fake-structured-v1
+        value: Qwen/Qwen2.5-7B-Instruct
+      - key: LLM_TIMEOUT_SECONDS
+        value: "20"
+      - key: HF_TOKEN                     # a Hugging Face access token with "Inference Providers" permission
+        sync: false
       - key: WORKFLOW_STATE_STORE
         value: postgres
       - key: WORKFLOW_DATABASE_URL

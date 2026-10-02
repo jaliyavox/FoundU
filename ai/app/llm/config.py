@@ -1,20 +1,26 @@
 """Environment-backed configuration for the shared LLM boundary.
 
-The fake and Ollama providers share this contract. Provider adapters remain behind the common
-factory so agents never need provider-specific configuration.
+The fake, Ollama and Hugging Face providers share this contract. Provider adapters remain
+behind the common factory so agents never need provider-specific configuration.
 """
 
 import os
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 from app.llm.errors import LlmConfigurationError
 
+HUGGINGFACE_ROUTER_URL = "https://router.huggingface.co/v1"
+
 
 class LlmSettings(BaseModel):
-    """Non-secret settings used to compose the current LLM client."""
+    """Settings used to compose the current LLM client.
+
+    The only secret, the Hugging Face token, is a SecretStr: it prints as asterisks and never
+    appears in a repr, a validation error or a log line.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -22,6 +28,8 @@ class LlmSettings(BaseModel):
     model: str = "fake-structured-v1"
     timeout_seconds: int = Field(default=5, ge=1, le=120)
     ollama_base_url: str | None = None
+    huggingface_base_url: str = HUGGINGFACE_ROUTER_URL
+    huggingface_token: SecretStr | None = None
 
     @field_validator("provider")
     @classmethod
@@ -36,6 +44,14 @@ class LlmSettings(BaseModel):
         if not value.strip():
             raise ValueError("must not be empty")
         return value.strip()
+
+    @field_validator("huggingface_base_url")
+    @classmethod
+    def validate_huggingface_base_url(cls, value: str) -> str:
+        validated = cls.validate_ollama_base_url(value)
+        if validated is None or not validated.startswith("https://"):
+            raise ValueError("must be an HTTPS base URL")
+        return validated
 
     @field_validator("ollama_base_url")
     @classmethod
@@ -84,6 +100,8 @@ class LlmSettings(BaseModel):
             "model": model,
             "timeout_seconds": source.get("LLM_TIMEOUT_SECONDS", "5"),
             "ollama_base_url": source.get("OLLAMA_BASE_URL"),
+            "huggingface_base_url": source.get("HF_BASE_URL") or HUGGINGFACE_ROUTER_URL,
+            "huggingface_token": source.get("HF_TOKEN") or None,
         }
         try:
             settings = cls.model_validate(values)
@@ -95,8 +113,13 @@ class LlmSettings(BaseModel):
         if settings is None:
             raise LlmConfigurationError()
 
-        if settings.provider not in {"fake", "ollama"}:
+        if settings.provider not in {"fake", "ollama", "huggingface"}:
             raise LlmConfigurationError()
         if settings.provider == "ollama" and settings.ollama_base_url is None:
+            raise LlmConfigurationError()
+        if settings.provider == "huggingface" and (
+            settings.huggingface_token is None
+            or not settings.huggingface_token.get_secret_value().strip()
+        ):
             raise LlmConfigurationError()
         return settings
