@@ -29,8 +29,11 @@ services:
       - key: LLM_PROVIDER
         value: huggingface
       # Any chat model with Inference Providers listed on its Hugging Face page.
+      # Tried on FoundU's own jobs: ~1 s, valid JSON, reads "airpods near the canteen" as
+      # Earphones at the Cafeteria. HF_BASE_URL can point the same adapter at another
+      # OpenAI-compatible host that serves it (e.g. https://api.groq.com/openai/v1).
       - key: LLM_MODEL
-        value: Qwen/Qwen2.5-7B-Instruct
+        value: openai/gpt-oss-20b
       - key: LLM_TIMEOUT_SECONDS
         value: "20"
       - key: HF_TOKEN                     # a Hugging Face access token with "Inference Providers" permission

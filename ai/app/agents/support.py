@@ -437,7 +437,11 @@ def _run_support(state: AgentState, llm_client: LlmClient | None) -> AgentState:
                     ),
                     input={
                         "message": latest.text,
-                        "topics": [{"id": t.id, "title": t.title} for t in GUIDE],
+                        # Keywords as well as titles: "pickup code" and "handover code"
+                        # sound alike, and the words each entry is about tell them apart.
+                        "topics": [
+                            {"id": t.id, "title": t.title, "about": list(t.keywords)} for t in GUIDE
+                        ],
                     },
                     correlation_id=state.get("correlation_id"),
                 ),
