@@ -224,7 +224,10 @@ public static class DependencyInjection
                 client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
         });
-        services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
+        // In the database rather than on disk: a host that wipes its disk on every deploy
+        // (Render's free plan) kept the photo rows and lost the files. Photos saved on disk
+        // before this keep being served from wwwroot.
+        services.AddScoped<IPhotoStorage, DatabasePhotoStorage>();
 
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
 
