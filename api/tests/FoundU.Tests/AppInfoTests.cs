@@ -35,3 +35,21 @@ public sealed class ConnectionStringTests
         Assert.Equal(local, FoundU.Infrastructure.Persistence.ConnectionStrings.Normalize(local));
     }
 }
+
+public sealed class NeonConnectionStringTests
+{
+    [Fact]
+    public void ANeonUrlKeepsItsTlsRequirement()
+    {
+        // The shape Neon's dashboard hands out.
+        var value = FoundU.Infrastructure.Persistence.ConnectionStrings.Normalize(
+            "postgresql://neondb_owner:npg_AbC123@ep-cool-sun-a1b2c3d4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require");
+
+        var parsed = new Npgsql.NpgsqlConnectionStringBuilder(value);
+        Assert.Equal("ep-cool-sun-a1b2c3d4.ap-southeast-1.aws.neon.tech", parsed.Host);
+        Assert.Equal("neondb", parsed.Database);
+        Assert.Equal("neondb_owner", parsed.Username);
+        Assert.Equal("npg_AbC123", parsed.Password);
+        Assert.Equal(Npgsql.SslMode.Require, parsed.SslMode);
+    }
+}
