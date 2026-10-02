@@ -70,8 +70,8 @@ class _FoundBoardPageState extends ConsumerState<FoundBoardPage> {
                 Text('What people have found', style: text.headlineSmall),
                 const SizedBox(height: 4),
                 Text(
-                  'Picked up by a student and not yet at a desk. Recognise yours? Say so, and '
-                  'the finder is asked to hand it in.',
+                  'Picked up by a student. Each stays here until its owner has it back - while the finder '
+                  'has it, at a security desk, and until it is collected.',
                   style: text.bodyMedium?.copyWith(color: Brand.muted),
                 ),
                 const SizedBox(height: 16),

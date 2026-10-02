@@ -112,6 +112,46 @@ class TicketDetail {
       );
 }
 
+class AssistantTurn {
+  const AssistantTurn({required this.fromMe, required this.text});
+  final bool fromMe;
+  final String text;
+
+  Map<String, dynamic> toJson() => {'role': fromMe ? 'user' : 'assistant', 'text': text};
+}
+
+/// A ticket the assistant prepared. The person reads it and sends it - it is never sent for them.
+class TicketDraft {
+  const TicketDraft({required this.subject, required this.category, required this.body});
+  final String subject;
+  final String category;
+  final String body;
+
+  factory TicketDraft.fromJson(Map<String, dynamic> json) => TicketDraft(
+        subject: json['subject'] as String,
+        category: json['category'] as String,
+        body: json['body'] as String,
+      );
+}
+
+/// answered - a help-guide entry fits; clarify - it asks for more; escalate - it cannot fix
+/// this and [ticket] is a draft; unavailable - the AI is down and the draft is the person's
+/// own words.
+class AssistantResponse {
+  const AssistantResponse({required this.phase, required this.reply, this.topic, this.ticket});
+  final String phase;
+  final String reply;
+  final String? topic;
+  final TicketDraft? ticket;
+
+  factory AssistantResponse.fromJson(Map<String, dynamic> json) => AssistantResponse(
+        phase: json['phase'] as String,
+        reply: json['reply'] as String,
+        topic: json['topic'] as String?,
+        ticket: json['ticket'] == null ? null : TicketDraft.fromJson(json['ticket'] as Map<String, dynamic>),
+      );
+}
+
 class SupportRepository {
   SupportRepository(this._dio);
 
@@ -140,13 +180,38 @@ class SupportRepository {
     }
   }
 
-  Future<TicketDetail> open({required String subject, required String category, required String body}) async {
+  /// [viaAssistant] marks a ticket sent from the support assistant's draft, so the desk knows
+  /// what was already suggested.
+  Future<TicketDetail> open({
+    required String subject,
+    required String category,
+    required String body,
+    bool viaAssistant = false,
+  }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/support/tickets',
-        data: {'subject': subject, 'category': category, 'body': body},
+        data: {'subject': subject, 'category': category, 'body': body, 'viaAssistant': viaAssistant},
       );
       return TicketDetail.fromJson(response.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// One message to the support assistant, with what was said before it. The greeting the
+  /// page shows is not part of [history].
+  Future<AssistantResponse> ask(String message, List<AssistantTurn> history, String? lastTopic) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/support/assistant',
+        data: {
+          'message': message,
+          'history': [for (final turn in history) turn.toJson()],
+          'lastTopic': lastTopic,
+        },
+      );
+      return AssistantResponse.fromJson(response.data!);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

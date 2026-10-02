@@ -2305,6 +2305,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("ViaAssistant")
+                        .HasColumnType("boolean");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedToUserId");

@@ -127,6 +127,9 @@ def main():
     }
     # One of them works the desk. Registration only makes Students, so the role moves here.
     psql("UPDATE \"AppUsers\" SET \"Role\" = 'Staff' WHERE \"Email\" = 'priya@foundu.test';")
+    # Demo addresses are on the reserved .test domain: nothing is emailed there, so mark them
+    # confirmed rather than leave a reminder banner on every demo screen.
+    psql("UPDATE \"AppUsers\" SET \"EmailConfirmed\" = true WHERE \"Email\" LIKE '%@foundu.test';")
     people["desk"] = login("priya@foundu.test", "Demo!Pass2026")
 
     def report(token, type_name, location_name, description, colour, hours_ago=4):

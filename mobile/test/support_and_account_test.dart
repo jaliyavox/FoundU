@@ -73,7 +73,8 @@ void main() {
     await mount(tester, [supportRepositoryProvider.overrideWithValue(FakeSupport())], const SupportPage());
 
     expect(find.textContaining('not asked us anything yet'), findsOneWidget);
-    expect(find.text('New ticket'), findsOneWidget);
+    expect(find.text('Write a ticket'), findsOneWidget);
+    expect(find.text('Ask the assistant first'), findsOneWidget);
   });
 
   testWidgets('a failure offers a retry and keeps transport details off screen', (tester) async {

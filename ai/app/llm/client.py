@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from app.llm.config import LlmSettings
 from app.llm.errors import LlmConfigurationError
 from app.llm.fake import FakeLlmClient
+from app.llm.huggingface import HuggingFaceLlmClient
 from app.llm.models import StructuredGenerationRequest
 from app.llm.ollama import OllamaLlmClient
 
@@ -39,4 +40,6 @@ def create_llm_client(settings: LlmSettings) -> LlmClient:
         return FakeLlmClient()
     if settings.provider == "ollama":
         return OllamaLlmClient(settings)
+    if settings.provider in {"huggingface", "groq"}:
+        return HuggingFaceLlmClient(settings)
     raise LlmConfigurationError()

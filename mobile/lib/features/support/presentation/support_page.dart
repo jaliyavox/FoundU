@@ -30,8 +30,8 @@ class SupportPage extends ConsumerWidget {
           final opened = await showNewTicketSheet(context);
           if (opened != null && context.mounted) context.push('/profile/support/$opened');
         },
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New ticket'),
+        icon: const Icon(Icons.edit_outlined),
+        label: const Text('Write a ticket'),
       ),
       body: RefreshIndicator(
         color: Brand.forest,
@@ -64,10 +64,12 @@ class SupportPage extends ConsumerWidget {
               Text('Ask us for help', style: text.headlineSmall),
               const SizedBox(height: 6),
               Text(
-                'Something stuck, a code that will not work, a claim that went the wrong way - open a '
-                'ticket and somebody on the desk will pick it up.',
+                'Something stuck, a code that will not work, a claim that went the wrong way - ask the '
+                'assistant first. If it cannot sort it, it writes the ticket for you.',
                 style: text.bodyMedium?.copyWith(color: Brand.muted, height: 1.45),
               ),
+              const SizedBox(height: 16),
+              const _AskAssistantCard(),
               const SizedBox(height: 18),
               if (items.isEmpty)
                 Panel(
@@ -103,6 +105,55 @@ class SupportPage extends ConsumerWidget {
                       ),
                     ),
                   ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AskAssistantCard extends StatelessWidget {
+  const _AskAssistantCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Brand.forest,
+      borderRadius: BorderRadius.circular(Brand.radiusCard),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/profile/support/assistant'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.auto_awesome_outlined, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ask the assistant first', style: text.titleMedium?.copyWith(color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Most problems are sorted in a minute. If not, it writes the ticket.',
+                      style: text.bodySmall?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_rounded, color: Colors.white70),
             ],
           ),
         ),

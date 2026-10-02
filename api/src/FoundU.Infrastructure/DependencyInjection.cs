@@ -41,7 +41,7 @@ public static class DependencyInjection
         services.AddScoped<NotificationPushSaveChangesInterceptor>();
         services.AddScoped<NotificationPushDispatcher>();
         services.AddDbContext<FoundUDbContext>((serviceProvider, options) =>
-            options.UseNpgsql(configuration.GetConnectionString("FoundUDatabase"))
+            options.UseNpgsql(ConnectionStrings.Normalize(configuration.GetConnectionString("FoundUDatabase")))
                 .AddInterceptors(serviceProvider.GetRequiredService<NotificationPushSaveChangesInterceptor>()));
 
         services.AddIdentityCore<AppUser>(options =>
@@ -163,7 +163,20 @@ public static class DependencyInjection
         services.AddScoped<IHonorService, HonorService>();
         services.AddScoped<IHelpToFindService, HelpToFindService>();
         services.AddScoped<ISupportService, SupportService>();
+        services.AddOptions<FoundU.Infrastructure.Email.EmailOptions>()
+            .Bind(configuration.GetSection(FoundU.Infrastructure.Email.EmailOptions.SectionName));
+        services.AddHttpClient<FoundU.Application.Email.IEmailSender, FoundU.Infrastructure.Email.ResendEmailSender>(client =>
+            client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddScoped<FoundU.Application.Email.IAccountEmailService, AccountEmailService>();
+        services.AddScoped<ISupportAssistantService, SupportAssistantService>();
+        services.AddHttpClient<ISupportAgentClient, SupportAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var address)) client.BaseAddress = address;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
         services.AddScoped<IHandoverService, HandoverService>();
+        services.AddScoped<FoundU.Application.Desk.IDeskCodeService, DeskCodeService>();
         services.AddScoped<IAdminOverviewService, AdminOverviewService>();
         services.AddScoped<IReferenceAdminService, ReferenceAdminService>();
         services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();

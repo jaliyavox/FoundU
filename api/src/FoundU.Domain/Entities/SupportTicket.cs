@@ -30,6 +30,13 @@ public class SupportTicket : BaseEntity, ISoftDeletable
     public string? RelatedEntityType { get; set; }
     public Guid? RelatedEntityId { get; set; }
 
+    /// <summary>
+    /// Sent from a draft the support assistant prepared - the person asked it first and it could
+    /// not help. The first message then says what it already suggested, so the desk does not
+    /// repeat it.
+    /// </summary>
+    public bool ViaAssistant { get; set; }
+
     /// <summary>Sorting a queue by "who has been waiting longest" needs the last word, not the first.</summary>
     public DateTime LastActivityAt { get; set; } = DateTime.UtcNow;
     public DateTime? ResolvedAt { get; set; }

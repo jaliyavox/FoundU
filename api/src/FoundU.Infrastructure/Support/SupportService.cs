@@ -43,6 +43,7 @@ public class SupportService : ISupportService
             Status = SupportTicketStatus.Open,
             RelatedEntityType = string.IsNullOrWhiteSpace(request.RelatedEntityType) ? null : request.RelatedEntityType.Trim(),
             RelatedEntityId = request.RelatedEntityId,
+            ViaAssistant = request.ViaAssistant,
             LastActivityAt = DateTime.UtcNow,
         };
         _db.SupportTickets.Add(ticket);
@@ -264,7 +265,8 @@ public class SupportService : ISupportService
                 // Unread means "written by the other side and not yet seen by this reader".
                 t.Messages.Count(m => !m.IsRead && (isStaff ? !m.IsStaffReply : m.IsStaffReply)),
                 t.LastActivityAt,
-                t.CreatedAt))
+                t.CreatedAt,
+                t.ViaAssistant))
             .ToListAsync(cancellationToken);
 
         return PagedResult<SupportTicketListItemDto>.Create(items, query.Page, query.PageSize, total);
@@ -332,6 +334,7 @@ public class SupportService : ISupportService
                 m.SenderId == readerId,
                 m.IsStaffReply,
                 m.Body,
-                m.CreatedAt)).ToList());
+                m.CreatedAt)).ToList(),
+            ticket.ViaAssistant);
     }
 }

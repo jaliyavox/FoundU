@@ -200,3 +200,55 @@ export const invalidateFoundPosts = (queryClient: QueryClient) =>
   Promise.all(
     ['found-feed', 'found-strip', 'my-found-posts'].map(key => queryClient.invalidateQueries({ queryKey: [key] })),
   )
+
+/**
+ * Where a found post has got to. A post stays on the board until its owner has the item
+ * back, so the board says which of three places it is: still with the finder, in storage at
+ * a security desk, or spoken for and waiting to be collected.
+ */
+export function postStage(item: Pick<FoundPostItem, 'status' | 'isMine' | 'handedToSecurityAt'>): {
+  badge: string
+  note: string
+  tone: 'amber' | 'green' | 'sky'
+} {
+  if (item.status === 'Unclaimed') {
+    return {
+      badge: 'At the security desk',
+      note: 'In storage at a security desk. Think it is yours? Link it to your report below and claim it - staff check before handing it over.',
+      tone: 'green',
+    }
+  }
+  if (item.status === 'Claimed') {
+    return {
+      badge: 'Owner on the way',
+      note: 'Its owner has proved it is theirs and is collecting it from security.',
+      tone: 'sky',
+    }
+  }
+  if (item.isMine && item.handedToSecurityAt) {
+    return {
+      badge: 'Handed to security',
+      note: 'You marked this as handed to security. It can be claimed after security confirms receipt.',
+      tone: 'amber',
+    }
+  }
+  return {
+    badge: item.isMine ? 'Your post' : 'Not at a desk yet',
+    note: 'Not at a desk yet. It can be claimed once the finder hands it in.',
+    tone: 'amber',
+  }
+}
+
+/** Badge colours on the dark board cards. */
+export const STAGE_BADGE: Record<'amber' | 'green' | 'sky', string> = {
+  amber: 'bg-amber-400/90 text-neutral-900',
+  green: 'bg-brand-sage text-neutral-900',
+  sky: 'bg-sky-300 text-neutral-900',
+}
+
+/** Notes on the light detail sheet. */
+export const STAGE_NOTE: Record<'amber' | 'green' | 'sky', string> = {
+  amber: 'border-amber-500/30 bg-amber-50 text-amber-900',
+  green: 'border-brand-green/30 bg-brand-green/10 text-brand-forest',
+  sky: 'border-sky-500/30 bg-sky-50 text-sky-900',
+}

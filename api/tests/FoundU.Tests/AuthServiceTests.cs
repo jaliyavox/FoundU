@@ -251,7 +251,9 @@ internal sealed class AuthTestApp : IAsyncDisposable
         ["Jwt:SigningKey"] = "FoundU-tests-only-signing-key-at-least-32-bytes-long",
         ["Jwt:AccessTokenMinutes"] = "15",
         ["Jwt:RefreshTokenDays"] = "14",
-        ["ConnectionStrings:FoundUDatabase"] = "Host=unused"
+        ["ConnectionStrings:FoundUDatabase"] = "Host=unused",
+        // The tests' database is in memory, built by EnsureCreated - there is nothing to migrate.
+        ["Database:MigrateOnStartup"] = "false"
     };
 
     private readonly ServiceProvider _provider;

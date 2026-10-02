@@ -57,14 +57,23 @@ function IntakeConversation({ ownerId }: { ownerId: string }) {
   // A question typed into the bubble is sent on arrival rather than left sitting in the box.
   // Someone who asked on the home page has already pressed a button; making them press
   // another one here is the moment the whole thing reads as broken.
+  //
+  // Scheduled, and cancelled on cleanup, rather than sent straight from the effect. React's
+  // development mode mounts the page twice; a mutation started in that window is dropped by
+  // its observer, so the reply arrived but "Checking your details" spun for ever. The timer
+  // only fires for the mount that stays.
   const sent = useRef(false)
   useEffect(() => {
     if (!asked || sent.current || initial) return
-    sent.current = true
-    setMessages(previous => [...previous, { role: 'user', text: asked }])
-    mutation.mutate(asked)
-    // Clear it from history, so a refresh does not ask the same thing again.
-    navigate('.', { replace: true, state: null })
+    const timer = setTimeout(() => {
+      if (sent.current) return
+      sent.current = true
+      setMessages(previous => [...previous, { role: 'user', text: asked }])
+      mutation.mutate(asked)
+      // Clear it from history, so a refresh does not ask the same thing again.
+      navigate('.', { replace: true, state: null })
+    }, 0)
+    return () => clearTimeout(timer)
   }, [asked, initial, mutation, navigate])
 
   function submit(event: FormEvent) {

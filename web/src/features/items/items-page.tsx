@@ -31,7 +31,14 @@ import { formatDateTime } from '@/features/reports/reports-api'
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { getFoundPostByCode, getItems, itemStatusLabel, ITEM_STATUS_STYLES } from './items-api'
+import {
+  getItems,
+  itemStatusLabel,
+  ITEM_STATUS_STYLES,
+  resolveDeskCode,
+  type DeskCodeMatch,
+  type LogItemPrefill,
+} from './items-api'
 
 const PAGE_SIZE = 15
 
@@ -304,22 +311,43 @@ export function ItemsPage() {
 
 
 /**
- * A finder at the counter says "I posted it - the code is 783 971". This pulls the post up
- * so the desk confirms it rather than typing it in again.
+ * A finder at the counter quotes a code. It may be the code on their own found post, the
+ * handover code they got from pressing "I found this" on someone's lost report, or the code
+ * printed on that lost report. Whichever it is, this pulls up the right thing, so the desk
+ * never has to know which screen a code belongs to before typing it.
  */
 function PostByCodeBox() {
   const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
-  const ready = code.replace(/\s/g, '').length === 6
+  // A code that means two things (the series are independent) - the desk picks.
+  const [choices, setChoices] = useState<DeskCodeMatch[]>([])
+  const digits = code.replace(/\s/g, '')
+  const ready = digits.length === 6
+
+  function open(match: DeskCodeMatch) {
+    if (match.kind === 'found-post') navigate(`/items/${match.id}`)
+    else if (match.kind === 'handover') navigate(`/handovers?code=${digits}`)
+    else {
+      const prefill: LogItemPrefill = {
+        code: digits,
+        categoryId: match.categoryId,
+        itemTypeId: match.itemTypeId,
+        primaryColor: match.primaryColor,
+      }
+      navigate('/items/new', { state: { prefill } })
+    }
+  }
 
   async function lookUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!ready) return
     setBusy(true)
+    setChoices([])
     try {
-      const post = await getFoundPostByCode(code.replace(/\s/g, ''))
-      navigate(`/items/${post.id}`)
+      const matches = await resolveDeskCode(digits)
+      if (matches.length === 1) open(matches[0])
+      else setChoices(matches)
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.')
     } finally {
@@ -328,23 +356,46 @@ function PostByCodeBox() {
   }
 
   return (
-    <form onSubmit={lookUp} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-      <div className="flex flex-1 flex-col gap-2">
-        <Label htmlFor="post-code">A finder is handing something in</Label>
-        <Input
-          id="post-code"
-          value={code}
-          onChange={(event) => setCode(event.target.value.replace(/[^\d\s]/g, '').slice(0, 7))}
-          inputMode="numeric"
-          placeholder="The code from their post"
-          className="font-mono text-lg tracking-[0.2em]"
-          autoComplete="off"
-        />
-      </div>
-      <Button type="submit" variant="outline" disabled={!ready || busy}>
-        {busy ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <HashIcon aria-hidden="true" />}
-        Pull up the post
-      </Button>
-    </form>
+    <div className="flex flex-col gap-3">
+      <form onSubmit={lookUp} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex flex-1 flex-col gap-2">
+          <Label htmlFor="post-code">A finder is handing something in</Label>
+          <Input
+            id="post-code"
+            value={code}
+            onChange={(event) => setCode(event.target.value.replace(/[^\d\s]/g, '').slice(0, 7))}
+            inputMode="numeric"
+            placeholder="Any code they quote"
+            className="font-mono text-lg tracking-[0.2em]"
+            autoComplete="off"
+            aria-describedby="post-code-help"
+          />
+        </div>
+        <Button type="submit" variant="outline" disabled={!ready || busy}>
+          {busy ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <HashIcon aria-hidden="true" />}
+          Pull it up
+        </Button>
+      </form>
+      <p id="post-code-help" className="text-xs text-muted-foreground">
+        The code on their found post, the handover code from someone&apos;s lost report, or the
+        code printed on that report - any of them works.
+      </p>
+      {choices.length > 1 && (
+        <div role="group" aria-label="That code matches more than one thing" className="flex flex-col gap-2">
+          <p className="text-sm">That code matches more than one thing - which is it?</p>
+          {choices.map((match) => (
+            <button
+              key={`${match.kind}-${match.id}`}
+              type="button"
+              onClick={() => open(match)}
+              className="flex flex-col items-start rounded-xl border border-foreground/10 px-4 py-3 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <span className="font-medium">{match.title}</span>
+              <span className="text-sm text-muted-foreground">{match.detail}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

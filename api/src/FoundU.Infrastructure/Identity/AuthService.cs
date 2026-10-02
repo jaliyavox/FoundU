@@ -1,3 +1,4 @@
+using FoundU.Application.Email;
 using FoundU.Application.Abstractions;
 using FoundU.Application.Auth.Dtos;
 using FoundU.Application.Common.Exceptions;
@@ -19,14 +20,18 @@ public class AuthService : IAuthService
     private readonly JwtSettings _jwtSettings;
     private readonly IGoogleTokenVerifier _google;
 
+    private readonly IAccountEmailService _emails;
+
     public AuthService(
         UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager,
         FoundUDbContext db,
         ITokenService tokenService,
         IOptions<JwtSettings> jwtSettings,
-        IGoogleTokenVerifier google)
+        IGoogleTokenVerifier google,
+        IAccountEmailService emails)
     {
+        _emails = emails;
         _userManager = userManager;
         _signInManager = signInManager;
         _db = db;
@@ -67,6 +72,16 @@ public class AuthService : IAuthService
                 e => e.Code,
                 e => new[] { e.Description });
             throw new ValidationAppException(errors);
+        }
+
+        // Signed in straight away; the address is proved later from the email. A failed send
+        // must not fail the sign-up - the account page offers to send it again.
+        try
+        {
+            await _emails.SendConfirmationAsync(user.Id);
+        }
+        catch (AppException)
+        {
         }
 
         return await IssueTokensAsync(user, ipAddress);

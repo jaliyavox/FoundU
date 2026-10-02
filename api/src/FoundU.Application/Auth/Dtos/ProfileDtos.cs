@@ -26,7 +26,9 @@ public record ProfileDto(
     string? StudentNumber,
     bool HasPassword,
     bool IsGoogleLinked,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    /// <summary>The address has been proved by a link sent to it. Unconfirmed accounts get a reminder.</summary>
+    bool EmailConfirmed = false);
 
 /// <summary>The ID token Google's button hands the client. Never a Google access token.</summary>
 public record GoogleSignInRequest(string IdToken);

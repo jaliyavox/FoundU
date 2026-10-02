@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_shell.dart';
+import '../../features/auth/presentation/forgot_password_page.dart';
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/profile_page.dart';
 import '../../features/auth/presentation/register_page.dart';
@@ -18,6 +19,7 @@ import '../../features/intake/data/intake_repository.dart';
 import '../../features/intake/presentation/ask_foundu_page.dart';
 import '../../features/account/presentation/account_page.dart';
 import '../../features/help/presentation/help_to_find_page.dart';
+import '../../features/support/presentation/support_assistant_page.dart';
 import '../../features/support/presentation/support_page.dart';
 import '../../features/support/presentation/ticket_page.dart';
 import '../../features/feed/presentation/post_found_page.dart';
@@ -50,6 +52,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashPage()),
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
+      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordPage()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsPage()),
       // Full screen, over the tabs: a conversation needs the keyboard and the whole height.
       GoRoute(
@@ -139,6 +142,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   parentNavigatorKey: _rootKey,
                   builder: (_, __) => const SupportPage(),
                   routes: [
+                    // Before ':ticketId', or "assistant" would be read as a ticket id.
+                    GoRoute(
+                      path: 'assistant',
+                      parentNavigatorKey: _rootKey,
+                      builder: (_, __) => const SupportAssistantPage(),
+                    ),
                     GoRoute(
                       path: ':ticketId',
                       parentNavigatorKey: _rootKey,
@@ -166,7 +175,7 @@ String? authRedirect({
   required bool isAuthenticated,
   required String location,
 }) {
-  const public = {'/login', '/register'};
+  const public = {'/login', '/register', '/forgot-password'};
 
   if (isLoading) {
     if (public.contains(location) || location == '/home') return null;

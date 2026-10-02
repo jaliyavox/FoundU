@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftIcon, EyeOffIcon, Loader2Icon, RotateCwIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -19,7 +19,7 @@ import {
   toUtcIso,
 } from '@/features/reports/reports-api'
 import { ApiError } from '@/lib/api/client'
-import { createItem } from './items-api'
+import { createItem, type LogItemPrefill } from './items-api'
 
 /**
  * Logging something handed in at the desk.
@@ -30,20 +30,22 @@ import { createItem } from './items-api'
 export function LogItemPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // From the desk code box: a finder quoted a lost report's code, so start from that report.
+  const prefill = (useLocation().state as { prefill?: LogItemPrefill } | null)?.prefill ?? null
 
   const categories = useQuery({ queryKey: ['categories'], queryFn: getCategories })
   const locations = useQuery({ queryKey: ['locations'], queryFn: getLocations })
   const storage = useQuery({ queryKey: ['storage-locations'], queryFn: getStorageLocations })
 
-  const [categoryId, setCategoryId] = useState('')
-  const [itemTypeId, setItemTypeId] = useState('')
+  const [categoryId, setCategoryId] = useState(prefill?.categoryId ?? '')
+  const [itemTypeId, setItemTypeId] = useState(prefill?.itemTypeId ?? '')
   const [foundLocationId, setFoundLocationId] = useState('')
   const [storageLocationId, setStorageLocationId] = useState('')
   const [generalDescription, setGeneralDescription] = useState('')
   const [privateVerificationDetails, setPrivateVerificationDetails] = useState('')
-  const [primaryColor, setPrimaryColor] = useState('')
+  const [primaryColor, setPrimaryColor] = useState(prefill?.primaryColor ?? '')
   const [foundAt, setFoundAt] = useState(() => defaultWindow().to)
-  const [handInCode, setHandInCode] = useState('')
+  const [handInCode, setHandInCode] = useState(prefill?.code ?? '')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
 
   const create = useMutation({
@@ -146,6 +148,12 @@ export function LogItemPage() {
         <p className="pt-1 text-sm text-muted-foreground">
           Something handed in at the desk. It becomes searchable straight away.
         </p>
+        {prefill && (
+          <p role="status" className="pt-3 text-sm text-brand-green">
+            Started from the lost report with code {prefill.code}. Check the item matches, add where it
+            was found and where it is going, then save - the owner is told straight away.
+          </p>
+        )}
       </DashboardPanel>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">

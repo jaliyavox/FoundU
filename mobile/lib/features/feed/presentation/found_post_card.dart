@@ -46,9 +46,9 @@ class FoundPostCard extends StatelessWidget {
                     left: 12,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: const Color(0xFFFFC94A), borderRadius: BorderRadius.circular(999)),
+                      decoration: BoxDecoration(color: Color(post.stageColour), borderRadius: BorderRadius.circular(999)),
                       child: Text(
-                        post.isMine ? 'Your post' : 'Not at a desk yet',
+                        post.stageLabel,
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Brand.ink),
                       ),
                     ),

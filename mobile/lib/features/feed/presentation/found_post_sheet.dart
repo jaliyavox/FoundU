@@ -91,7 +91,8 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
     final post = widget.post;
     final text = Theme.of(context).textTheme;
     final user = ref.watch(authControllerProvider).value;
-    final canRecognise = user?.role == 'Student' && !post.isMine;
+    // Spoken for once a claim is approved - nobody else can say it is theirs then.
+    final canRecognise = user?.role == 'Student' && !post.isMine && !post.isSpokenFor;
 
     return ListView(
       controller: widget.scrollController,
@@ -115,7 +116,9 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
         Text('Found by ${post.isMine ? 'you' : post.postedByName} · ${timeAgo(post.createdAt)}',
             style: text.bodyMedium?.copyWith(color: Brand.muted)),
         const SizedBox(height: 14),
-        const StatusChip('Not at a desk yet', tone: ChipTone.action),
+        StatusChip(post.stageLabel, tone: post.isAtDesk ? ChipTone.good : ChipTone.action),
+        const SizedBox(height: 10),
+        Text(post.stageNote, style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4)),
         const SizedBox(height: 16),
         Text(post.description, style: text.bodyLarge?.copyWith(height: 1.5)),
         const SizedBox(height: 18),
@@ -150,11 +153,13 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
           const SizedBox(height: 10),
           MessageThread(reportId: post.id, isAuthor: true, source: MessageSource.foundPost),
           const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _withdraw,
-            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-            label: const Text('Take this post down'),
-          ),
+          // Once a desk has it, it is the desk's to deal with - not the finder's to take down.
+          if (post.status == 'Posted')
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _withdraw,
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Take this post down'),
+            ),
         ] else if (user == null)
           InkButton(label: 'Sign in if this is yours', onPressed: () => context.go('/login'))
         else if (!canRecognise)
@@ -176,8 +181,11 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
             Panel(
               color: Brand.mist,
               child: Text(
-                'Done. ${post.postedByName.split(' ').first} has been asked to hand it in, and it now shows on your report. '
-                'You will be able to claim it once it reaches a desk.',
+                post.isAtDesk
+                    ? 'Done. It now shows on your report - open it from My reports and claim it. '
+                        'The desk checks it is yours before handing it over.'
+                    : 'Done. ${post.postedByName.split(' ').first} has been asked to hand it in, and it now shows on your report. '
+                        'You will be able to claim it once it reaches a desk.',
                 style: text.bodyMedium?.copyWith(color: Brand.forest, height: 1.45),
               ),
             )

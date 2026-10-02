@@ -9,6 +9,7 @@ import { FormSelect } from '@/features/reports/form-select'
 import { timeAgo } from '@/features/feed/feed-api'
 import { useAuth } from '@/features/auth/use-auth'
 import { ApiError } from '@/lib/api/client'
+import { AssistantBadge } from './assistant-badge'
 import { TicketThread } from './ticket-thread'
 import {
   CATEGORY_LABELS,
@@ -138,6 +139,7 @@ export function AdminSupportPage() {
                         </span>
                       )}
                       {ticket.subject}
+                      {ticket.viaAssistant && <span className="ml-2 align-middle"><AssistantBadge /></span>}
                     </span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <ClockIcon className="size-3" aria-hidden="true" />
@@ -211,6 +213,7 @@ function QueueTicket({ id, onBack }: { id: string; onBack: () => void }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight">{data.subject}</h1>
+                {data.viaAssistant && <div className="pt-2"><AssistantBadge /></div>}
                 <p className="pt-1 text-sm text-muted-foreground">
                   {CATEGORY_LABELS[data.category]} · opened {timeAgo(data.createdAt)} by {data.raisedByName}
                   {data.raisedByEmail && ` · ${data.raisedByEmail}`}

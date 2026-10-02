@@ -1,0 +1,104 @@
+# FoundU on Render - one Blueprint for the database, the AI service, the API and the web app.
+# Render dashboard -> New -> Blueprint -> pick this repository. Secrets marked `sync: false`
+# are asked for once in the dashboard; they are never stored in this file.
+# Step-by-step: README.md, "Deploying to Render".
+
+databases:
+  - name: foundu-db
+    databaseName: foundu
+    user: foundu
+    plan: free
+    region: singapore
+
+services:
+  # FastAPI + LangGraph. The language model is on Groq (Ollama cannot run on Render).
+  # LLM_API_KEY is required - the service will not start without it (set LLM_PROVIDER to fake
+  # to run on keywords alone). Once running, any request Groq fails, times out or rate-limits
+  # falls back to the agent's keyword path.
+  - type: web
+    name: foundu-ai
+    runtime: docker
+    rootDir: ai
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: AI_SERVICE_KEY
+        generateValue: true
+      - key: LLM_PROVIDER
+        value: groq
+      # Any chat model with Inference Providers listed on its Hugging Face page.
+      # Tried on FoundU's own jobs: ~1 s, valid JSON, reads "airpods near the canteen" as
+      # Earphones at the Cafeteria. LLM_PROVIDER=huggingface runs the same model through
+      # Hugging Face instead, with a Hugging Face token as the key.
+      - key: LLM_MODEL
+        value: openai/gpt-oss-20b
+      - key: LLM_TIMEOUT_SECONDS
+        value: "20"
+      - key: LLM_API_KEY                  # a Groq API key (console.groq.com -> API Keys)
+        sync: false
+      - key: WORKFLOW_STATE_STORE
+        value: postgres
+      - key: WORKFLOW_DATABASE_URL
+        fromDatabase:
+          name: foundu-db
+          property: connectionString
+
+  # ASP.NET Core 8. Migrates the database and seeds categories, places and the admin on start.
+  - type: web
+    name: foundu-api
+    runtime: docker
+    rootDir: api
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    envVars:
+      - key: ConnectionStrings__FoundUDatabase
+        fromDatabase:
+          name: foundu-db
+          property: connectionString
+      - key: Jwt__SigningKey
+        generateValue: true
+      # The same key the AI service checks - copied across, never typed.
+      - key: AiService__ServiceKey
+        fromService:
+          name: foundu-ai
+          type: web
+          envVarKey: AI_SERVICE_KEY
+      - key: AiService__BaseUrl          # https://foundu-ai.onrender.com (the AI service's URL)
+        sync: false
+      - key: Seed__DevAdminPassword      # admin@foundu.com's password, used on the first start
+        sync: false
+      - key: Cors__AllowedOrigins__0     # https://foundu-web.onrender.com (the web app's URL)
+        sync: false
+      - key: Email__WebBaseUrl           # the web app's URL again - links in emails point here
+        sync: false
+      - key: Email__ResendApiKey
+        sync: false
+      - key: Google__ClientId            # the Web OAuth client id
+        sync: false
+    # Photos are saved on the server's disk, which Render wipes on every deploy and restart.
+    # To keep them, upgrade this service to a paid instance and uncomment:
+    # disk:
+    #   name: uploads
+    #   mountPath: /app/wwwroot/uploads
+    #   sizeGB: 1
+
+  # React + Vite, served as static files. Every path falls back to index.html for the router.
+  - type: web
+    name: foundu-web
+    runtime: static
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL           # https://foundu-api.onrender.com (the API's URL)
+        sync: false
+      - key: NODE_VERSION
+        value: "22"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

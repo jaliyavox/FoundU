@@ -11,8 +11,10 @@ class LlmError(Exception):
 class LlmConfigurationError(LlmError):
     """The selected LLM configuration cannot be composed in this runtime."""
 
-    def __init__(self) -> None:
-        super().__init__("LLM configuration is invalid.")
+    def __init__(self, hint: str | None = None) -> None:
+        # A hint names a setting, never its value - this message reaches deploy logs.
+        message = "LLM configuration is invalid."
+        super().__init__(f"{message} {hint}" if hint else message)
 
 
 class LlmProviderError(LlmError):

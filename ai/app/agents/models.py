@@ -13,6 +13,7 @@ class AgentName(StrEnum):
     VERIFICATION = "verification"
     COORDINATOR = "coordinator"
     INTAKE = "intake"
+    SUPPORT = "support"
 
 
 class PlanActionType(StrEnum):
@@ -372,6 +373,11 @@ AGENT_PERMISSIONS: dict[AgentName, AgentPermissions] = {
         agent=AgentName.INTAKE,
         has_approval_permission=False,  # Suggests; the owner confirms and the desk verifies
         allow_listed_tools=[],  # ASP.NET searches; the agent never touches the database
+    ),
+    AgentName.SUPPORT: AgentPermissions(
+        agent=AgentName.SUPPORT,
+        has_approval_permission=False,  # Answers from a guide and drafts; the person sends
+        allow_listed_tools=[],  # ASP.NET supplies the person's own statuses; no tools
     ),
     AgentName.COORDINATOR: AgentPermissions(
         agent=AgentName.COORDINATOR,

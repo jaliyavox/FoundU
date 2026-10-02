@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   CheckIcon,
@@ -33,7 +34,10 @@ import {
  * which person, and that check is the only thing standing between the two.
  */
 export function HandoverDeskPage() {
-  const [code, setCode] = useState('')
+  // Sent here by the code box on Found items, with the code the finder quoted.
+  const [params, setParams] = useSearchParams()
+  const carried = params.get('code')?.replace(/\D/g, '').slice(0, 6) ?? ''
+  const [code, setCode] = useState(carried)
   const [found, setFound] = useState<HandoverLookup | null>(null)
 
   const lookup = useMutation({
@@ -44,6 +48,19 @@ export function HandoverDeskPage() {
       toast.error(error instanceof ApiError ? error.message : 'Could not look that up.')
     },
   })
+
+  // Looked up on arrival. Scheduled and cancelled on cleanup, so React's development double
+  // mount cannot leave the lookup's observer detached (see the Ask FoundU page).
+  const looked = useRef(false)
+  useEffect(() => {
+    if (carried.length !== 6 || looked.current) return
+    const timer = setTimeout(() => {
+      looked.current = true
+      lookup.mutate()
+      setParams({}, { replace: true })
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [carried, lookup, setParams])
 
   function submit(event: FormEvent) {
     event.preventDefault()

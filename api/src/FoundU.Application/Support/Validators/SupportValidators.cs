@@ -46,3 +46,19 @@ public class UpdateSupportTicketRequestValidator : AbstractValidator<UpdateSuppo
             .WithMessage("Unknown status.");
     }
 }
+
+public class SupportAssistantRequestValidator : AbstractValidator<SupportAssistantRequest>
+{
+    public SupportAssistantRequestValidator()
+    {
+        RuleFor(x => x.Message).NotEmpty().MaximumLength(1000);
+        RuleFor(x => x.LastTopic).MaximumLength(40);
+        RuleFor(x => x.History).Must(history => history is null || history.Count <= 20)
+            .WithMessage("That conversation is long - start again, or send it to the desk.");
+        RuleForEach(x => x.History).ChildRules(turn =>
+        {
+            turn.RuleFor(t => t.Role).Must(role => role is "user" or "assistant");
+            turn.RuleFor(t => t.Text).NotEmpty().MaximumLength(1000);
+        });
+    }
+}

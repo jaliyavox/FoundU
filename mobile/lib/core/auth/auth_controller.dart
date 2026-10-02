@@ -8,6 +8,7 @@ import '../../features/notifications/data/push_notification_manager.dart';
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
 import 'auth_session.dart';
+import '../../features/auth/data/google_sign_in_service.dart';
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthUser?>(AuthController.new);
@@ -68,6 +69,26 @@ class AuthController extends AsyncNotifier<AuthUser?> {
     if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
   }
 
+  /// The same boundary as [login], with a Google ID token instead of a password.
+  Future<void> signInWithGoogle(String idToken) async {
+    await _repository.clearSession();
+    ref.read(authSessionEpochProvider.notifier).advance();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final user = await _repository.signInWithGoogle(idToken);
+      if (user.role != 'Student') {
+        try {
+          await _repository.logout();
+        } on Object {
+          // The repository clears local credentials in a finally block.
+        }
+        throw const ApiException(staffUseWebMessage, statusCode: 403);
+      }
+      return user;
+    });
+    if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
+  }
+
   /// Returns the ApiException rather than putting the whole app into an error state: the
   /// wizard shows field errors inline and keeps the person on the step they were on.
   Future<ApiException?> register({
@@ -110,6 +131,12 @@ class AuthController extends AsyncNotifier<AuthUser?> {
       await _repository.logout();
     } on Object {
       // The repository clears local credentials in a finally block.
+    }
+    try {
+      // So the next Google sign-in asks which account, instead of silently reusing this one.
+      await ref.read(googleSignInServiceProvider).signOut();
+    } on Object {
+      // Nothing to forget, or Play services unavailable - signing out of FoundU still stands.
     }
     ref.read(authSessionEpochProvider.notifier).advance();
     state = const AsyncData(null);
