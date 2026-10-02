@@ -116,6 +116,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       validator: (v) => (v ?? '').isEmpty ? 'Enter your password.' : null,
                     ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: isLoading ? null : () => context.push('/forgot-password'),
+                        child: const Text('Forgot password?'),
+                      ),
+                    ),
                     if (auth.hasError) ...[
                       const SizedBox(height: 12),
                       Panel(

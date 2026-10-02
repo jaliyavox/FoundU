@@ -55,6 +55,7 @@ import {
 import { useAuth } from '@/features/auth/use-auth'
 import { useDashboardTheme } from '@/hooks/use-dashboard-theme'
 import type { UserRole } from '@/lib/api/types'
+import { ConfirmEmailBanner } from '@/features/account/confirm-email-banner'
 
 interface NavItem {
   to: string
@@ -292,6 +293,7 @@ export function AppLayout() {
           </div>
 
           <div className="relative p-4 sm:p-6">
+            <ConfirmEmailBanner />
             <Outlet />
           </div>
         </div>

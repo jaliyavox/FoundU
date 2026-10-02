@@ -28,12 +28,19 @@ import { AdminOverviewPage } from '@/features/admin/admin-overview-page'
 import { ReferencePage } from '@/features/admin/reference-page'
 import { HandoverDeskPage } from '@/features/items/handover-desk-page'
 import { AccountPage } from '@/features/account/account-page'
+import { ForgotPasswordPage } from '@/features/auth/forgot-password-page'
+import { ResetPasswordPage } from '@/features/auth/reset-password-page'
+import { ConfirmEmailPage } from '@/features/auth/confirm-email-page'
 
 export const router = createBrowserRouter([
   // Public. Signed-in visitors are redirected to their role's home from inside the page.
   { path: '/', element: <LandingPage /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
+  // From the emails. Public: the person following the link may well be signed out.
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/confirm-email', element: <ConfirmEmailPage /> },
   { path: '/feed', element: <FeedPage /> },
   // The board behind the "Fresh finds" strip. Public, like the lost feed.
   { path: '/found', element: <FoundBoardPage /> },

@@ -12,6 +12,8 @@ export interface Profile {
   hasPassword: boolean
   isGoogleLinked: boolean
   createdAt: string
+  /** The address has been proved by its emailed link. */
+  emailConfirmed: boolean
 }
 
 export interface UpdateProfileInput {

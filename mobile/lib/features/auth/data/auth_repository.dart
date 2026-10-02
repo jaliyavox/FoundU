@@ -59,6 +59,16 @@ class AuthRepository {
     }
   }
 
+  /// Emails a reset link if the address has an account. The answer is the same either way,
+  /// so the form cannot be used to find out who is signed up.
+  Future<void> requestPasswordReset(String email) async {
+    try {
+      await _authDio.post<void>('/api/auth/forgot-password', data: {'email': email.trim()});
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Signs in with a Google ID token. The API verifies it against Google's keys; a new
   /// address becomes a Student account, an existing one is linked only if Google has
   /// verified the email.

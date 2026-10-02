@@ -163,6 +163,11 @@ public static class DependencyInjection
         services.AddScoped<IHonorService, HonorService>();
         services.AddScoped<IHelpToFindService, HelpToFindService>();
         services.AddScoped<ISupportService, SupportService>();
+        services.AddOptions<FoundU.Infrastructure.Email.EmailOptions>()
+            .Bind(configuration.GetSection(FoundU.Infrastructure.Email.EmailOptions.SectionName));
+        services.AddHttpClient<FoundU.Application.Email.IEmailSender, FoundU.Infrastructure.Email.ResendEmailSender>(client =>
+            client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddScoped<FoundU.Application.Email.IAccountEmailService, AccountEmailService>();
         services.AddScoped<ISupportAssistantService, SupportAssistantService>();
         services.AddHttpClient<ISupportAgentClient, SupportAgentClient>((serviceProvider, client) =>
         {

@@ -1,3 +1,4 @@
+using FoundU.Application.Email;
 using FoundU.Application.Abstractions;
 using FoundU.Application.Auth.Dtos;
 using FoundU.Application.Common.Exceptions;
@@ -18,11 +19,14 @@ public class ProfileService : IProfileService
     private readonly FoundUDbContext _db;
     private readonly IAuthService _auth;
 
-    public ProfileService(UserManager<AppUser> userManager, FoundUDbContext db, IAuthService auth)
+    private readonly IAccountEmailService _emails;
+
+    public ProfileService(UserManager<AppUser> userManager, FoundUDbContext db, IAuthService auth, IAccountEmailService emails)
     {
         _userManager = userManager;
         _db = db;
         _auth = auth;
+        _emails = emails;
     }
 
     public async Task<ProfileDto> GetAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -66,6 +70,8 @@ public class ProfileService : IProfileService
             user.UserName = newEmail; // UserName == Email by convention - see AppUser.cs
             user.NormalizedEmail = _userManager.NormalizeEmail(newEmail);
             user.NormalizedUserName = _userManager.NormalizeName(newEmail);
+            // A new address is unproved until its own link is followed.
+            user.EmailConfirmed = false;
         }
 
         var studentNumber = string.IsNullOrWhiteSpace(request.StudentNumber) ? null : request.StudentNumber.Trim();
@@ -79,6 +85,18 @@ public class ProfileService : IProfileService
 
         var result = await _userManager.UpdateAsync(user);
         if (!result.Succeeded) throw Failed(result);
+
+        if (emailChanged)
+        {
+            try
+            {
+                await _emails.SendConfirmationAsync(user.Id, cancellationToken);
+            }
+            catch (AppException)
+            {
+                // The change stands; the reminder on the account page can send it again.
+            }
+        }
 
         return ToDto(user, hasPassword);
     }
@@ -145,5 +163,6 @@ public class ProfileService : IProfileService
         user.StudentNumber,
         hasPassword,
         user.GoogleSubjectId is not null,
-        user.CreatedAt);
+        user.CreatedAt,
+        user.EmailConfirmed);
 }

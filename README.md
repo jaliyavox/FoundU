@@ -146,6 +146,31 @@ Restart the API; `GET /api/auth/google/status` now returns `enabled: true`. A ne
 address becomes a Student account; an existing account is linked only when Google has verified
 the email. Staff and admins still sign in on the web.
 
+## Third-party integration: email (Resend)
+
+Forgot-password and email-confirmation links are sent through [Resend](https://resend.com)
+from `noreply@thejaliya.com` (the domain is verified in Resend). The key lives only in the
+git-ignored `appsettings.Development.json` (or an environment variable on a server):
+
+```json
+"Email": {
+  "ResendApiKey": "<your Resend API key>",
+  "From": "FoundU <noreply@thejaliya.com>",
+  "WebBaseUrl": "http://localhost:5173",
+  "LogWhenUnconfigured": true
+}
+```
+
+With no key nothing is sent; `LogWhenUnconfigured` (Development only) writes each email,
+link included, to the API log so the flows can still be walked through. Addresses on
+reserved test domains (`*.test`, `example.com`...) are never mailed - the demo accounts are
+on `foundu.test`, and bounces would hurt the sending domain's reputation.
+
+- `POST /api/auth/forgot-password` - always the same answer, so it cannot reveal who has an account.
+- `POST /api/auth/reset-password` - the link works once, confirms the address and signs out every other session.
+- `POST /api/auth/confirm-email`, `POST /api/auth/resend-confirmation` - new accounts and changed
+  addresses get a link; unconfirmed accounts see a reminder, but nothing is blocked.
+
 ## Live AI demo flow
 
 1. A student creates a lost report. ASP.NET preserves the user's data and optionally stores

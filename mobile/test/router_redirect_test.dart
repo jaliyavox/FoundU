@@ -42,4 +42,9 @@ void main() {
       isNull,
     );
   });
+
+  test('a signed-out user can reach forgot password, and a signed-in one is sent home', () {
+    expect(authRedirect(isLoading: false, isAuthenticated: false, location: '/forgot-password'), isNull);
+    expect(authRedirect(isLoading: false, isAuthenticated: true, location: '/forgot-password'), '/home');
+  });
 }
