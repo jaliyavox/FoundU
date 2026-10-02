@@ -153,8 +153,8 @@ export interface LogItemPrefill {
 
 export const ITEM_STATUS_LABELS: Record<FoundReportStatus, string> = {
   Posted: 'Not at a desk yet',
-  Unclaimed: 'In storage',
-  Claimed: 'Claimed',
+  Unclaimed: 'Waiting for owner',
+  Claimed: 'Owner collecting',
   Returned: 'Returned',
   Disposed: 'Disposed',
 }

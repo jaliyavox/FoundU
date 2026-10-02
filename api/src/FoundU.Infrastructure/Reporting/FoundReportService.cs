@@ -106,7 +106,14 @@ public class FoundReportService : IFoundReportService
     {
         var reports = _db.FoundReports.AsNoTracking();
 
-        if (!string.IsNullOrWhiteSpace(query.Status))
+        if (string.Equals(query.Status, FoundReportQuery.InStorage, StringComparison.OrdinalIgnoreCase))
+        {
+            // Everything the desk is physically holding: waiting for an owner, and spoken for
+            // but not yet collected. An item taken in by a handover code arrives as Claimed -
+            // its owner is already known - and must not drop out of the storage view.
+            reports = reports.Where(r => r.Status == FoundReportStatus.Unclaimed || r.Status == FoundReportStatus.Claimed);
+        }
+        else if (!string.IsNullOrWhiteSpace(query.Status))
         {
             if (!Enum.TryParse<FoundReportStatus>(query.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
             {

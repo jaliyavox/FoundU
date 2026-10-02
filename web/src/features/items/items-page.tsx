@@ -43,10 +43,12 @@ import {
 const PAGE_SIZE = 15
 
 const STATUS_OPTIONS = [
-  { value: 'Unclaimed', label: 'In storage' },
+  // Everything on the shelf: waiting for an owner, and owner approved but not yet collected.
+  { value: 'InStorage', label: 'In storage' },
+  { value: 'Unclaimed', label: 'Waiting for an owner' },
+  { value: 'Claimed', label: 'Owner collecting' },
   { value: 'Posted', label: 'Posted by finders' },
   { value: 'all', label: 'Everything' },
-  { value: 'Claimed', label: 'Claimed' },
   { value: 'Returned', label: 'Returned' },
   { value: 'Disposed', label: 'Disposed' },
 ]
@@ -63,7 +65,7 @@ export function ItemsPage() {
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('Unclaimed')
+  const [status, setStatus] = useState('InStorage')
 
   const { data, isPending, isError, error, isFetching, refetch } = useQuery({
     queryKey: ['found-items', { page, search, status }],
@@ -83,7 +85,7 @@ export function ItemsPage() {
     setSearch(searchInput)
   }
 
-  const hasFilters = Boolean(search) || status !== 'Unclaimed'
+  const hasFilters = Boolean(search) || status !== 'InStorage'
 
   return (
     <section className="flex flex-col gap-6">
