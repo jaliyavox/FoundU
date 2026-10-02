@@ -171,6 +171,7 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
         });
         services.AddScoped<IHandoverService, HandoverService>();
+        services.AddScoped<FoundU.Application.Desk.IDeskCodeService, DeskCodeService>();
         services.AddScoped<IAdminOverviewService, AdminOverviewService>();
         services.AddScoped<IReferenceAdminService, ReferenceAdminService>();
         services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();

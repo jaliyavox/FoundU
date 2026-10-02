@@ -127,6 +127,30 @@ export const confirmFoundPost = (id: string, input: { storageLocationId: string;
 /** Staff pulling a post up by the six digits the finder quotes. 404 if none. */
 export const getFoundPostByCode = (code: string) => api.get<FoundReportDetail>(`/api/found-posts/by-code/${code}`)
 
+/**
+ * What a finder's code is: their own found post, a handover started from a lost report, or
+ * the code printed on a lost report. Usually one match; rarely two, and the desk picks.
+ */
+export interface DeskCodeMatch {
+  kind: 'found-post' | 'handover' | 'lost-report'
+  id: string
+  title: string
+  detail: string
+  categoryId: string | null
+  itemTypeId: string | null
+  primaryColor: string | null
+}
+
+export const resolveDeskCode = (code: string) => api.get<DeskCodeMatch[]>(`/api/desk/codes/${code}`)
+
+/** Starting values for Log an item when a finder quoted a lost report's code. */
+export interface LogItemPrefill {
+  code: string
+  categoryId: string | null
+  itemTypeId: string | null
+  primaryColor: string | null
+}
+
 export const ITEM_STATUS_LABELS: Record<FoundReportStatus, string> = {
   Posted: 'Not at a desk yet',
   Unclaimed: 'In storage',
