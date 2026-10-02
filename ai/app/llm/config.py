@@ -111,7 +111,12 @@ class LlmSettings(BaseModel):
                 or source.get("HF_BASE_URL")
                 or CHAT_COMPLETIONS_PROVIDERS.get(provider.strip().lower(), HUGGINGFACE_ROUTER_URL)
             ),
-            "huggingface_token": source.get("LLM_API_KEY") or source.get("HF_TOKEN") or None,
+            "huggingface_token": (
+                source.get("LLM_API_KEY")
+                or source.get("GROQ_API_KEY")
+                or source.get("HF_TOKEN")
+                or None
+            ),
         }
         try:
             settings = cls.model_validate(values)
@@ -131,5 +136,8 @@ class LlmSettings(BaseModel):
             settings.huggingface_token is None
             or not settings.huggingface_token.get_secret_value().strip()
         ):
-            raise LlmConfigurationError()
+            # Names the setting to add, never a configured value.
+            raise LlmConfigurationError(
+                "The hosted model provider needs an API key: set LLM_API_KEY on this service."
+            )
         return settings

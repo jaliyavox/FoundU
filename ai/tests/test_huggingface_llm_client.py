@@ -173,3 +173,15 @@ def test_groq_uses_the_same_adapter_at_its_own_address() -> None:
 
     with pytest.raises(LlmConfigurationError):
         LlmSettings.from_environment({"LLM_PROVIDER": "groq", "LLM_MODEL": "openai/gpt-oss-20b"})
+
+
+def test_a_missing_key_names_the_setting_and_groq_api_key_is_accepted() -> None:
+    with pytest.raises(LlmConfigurationError) as missing:
+        LlmSettings.from_environment({"LLM_PROVIDER": "groq", "LLM_MODEL": "openai/gpt-oss-20b"})
+    assert "LLM_API_KEY" in str(missing.value)
+
+    configured = LlmSettings.from_environment(
+        {"LLM_PROVIDER": "groq", "LLM_MODEL": "openai/gpt-oss-20b", "GROQ_API_KEY": TOKEN}
+    )
+    assert configured.huggingface_token is not None
+    assert TOKEN not in str(LlmConfigurationError("hint"))
