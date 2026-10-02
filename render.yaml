@@ -1,8 +1,14 @@
-# FoundU on Render - the AI service, the API and the web app. The database is on Neon
-# (neon.tech): its free tier does not expire, where Render's free Postgres is deleted after
-# 30 days. Render dashboard -> New -> Blueprint -> pick this repository. Secrets marked
-# `sync: false` are asked for once in the dashboard; they are never stored in this file.
+# FoundU on Render - one Blueprint for the database, the AI service, the API and the web app.
+# Render dashboard -> New -> Blueprint -> pick this repository. Secrets marked `sync: false`
+# are asked for once in the dashboard; they are never stored in this file.
 # Step-by-step: README.md, "Deploying to Render".
+
+databases:
+  - name: foundu-db
+    databaseName: foundu
+    user: foundu
+    plan: free
+    region: singapore
 
 services:
   # FastAPI + LangGraph. Ollama cannot run here, so the deterministic built-in model is used:
@@ -24,8 +30,10 @@ services:
         value: fake-structured-v1
       - key: WORKFLOW_STATE_STORE
         value: postgres
-      - key: WORKFLOW_DATABASE_URL        # the Neon connection string (same one as the API's)
-        sync: false
+      - key: WORKFLOW_DATABASE_URL
+        fromDatabase:
+          name: foundu-db
+          property: connectionString
 
   # ASP.NET Core 8. Migrates the database and seeds categories, places and the admin on start.
   - type: web
@@ -37,8 +45,10 @@ services:
     region: singapore
     healthCheckPath: /api/health
     envVars:
-      - key: ConnectionStrings__FoundUDatabase   # the Neon connection string, postgresql://...
-        sync: false
+      - key: ConnectionStrings__FoundUDatabase
+        fromDatabase:
+          name: foundu-db
+          property: connectionString
       - key: Jwt__SigningKey
         generateValue: true
       # The same key the AI service checks - copied across, never typed.
