@@ -16,7 +16,7 @@ export default defineConfig({
     // React web tests live in a dedicated folder and can use DOM helpers for component-level checks.
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.{ts,tsx}'],
     env: { VITE_API_BASE_URL: 'http://api.test' },
   },
 })

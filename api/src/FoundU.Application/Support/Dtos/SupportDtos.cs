@@ -8,7 +8,9 @@ public record CreateSupportTicketRequest(
     string Category,
     string Body,
     string? RelatedEntityType,
-    Guid? RelatedEntityId);
+    Guid? RelatedEntityId,
+    /// <summary>Sent from the assistant's draft. A label for the desk, not a privilege.</summary>
+    bool ViaAssistant = false);
 
 public record SupportTicketReplyRequest(string Body);
 
@@ -37,7 +39,8 @@ public record SupportTicketListItemDto(
     int MessageCount,
     int UnreadCount,
     DateTime LastActivityAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool ViaAssistant = false);
 
 public record SupportTicketDetailDto(
     Guid Id,
@@ -54,7 +57,8 @@ public record SupportTicketDetailDto(
     DateTime LastActivityAt,
     DateTime? ResolvedAt,
     DateTime CreatedAt,
-    IReadOnlyList<SupportTicketMessageDto> Messages);
+    IReadOnlyList<SupportTicketMessageDto> Messages,
+    bool ViaAssistant = false);
 
 public class SupportTicketQuery : PaginationQuery
 {

@@ -53,6 +53,8 @@ export interface TicketListItem {
   unreadCount: number
   lastActivityAt: string
   createdAt: string
+  /** Sent from the support assistant's draft - it was asked first and could not help. */
+  viaAssistant?: boolean
 }
 
 export interface TicketDetail {
@@ -72,6 +74,7 @@ export interface TicketDetail {
   resolvedAt: string | null
   createdAt: string
   messages: TicketMessage[]
+  viaAssistant?: boolean
 }
 
 export interface TicketQuery {
@@ -101,7 +104,36 @@ export const createTicket = (input: {
   body: string
   relatedEntityType?: string
   relatedEntityId?: string
+  viaAssistant?: boolean
 }) => api.post<TicketDetail>('/api/support/tickets', input)
+
+/* ------------------------------------------------------------------ the assistant */
+
+export interface AssistantTurn {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export interface TicketDraft {
+  subject: string
+  category: TicketCategory
+  body: string
+}
+
+/**
+ * answered - a help-guide entry fits; clarify - it asks for more; escalate - it cannot fix
+ * this and `ticket` is a draft; unavailable - the AI is down and the draft is the person's
+ * own words. A draft is never sent for them.
+ */
+export interface AssistantResponse {
+  phase: 'answered' | 'clarify' | 'escalate' | 'unavailable'
+  reply: string
+  topic: string | null
+  ticket: TicketDraft | null
+}
+
+export const askSupportAssistant = (message: string, history: AssistantTurn[], lastTopic: string | null) =>
+  api.post<AssistantResponse>('/api/support/assistant', { message, history, lastTopic })
 
 export const getMyTickets = (query: TicketQuery = {}) =>
   api.get<PagedResult<TicketListItem>>(`/api/support/tickets?${toParams(query)}`)

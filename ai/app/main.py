@@ -31,6 +31,7 @@ from app.agents.models import (
     WorkflowStateResponse,
 )
 from app.agents.state import create_initial_state
+from app.agents.support import support_node
 from app.agents.verification import verification_node
 from app.llm.client import create_llm_client
 from app.llm.config import LlmSettings
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI):
         app.state.checkpointer,
         verification_handler=partial(verification_node, llm_client=llm_client),
         intake_handler=partial(intake_node, llm_client=llm_client),
+        support_handler=partial(support_node, llm_client=llm_client),
     )
     try:
         yield

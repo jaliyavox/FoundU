@@ -18,6 +18,7 @@ import '../../features/intake/data/intake_repository.dart';
 import '../../features/intake/presentation/ask_foundu_page.dart';
 import '../../features/account/presentation/account_page.dart';
 import '../../features/help/presentation/help_to_find_page.dart';
+import '../../features/support/presentation/support_assistant_page.dart';
 import '../../features/support/presentation/support_page.dart';
 import '../../features/support/presentation/ticket_page.dart';
 import '../../features/feed/presentation/post_found_page.dart';
@@ -139,6 +140,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   parentNavigatorKey: _rootKey,
                   builder: (_, __) => const SupportPage(),
                   routes: [
+                    // Before ':ticketId', or "assistant" would be read as a ticket id.
+                    GoRoute(
+                      path: 'assistant',
+                      parentNavigatorKey: _rootKey,
+                      builder: (_, __) => const SupportAssistantPage(),
+                    ),
                     GoRoute(
                       path: ':ticketId',
                       parentNavigatorKey: _rootKey,

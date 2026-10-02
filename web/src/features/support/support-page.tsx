@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { FormSelect } from '@/features/reports/form-select'
 import { timeAgo } from '@/features/feed/feed-api'
 import { ApiError } from '@/lib/api/client'
+import { AssistantBadge } from './assistant-badge'
+import { SupportAssistant } from './support-assistant'
 import { TicketThread } from './ticket-thread'
 import {
   CATEGORY_LABELS,
@@ -41,19 +43,21 @@ export function SupportPage() {
           <p className="text-sm font-medium text-brand-green">Support</p>
           <h1 className="pt-1 text-2xl font-semibold tracking-tight">Ask us for help</h1>
           <p className="max-w-xl pt-2 text-sm text-muted-foreground">
-            Something stuck, a code that will not work, a claim that went the wrong way - open
-            a ticket and somebody on the desk will pick it up.
+            Something stuck, a code that will not work, a claim that went the wrong way - ask the
+            assistant first. If it cannot sort it, it writes the ticket for you.
           </p>
         </div>
         {!composing && (
           <Button onClick={() => setComposing(true)}>
             <PlusIcon aria-hidden="true" />
-            New ticket
+            Write a ticket myself
           </Button>
         )}
       </div>
 
-      {composing && <NewTicketForm onDone={id => { setComposing(false); setOpenId(id) }} onCancel={() => setComposing(false)} />}
+      {composing
+        ? <NewTicketForm onDone={id => { setComposing(false); setOpenId(id) }} onCancel={() => setComposing(false)} />
+        : <SupportAssistant onTicketOpened={setOpenId} />}
 
       <TicketList onOpen={setOpenId} />
     </section>
@@ -247,6 +251,7 @@ function TicketView({ id, onBack }: { id: string; onBack: () => void }) {
             <p className="pt-1 text-sm text-muted-foreground">
               {CATEGORY_LABELS[data.category]} · {STATUS_LABELS[data.status]} · opened {timeAgo(data.createdAt)}
             </p>
+            {data.viaAssistant && <div className="pt-2"><AssistantBadge /></div>}
           </div>
           <PanelDivider />
           <TicketThread ticket={data} />

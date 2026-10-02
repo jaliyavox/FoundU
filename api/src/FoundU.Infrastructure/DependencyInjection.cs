@@ -163,6 +163,13 @@ public static class DependencyInjection
         services.AddScoped<IHonorService, HonorService>();
         services.AddScoped<IHelpToFindService, HelpToFindService>();
         services.AddScoped<ISupportService, SupportService>();
+        services.AddScoped<ISupportAssistantService, SupportAssistantService>();
+        services.AddHttpClient<ISupportAgentClient, SupportAgentClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var address)) client.BaseAddress = address;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+        });
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IAdminOverviewService, AdminOverviewService>();
         services.AddScoped<IReferenceAdminService, ReferenceAdminService>();
