@@ -24,9 +24,8 @@ declare global {
 }
 
 /**
- * "Continue with Google". Renders nothing at all unless both sides are configured - the
- * browser client id here and a matching one on the API - because a button that cannot work
- * is worse than no button.
+ * "Continue with Google". Renders nothing unless the API has a client id - it hands the
+ * button that same id - because a button that cannot work is worse than no button.
  *
  * The browser only ever hands us an ID token; the API verifies it against Google's keys
  * before anybody is signed in.
@@ -94,6 +93,8 @@ export function GoogleButton({ label = 'signin_with' }: { label?: 'signin_with' 
       text: label,
       shape: 'pill',
       width: 320,
+      // Google otherwise follows the computer's language, which put Sinhala on an English page.
+      locale: 'en',
     })
   }, [enabled, clientId, scriptReady, label, navigate, signInWithGoogle])
 
@@ -103,9 +104,9 @@ export function GoogleButton({ label = 'signin_with' }: { label?: 'signin_with' 
     <div className="flex flex-col gap-4">
       <div ref={holder} className="flex justify-center" />
       <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-white/15" />
-        <span className="text-xs text-white/50">or</span>
-        <span className="h-px flex-1 bg-white/15" />
+        <span className="h-px flex-1 bg-foreground/15" />
+        <span className="text-xs text-muted-foreground">or</span>
+        <span className="h-px flex-1 bg-foreground/15" />
       </div>
     </div>
   )
