@@ -18,13 +18,15 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 5174 --strictPort',
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      VITE_API_BASE_URL: process.env.VITE_API_BASE_URL ?? 'http://localhost:5292',
+  webServer: process.env.FOUNDU_E2E_BASE_URL
+    ? undefined
+    : {
+        command: 'npm run dev -- --host 127.0.0.1 --port 5174 --strictPort',
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+        env: {
+          VITE_API_BASE_URL: process.env.VITE_API_BASE_URL ?? 'http://localhost:5292',
+        },
     },
-  },
 })

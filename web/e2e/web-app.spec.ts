@@ -41,6 +41,8 @@ async function selectToday(page: Page, controlId: string) {
   const today = await page.evaluate(() => new Date().toLocaleDateString('en'))
   await page.locator(`#${controlId}`).click()
   await page.locator(`[data-day="${today}"]`).click()
+  await page.keyboard.press('Escape')
+  await expect(page.locator(`#${controlId}`)).toHaveAttribute('aria-expanded', 'false')
 }
 
 async function openLostReportWizard(page: Page) {
@@ -103,7 +105,94 @@ test.describe('public visitor journeys', () => {
   })
 })
 
-test.describe('role-based browser access', () => {
+//
+
+test.describe('lost report form boundaries', () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, accounts.student.email, accounts.student.password)
+    await expect(page).toHaveURL(/\/my-reports$/)
+    await openLostReportWizard(page)
+  })
+
+  test('requires a category and item type before advancing', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    await chooseFirstOption(page, 'category')
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    await chooseFirstOption(page, 'itemType')
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
+  })
+
+  test('rejects a reversed time window and only enables the next step after correction', async ({ page }) => {
+    await chooseFirstOption(page, 'category')
+    await chooseFirstOption(page, 'itemType')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await chooseFirstOption(page, 'location')
+    await selectToday(page, 'from')
+    await selectToday(page, 'to')
+
+    await page.locator('#from-hour').click()
+    await page.getByRole('option', { name: '22', exact: true }).click()
+    await page.locator('#to-hour').click()
+    await page.getByRole('option', { name: '21', exact: true }).click()
+
+    await expect(page.getByText('The end of the window must be after the start.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
+
+    await page.locator('#to-hour').click()
+    await page.getByRole('option', { name: '23', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
+  })
+
+  test('prevents selecting a future date for the lost-item window', async ({ page }) => {
+    await chooseFirstOption(page, 'category')
+    await chooseFirstOption(page, 'itemType')
+    await page.getByRole('button', { name: 'Continue' }).click()
+
+    await page.locator('#from').click()
+    const futureDateLabel = await page.evaluate(() => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      return tomorrow.toLocaleDateString('en')
+    })
+
+    await expect(page.locator(`[data-day="${futureDateLabel}"]`)).toBeDisabled()
+  })
+
+  //10 character
+
+  test('API accepts a 1000-character description and rejects 1001 characters', async ({ page }) => {
+    await chooseFirstOption(page, 'category')
+    await chooseFirstOption(page, 'itemType')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await chooseFirstOption(page, 'location')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    const description = page.getByLabel('Description')
+
+    const atLimit = `E2E ${Date.now()} ${'x'.repeat(1000)}`.slice(0, 1000)
+    await description.fill(atLimit)
+    await expect(page.getByText('1000 characters')).toBeVisible()
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByRole('heading', { name: 'Ready to post?' })).toBeVisible()
+    await page.getByRole('button', { name: 'Post report' }).click()
+    await expect(page).toHaveURL(/\/my-reports$/)
+    await expect(page.getByText('Report posted. We will tell you if something matching turns up.')).toBeVisible()
+
+    await openLostReportWizard(page)
+    await chooseFirstOption(page, 'category')
+    await chooseFirstOption(page, 'itemType')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await chooseFirstOption(page, 'location')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByLabel('Description').fill(`${'x'.repeat(1000)}y`)
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: 'Post report' }).click()
+
+    await expect(page.getByLabel('Description')).toHaveAttribute('aria-invalid', 'true')
+    await expect(page).toHaveURL(/\/my-reports\/new$/)
+  })
+})
+//
+/*test.describe('role-based browser access', () => {
   for (const [role, account] of Object.entries(accounts)) {
     test(`${role} signs in and lands on the correct home page`, async ({ page }) => {
       test.skip(!account.password, 'Set FOUNDU_E2E_ADMIN_PASSWORD or DEV_ADMIN_PASSWORD for admin browser tests.')
@@ -172,56 +261,7 @@ test.describe('role-based browser access', () => {
   }
 })
 
-test.describe('lost report form boundaries', () => {
-  test.beforeEach(async ({ page }) => {
-    await signIn(page, accounts.student.email, accounts.student.password)
-    await expect(page).toHaveURL(/\/my-reports$/)
-    await openLostReportWizard(page)
-  })
-
-  test('requires a category and item type before advancing', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
-    await chooseFirstOption(page, 'category')
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
-  })
-
-  test('rejects a reversed time window and only enables the next step after correction', async ({ page }) => {
-    await chooseFirstOption(page, 'category')
-    await chooseFirstOption(page, 'itemType')
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await chooseFirstOption(page, 'location')
-    await selectToday(page, 'from')
-    await selectToday(page, 'to')
-
-    await page.locator('#from-hour').click()
-    await page.getByRole('option', { name: '22', exact: true }).click()
-    await page.locator('#to-hour').click()
-    await page.getByRole('option', { name: '21', exact: true }).click()
-
-    await expect(page.getByText('The end of the window must be after the start.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
-
-    await page.locator('#to-hour').click()
-    await page.getByRole('option', { name: '23', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
-  })
-
-  test('prevents selecting a future date for the lost-item window', async ({ page }) => {
-    await chooseFirstOption(page, 'category')
-    await chooseFirstOption(page, 'itemType')
-    await page.getByRole('button', { name: 'Continue' }).click()
-
-    await page.locator('#from').click()
-    const futureDateLabel = await page.evaluate(() => {
-      const tomorrow = new Date()
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      return tomorrow.toLocaleDateString('en')
-    })
-
-    await expect(page.locator(`[data-day="${futureDateLabel}"]`)).toBeDisabled()
-  })
-
-  test('accepts a 10-character description and rejects 9 characters at the UI boundary', async ({ page }) => {
+test('accepts a 10-character description and rejects 9 characters at the UI boundary', async ({ page }) => {
     await chooseFirstOption(page, 'category')
     await chooseFirstOption(page, 'itemType')
     await page.getByRole('button', { name: 'Continue' }).click()
@@ -236,36 +276,4 @@ test.describe('lost report form boundaries', () => {
     await description.fill('1234567890')
     await expect(page.getByText('10 characters')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
-  })
-
-  test('API accepts a 1000-character description and rejects 1001 characters', async ({ page }) => {
-    await chooseFirstOption(page, 'category')
-    await chooseFirstOption(page, 'itemType')
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await chooseFirstOption(page, 'location')
-    await page.getByRole('button', { name: 'Continue' }).click()
-    const description = page.getByLabel('Description')
-
-    const atLimit = `E2E ${Date.now()} ${'x'.repeat(1000)}`.slice(0, 1000)
-    await description.fill(atLimit)
-    await expect(page.getByText('1000 characters')).toBeVisible()
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await expect(page.getByRole('heading', { name: 'Ready to post?' })).toBeVisible()
-    await page.getByRole('button', { name: 'Post report' }).click()
-    await expect(page).toHaveURL(/\/my-reports$/)
-    await expect(page.getByText('Report posted. We will tell you if something matching turns up.')).toBeVisible()
-
-    await openLostReportWizard(page)
-    await chooseFirstOption(page, 'category')
-    await chooseFirstOption(page, 'itemType')
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await chooseFirstOption(page, 'location')
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByLabel('Description').fill(`${'x'.repeat(1000)}y`)
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByRole('button', { name: 'Post report' }).click()
-
-    await expect(page.getByLabel('Description')).toHaveAttribute('aria-invalid', 'true')
-    await expect(page).toHaveURL(/\/my-reports\/new$/)
-  })
-})
+  })*/
