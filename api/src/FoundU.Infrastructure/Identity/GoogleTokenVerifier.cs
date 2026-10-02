@@ -51,7 +51,10 @@ public sealed class GoogleTokenVerifier : IGoogleTokenVerifier
             var keys = await GetSigningKeysAsync(cancellationToken);
             if (keys is null) return null;
 
-            var handler = new JwtSecurityTokenHandler();
+            // Read the claims under Google's own names. By default this handler renames "sub"
+            // and "email" to long WS-Federation URIs, so the lookups below found nothing and
+            // every genuine Google sign-in was refused as "could not be verified".
+            var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
             var parameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -73,13 +76,18 @@ public sealed class GoogleTokenVerifier : IGoogleTokenVerifier
             var verified = string.Equals(principal.FindFirstValue("email_verified"), "true", StringComparison.OrdinalIgnoreCase);
 
             if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(email))
+            {
+                _logger.LogInformation("Google sign-in refused: the token had no subject or email.");
                 return null;
+            }
 
             return new GoogleIdentity(subject, email, verified, principal.FindFirstValue("name"));
         }
-        catch (SecurityTokenException)
+        catch (SecurityTokenException exception)
         {
-            // A bad token is an ordinary event, not an incident. Nothing from it is logged.
+            // A bad token is an ordinary event, not an incident. The kind of failure is worth
+            // knowing (wrong audience, expired, unknown key); the token itself never is.
+            _logger.LogInformation("Google sign-in refused: {Reason}.", exception.GetType().Name);
             return null;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
@@ -87,8 +95,9 @@ public sealed class GoogleTokenVerifier : IGoogleTokenVerifier
             _logger.LogWarning("Could not reach Google to verify a sign-in.");
             return null;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            _logger.LogWarning("Google sign-in could not be checked: {Reason}.", exception.GetType().Name);
             return null;
         }
     }
