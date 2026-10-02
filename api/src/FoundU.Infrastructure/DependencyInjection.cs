@@ -152,6 +152,9 @@ public static class DependencyInjection
         services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
         services.AddScoped<IClaimService, ClaimService>();
         services.AddScoped<IIntakeService, IntakeService>();
+        // Wakes the AI service with the API and keeps it awake while the API is in use.
+        services.AddHttpClient(nameof(AiWarmupService));
+        services.AddHostedService<AiWarmupService>();
         services.AddHttpClient<IIntakeAgentClient, IntakeAgentClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
