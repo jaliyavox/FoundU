@@ -501,7 +501,19 @@ function FoundPostCard({
 }) {
   const isPosted = post.status === 'Posted'
   const isDeclared = Boolean(post.handedToSecurityAt)
-  const isConfirmedByStaff = post.status !== 'Posted'
+  // Where the item actually is, in the same words the found board uses.
+  const stage =
+    post.status === 'Unclaimed' ? 'At the security desk'
+    : post.status === 'Claimed' ? 'Owner on the way'
+    : post.status === 'Returned' ? 'Back with its owner'
+    : post.status === 'Disposed' ? 'Taken down'
+    : isDeclared ? 'Waiting for staff'
+    : 'Still with you'
+  const afterHandIn =
+    post.status === 'Unclaimed' ? 'Security has it in storage. The owner can claim it now - thank you.'
+    : post.status === 'Claimed' ? 'Its owner has proved it is theirs and is collecting it from security.'
+    : post.status === 'Returned' ? 'It is back with its owner. Thank you for handing it in.'
+    : null
 
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-foreground/10 bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -510,9 +522,7 @@ function FoundPostCard({
           <h3 className="truncate text-sm font-medium">
             {[post.primaryColor, post.itemTypeName].filter(Boolean).join(' ')}
           </h3>
-          <Badge variant="outline">
-            {isConfirmedByStaff ? 'Gave to staff' : isDeclared ? 'Waiting for staff' : 'Still with you'}
-          </Badge>
+          <Badge variant="outline">{stage}</Badge>
         </div>
         <p className="pt-1 text-xs text-muted-foreground">
           {post.categoryName} · found at {post.foundLocationName} · {timeAgo(post.createdAt)}
@@ -523,6 +533,7 @@ function FoundPostCard({
             Desk code: <span className="font-mono font-medium tracking-wider text-foreground">{displayCode(post.handInCode)}</span>
           </p>
         )}
+        {afterHandIn && <p className="pt-2 text-xs text-brand-green">{afterHandIn}</p>}
         {isDeclared && isPosted && (
           <p className="pt-2 text-xs text-amber-700 dark:text-amber-300">
             Pending staff confirmation. The item is not claimable until security logs receipt.
