@@ -103,6 +103,8 @@ class PushNavigationIntent {
         PushNavigationIntent('/profile/support/$entityId'),
       // Sent to a finder about someone else's report: their side lives on the feed.
       'FoundPostConfirmed' || 'ItemReturnedToOwner' => const PushNavigationIntent('/home'),
+      // The owner's receipt names either their claim or their report; the inbox knows which.
+      'ItemCollected' => const PushNavigationIntent('/notifications'),
       // A possible-match notification names a MatchSuggestion, not a LostReport. Its detail is
       // deliberately loaded from the user's normal report list rather than trusting that ID.
       'PossibleMatchFound' => const PushNavigationIntent('/reports'),

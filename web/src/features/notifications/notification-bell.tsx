@@ -17,6 +17,7 @@ import {
   WarehouseIcon,
   FootprintsIcon,
   EyeIcon,
+  ShieldCheckIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -49,12 +50,14 @@ const ICONS: Record<NotificationType, typeof BellIcon> = {
   SupportTicketUpdated: LifeBuoyIcon,
   HandoverStarted: FootprintsIcon,
   HandoverCancelled: UndoIcon,
+  ItemCollected: ShieldCheckIcon,
 }
 
 /** Only the two that carry an outcome get colour. Everything else is just news. */
 const TONES: Partial<Record<NotificationType, string>> = {
   ClaimApproved: 'text-brand-forest dark:text-brand-sage',
   ClaimRejected: 'text-destructive',
+  ItemCollected: 'text-brand-forest dark:text-brand-sage',
 }
 
 /**

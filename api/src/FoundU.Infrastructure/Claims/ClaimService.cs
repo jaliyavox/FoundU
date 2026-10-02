@@ -775,6 +775,21 @@ public class ClaimService : IClaimService
                 cancellationToken);
         }
 
+        // The owner's receipt - and their alarm, if someone else walked off with it.
+        var collected = await _db.FoundReports
+            .Where(r => r.Id == claim.FoundReportId)
+            .Select(r => new { Item = r.ItemType.Name, Shelf = r.StorageLocation == null ? null : r.StorageLocation.Name })
+            .FirstOrDefaultAsync(cancellationToken);
+        _notifications.Queue(
+            claim.StudentId,
+            NotificationType.ItemCollected,
+            $"You collected your {(collected?.Item ?? "item").ToLowerInvariant()}",
+            (collected?.Shelf is null ? "Collected from the desk" : $"Collected from {collected.Shelf}")
+                + ". The desk checked your student ID before handing it over. Wasn't you? Contact the desk "
+                + "through Help & support straight away.",
+            nameof(Claim),
+            claim.Id);
+
         // Once. The code is gone the moment the item is.
         claim.CollectionCode = null;
         claim.CollectedAt = DateTime.UtcNow;

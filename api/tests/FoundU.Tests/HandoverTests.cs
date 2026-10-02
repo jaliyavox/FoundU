@@ -172,6 +172,11 @@ public sealed class HandoverTests
         Assert.Equal(LostReportStatus.Resolved, (await fixture.Db.LostReports.SingleAsync()).Status);
         Assert.Equal(FoundReportStatus.Returned, (await fixture.Db.FoundReports.SingleAsync()).Status);
 
+        // The owner gets a receipt naming the desk, with the alarm in case it was not them.
+        var receipt = await fixture.Db.Notifications.SingleAsync(n => n.UserId == fixture.Owner.Id && n.Type == NotificationType.ItemCollected);
+        Assert.Contains(fixture.Storage.Name, receipt.Message);
+        Assert.Contains("Wasn't you?", receipt.Message);
+
         // Once. A spent code is indistinguishable from one that never existed.
         await Assert.ThrowsAsync<NotFoundAppException>(() => fixture.Handovers.LookupAsync(started.Code!));
 

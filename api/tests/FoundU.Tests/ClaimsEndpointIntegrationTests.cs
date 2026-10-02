@@ -122,6 +122,8 @@ public sealed class ClaimsEndpointIntegrationTests
         Assert.Equal(FoundReportStatus.Returned, await app.FoundStatusAsync());
         Assert.Equal(LostReportStatus.Resolved, await app.LostStatusAsync());
         Assert.True(await app.HasLostHistoryAsync(app.LostReport.Id, LostReportStatus.Resolved));
+        // The owner is told it was collected, with the alarm in case it was not them.
+        Assert.Contains("Wasn't you?", await app.CollectedReceiptAsync());
 
         // Once. The same code the second time looks like one that never existed.
         var again = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code, OwnerIdChecked: true));
@@ -378,6 +380,9 @@ public sealed class ClaimsEndpointIntegrationTests
         public Task<LostReportStatus> LostStatusAsync() => WithDb(db => db.LostReports.Where(x => x.Id == LostReport.Id).Select(x => x.Status).SingleAsync());
         public Task<FoundReportStatus> FoundStatusAsync() => WithDb(db => db.FoundReports.Where(x => x.Id == FoundReport.Id).Select(x => x.Status).SingleAsync());
         public Task<int> DecisionCountAsync(Guid claimId) => WithDb(db => db.ApprovalDecisions.CountAsync(x => x.ClaimId == claimId));
+        public Task<string?> CollectedReceiptAsync() => WithDb(db => db.Notifications
+            .Where(x => x.UserId == Student.Id && x.Type == NotificationType.ItemCollected)
+            .Select(x => x.Message).SingleOrDefaultAsync());
         public Task<bool> HasClaimHistoryAsync(Guid id, ClaimStatus status) => WithDb(db => db.ClaimStatusHistories.AnyAsync(x => x.ClaimId == id && x.ToStatus == status));
         public Task<bool> HasLostHistoryAsync(Guid id, LostReportStatus status) => WithDb(db => db.LostReportStatusHistories.AnyAsync(x => x.LostReportId == id && x.ToStatus == status));
         public Task<string> AgentAuditAsync(Guid id) => WithDb(async db => string.Join(" ", await db.AgentRuns.Where(x => x.ClaimId == id).Select(x => x.FinalOutcomeJson).ToListAsync()));
