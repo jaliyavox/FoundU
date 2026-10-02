@@ -35,6 +35,17 @@ public sealed class GoogleTokenVerifierTests
     }
 
     [Fact]
+    public async Task AClientIdPastedWithStraySpaceStillMatches()
+    {
+        using var rsa = RSA.Create(2048);
+        var verifier = Verifier(rsa, configuredClientId: $"  {ClientId}\n");
+
+        // The button is handed the trimmed id, so that is the audience Google writes.
+        Assert.Equal(ClientId, verifier.ClientId);
+        Assert.NotNull(await verifier.VerifyAsync(Token(rsa, ClientId)));
+    }
+
+    [Fact]
     public async Task ATokenForAnotherAppIsRefused()
     {
         using var rsa = RSA.Create(2048);
@@ -49,7 +60,7 @@ public sealed class GoogleTokenVerifierTests
         Assert.Null(await Verifier(google).VerifyAsync(Token(forger, ClientId)));
     }
 
-    private static GoogleTokenVerifier Verifier(RSA rsa)
+    private static GoogleTokenVerifier Verifier(RSA rsa, string configuredClientId = ClientId)
     {
         var key = new RsaSecurityKey(rsa.ExportParameters(false)) { KeyId = "key-1" };
         var jwk = JsonWebKeyConverter.ConvertFromRSASecurityKey(key);
@@ -60,7 +71,7 @@ public sealed class GoogleTokenVerifierTests
         return new GoogleTokenVerifier(
             new HttpClient(new KeysHandler(json)),
             new MemoryCache(new MemoryCacheOptions()),
-            Options.Create(new GoogleAuthOptions { ClientId = ClientId, JwksUri = "https://keys.test/certs" }),
+            Options.Create(new GoogleAuthOptions { ClientId = configuredClientId, JwksUri = "https://keys.test/certs" }),
             NullLogger<GoogleTokenVerifier>.Instance);
     }
 

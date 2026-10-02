@@ -60,7 +60,10 @@ public sealed class GoogleTokenVerifier : IGoogleTokenVerifier
                 ValidateIssuer = true,
                 ValidIssuers = ValidIssuers,
                 ValidateAudience = true,
-                ValidAudience = _options.ClientId,
+                // The trimmed id - the same one the status endpoint hands the button. A value pasted
+                // into a host's dashboard with a trailing space or newline otherwise made every
+                // genuine token look like it was meant for a different app.
+                ValidAudience = ClientId,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKeys = keys,
