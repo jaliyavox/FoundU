@@ -40,6 +40,8 @@ public sealed class GoogleTokenVerifier : IGoogleTokenVerifier
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_options.ClientId);
 
+    public string? ClientId => IsConfigured ? _options.ClientId.Trim() : null;
+
     public async Task<GoogleIdentity?> VerifyAsync(string idToken, CancellationToken cancellationToken = default)
     {
         if (!IsConfigured) return null;

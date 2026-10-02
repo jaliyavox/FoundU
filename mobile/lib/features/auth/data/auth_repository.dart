@@ -45,6 +45,38 @@ class AuthRepository {
     }
   }
 
+  /// The client id Google sign-in uses, or null when the API has it switched off (or cannot
+  /// be reached - either way, no Google button). The id is public; the API is the one place
+  /// it is configured, so the phone always asks for the same id tokens are checked against.
+  Future<String?> googleClientId() async {
+    try {
+      final response = await _authDio.get<Map<String, dynamic>>('/api/auth/google/status');
+      final data = response.data!;
+      final id = data['clientId'] as String?;
+      return data['enabled'] == true && id != null && id.isNotEmpty ? id : null;
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// Signs in with a Google ID token. The API verifies it against Google's keys; a new
+  /// address becomes a Student account, an existing one is linked only if Google has
+  /// verified the email.
+  Future<AuthUser> signInWithGoogle(String idToken) async {
+    await _tokenStorage.clear();
+    try {
+      final response = await _authDio.post<Map<String, dynamic>>(
+        '/api/auth/google',
+        data: {'idToken': idToken},
+      );
+      final auth = AuthResponse.fromJson(response.data!);
+      await _saveTokens(auth);
+      return auth.user;
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Creates a Student account and signs it in - one round trip, the same response shape as
   /// login, so the wizard lands straight on the feed.
   Future<AuthUser> register({

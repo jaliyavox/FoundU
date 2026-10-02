@@ -121,6 +121,31 @@ unregistered/invalid tokens are deactivated so delivery is not repeatedly attemp
 Firebase project, service-account credentials, and platform client files remain required for
 live delivery; automated tests use fakes and never contact Firebase.
 
+## Third-party integration: Google sign-in
+
+Off until a client id is configured; with none, both apps simply hide the Google button. The
+API is the only place the id is set - the web and the phone read it from
+`GET /api/auth/google/status`, so a token is always checked against the id it was issued for.
+
+1. In Google Cloud Console (APIs & Services -> Credentials), configure the OAuth consent
+   screen (External, testing mode; add your team's Google accounts as test users).
+2. Create an OAuth client of type **Web application**. Authorised JavaScript origins:
+   `http://localhost:5173` and `http://127.0.0.1:5173`. No redirect URI is needed.
+3. For the Android app, create a second OAuth client of type **Android**: package name
+   `com.example.foundu` and the SHA-1 of the keystore you build with. For the debug build:
+   `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`.
+   Every teammate building the app adds their own debug SHA-1 to this client.
+4. Give the API the **web** client id - never the Android one, and there is no secret:
+
+```json
+// api/src/FoundU.Api/appsettings.Development.json (git-ignored)
+"Google": { "ClientId": "<web-client-id>.apps.googleusercontent.com" }
+```
+
+Restart the API; `GET /api/auth/google/status` now returns `enabled: true`. A new Google
+address becomes a Student account; an existing account is linked only when Google has verified
+the email. Staff and admins still sign in on the web.
+
 ## Live AI demo flow
 
 1. A student creates a lost report. ASP.NET preserves the user's data and optionally stores

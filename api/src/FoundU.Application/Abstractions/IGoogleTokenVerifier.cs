@@ -13,4 +13,11 @@ public interface IGoogleTokenVerifier
 
     /// <summary>False when no client id is configured, so the endpoint can say so plainly.</summary>
     bool IsConfigured { get; }
+
+    /// <summary>
+    /// The OAuth client id, or null when switched off. Public by design - it is in every
+    /// Google sign-in page - so the web and phone clients read it from here instead of each
+    /// carrying their own copy that can drift from the one tokens are checked against.
+    /// </summary>
+    string? ClientId { get; }
 }

@@ -48,7 +48,7 @@ public class AuthController : ControllerBase
     [HttpGet("google/status")]
     [AllowAnonymous]
     public ActionResult<object> GoogleStatus([FromServices] IGoogleTokenVerifier verifier)
-        => Ok(new { enabled = verifier.IsConfigured });
+        => Ok(new { enabled = verifier.IsConfigured, clientId = verifier.ClientId });
 
     [HttpPost("refresh")]
     [AllowAnonymous]

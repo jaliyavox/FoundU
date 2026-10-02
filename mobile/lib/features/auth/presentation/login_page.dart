@@ -6,6 +6,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/theme/brand.dart';
 import '../../../core/widgets/foundu_mark.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../data/google_sign_in_service.dart';
 import 'onboarding_illustrations.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -26,6 +27,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  bool _googleBusy = false;
+
+  Future<void> _google(String clientId) async {
+    setState(() => _googleBusy = true);
+    try {
+      final idToken = await ref.read(googleSignInServiceProvider).idToken(clientId);
+      // Backed out of the picker: nothing happened, so nothing to say.
+      if (idToken == null || !mounted) return;
+      await ref.read(authControllerProvider.notifier).signInWithGoogle(idToken);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Google sign-in is not available on this device right now. Use your email and password.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _googleBusy = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -109,6 +129,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ],
                     const SizedBox(height: 20),
                     InkButton(label: 'Sign in', busy: isLoading, onPressed: _submit),
+                    if (ref.watch(googleClientIdProvider).value case final clientId?) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('or', style: text.bodySmall?.copyWith(color: Brand.muted)),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _GoogleButton(
+                        busy: _googleBusy,
+                        onPressed: isLoading || _googleBusy ? null : () => _google(clientId),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Center(
                       child: TextButton(
@@ -122,6 +160,37 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Google's own wording and a neutral outline, as its branding rules ask for.
+class _GoogleButton extends StatelessWidget {
+  const _GoogleButton({required this.busy, required this.onPressed});
+  final bool busy;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1F1F1F),
+        side: const BorderSide(color: Color(0xFF747775)),
+        shape: const StadiumBorder(),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (busy)
+            const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+          else
+            const Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF4285F4))),
+          const SizedBox(width: 10),
+          const Flexible(child: Text('Continue with Google', overflow: TextOverflow.ellipsis)),
+        ],
       ),
     );
   }

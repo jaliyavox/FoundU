@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@/features/auth/use-auth'
 import { homeRouteForRole } from '@/routes/role-home'
 import { ApiError } from '@/lib/api/client'
-import { getGoogleStatus, GOOGLE_CLIENT_ID } from './account-api'
+import { getGoogleStatus } from './account-api'
 
 /** Google Identity Services, loaded only when there is a client id to use it with. */
 const GSI_SRC = 'https://accounts.google.com/gsi/client'
@@ -37,17 +37,17 @@ export function GoogleButton({ label = 'signin_with' }: { label?: 'signin_with' 
   const holder = useRef<HTMLDivElement>(null)
   const [scriptReady, setScriptReady] = useState(false)
 
-  // The server is asked as well: a client id in the bundle with none on the API would give a
-  // button that fails at the last step.
+  // The API is the one place the client id is configured: the button uses the same id the
+  // tokens are checked against, so the two can never disagree.
   const { data } = useQuery({
     queryKey: ['google-status'],
     queryFn: getGoogleStatus,
-    enabled: GOOGLE_CLIENT_ID.length > 0,
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
 
-  const enabled = GOOGLE_CLIENT_ID.length > 0 && data?.enabled === true
+  const clientId = data?.enabled ? data.clientId ?? '' : ''
+  const enabled = clientId.length > 0
 
   useEffect(() => {
     if (!enabled || window.google) {
@@ -73,7 +73,7 @@ export function GoogleButton({ label = 'signin_with' }: { label?: 'signin_with' 
     if (!enabled || !scriptReady || !holder.current || !window.google) return
 
     window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
+      client_id: clientId,
       callback: async response => {
         if (!response.credential) return
         try {
@@ -95,7 +95,7 @@ export function GoogleButton({ label = 'signin_with' }: { label?: 'signin_with' 
       shape: 'pill',
       width: 320,
     })
-  }, [enabled, scriptReady, label, navigate, signInWithGoogle])
+  }, [enabled, clientId, scriptReady, label, navigate, signInWithGoogle])
 
   if (!enabled) return null
 

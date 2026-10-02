@@ -39,7 +39,6 @@ export const googleSignIn = (idToken: string) =>
   api.post<AuthResponse>('/api/auth/google', { idToken })
 
 /** Whether this server has a Google client id, so the button can stay hidden when it does not. */
-export const getGoogleStatus = () => api.get<{ enabled: boolean }>('/api/auth/google/status')
-
-/** The browser client id. Empty here or unset on the server means no Google button. */
-export const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() ?? ''
+/** Whether Google sign-in is on, and the client id the API checks tokens against. */
+export const getGoogleStatus = () =>
+  api.get<{ enabled: boolean; clientId: string | null }>('/api/auth/google/status')
