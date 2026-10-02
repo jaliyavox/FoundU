@@ -36,7 +36,11 @@ public sealed class MatchingAgentIntegrationTests
         var sent = JsonSerializer.Serialize(new { fixture.Agent.Lost, fixture.Agent.Found });
         Assert.DoesNotContain(Secret, sent);
         Assert.DoesNotContain(StaffNote, sent);
-        Assert.DoesNotContain("description", sent, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(fixture.Lost.Description, fixture.Agent.Lost.Description);
+        Assert.Equal(fixture.Found.GeneralDescription, fixture.Agent.Found.Description);
+        Assert.Equal(fixture.Lost.LastSeenLocationId.ToString(), fixture.Agent.Lost.Location);
+        Assert.Equal(fixture.Found.FoundLocationId.ToString(), fixture.Agent.Found.Location);
+        Assert.DoesNotContain("PrivateVerification", sent, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(fixture.Db.Claims);
         Assert.Equal(FoundReportStatus.Unclaimed, fixture.Found.Status);
         Assert.Equal(LostReportStatus.Active, fixture.Lost.Status);
@@ -102,7 +106,7 @@ public sealed class MatchingAgentIntegrationTests
     {
         await using var fixture = await Fixture.CreateAsync();
         fixture.Agent.Result = MatchingAgentCallResult<MatchingAgentRecommendation>.Success(
-            new("manual_review", 0m, "remote-match-3"));
+            new("manual_review", 0.6m, "remote-match-3"));
 
         var result = await fixture.Service.GenerateWithAgentAsync(
             new(fixture.Lost.Id, fixture.Found.Id, StaffNote), fixture.Staff.Id);
@@ -111,6 +115,18 @@ public sealed class MatchingAgentIntegrationTests
         Assert.Null(result.Suggestion);
         Assert.Empty(fixture.Db.MatchSuggestions);
         Assert.DoesNotContain(StaffNote, fixture.Db.AgentRuns.Single().FinalOutcomeJson!);
+    }
+
+    [Fact]
+    public void MatchingGeneration_RemainsStaffAuthorized()
+    {
+        var controller = typeof(FoundU.Api.Controllers.MatchSuggestionsController);
+        Assert.NotEmpty(controller.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), true));
+        var method = controller.GetMethod("GenerateWithAgent")!;
+        var authorization = Assert.Single(method.GetCustomAttributes(
+            typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), true));
+        Assert.Equal(FoundU.Application.Auth.PolicyNames.Staff,
+            ((Microsoft.AspNetCore.Authorization.AuthorizeAttribute)authorization).Policy);
     }
 
     private sealed class Fixture : IAsyncDisposable
@@ -139,7 +155,7 @@ public sealed class MatchingAgentIntegrationTests
             var lost = new LostReport { Student = student, Category = category, ItemType = type, LastSeenLocation = location,
                 Description = "Blue backpack", PrimaryColor = "Blue", EstimatedLostFromAt = DateTime.UtcNow.AddHours(-2), EstimatedLostToAt = DateTime.UtcNow };
             var found = new FoundReport { Staff = staff, Category = category, ItemType = type, FoundLocation = location,
-                StorageLocation = storage, GeneralDescription = "Blue backpack", PrimaryColor = "Blue", PrivateVerificationDetails = Secret, FoundAt = DateTime.UtcNow };
+                StorageLocation = storage, GeneralDescription = "Blue backpack", PrimaryColor = "Blue", PrivateVerificationDetails = Secret, PrivateVerificationAttributesJson = "{\"evidence\":\"" + Secret + "\"}", ObservedAttributesJson = "{\"raw\":\"" + Secret + "\"}", FoundAt = DateTime.UtcNow };
             db.AddRange(student, staff, lost, found);
             await db.SaveChangesAsync();
             var agent = new FakeMatchingAgent();

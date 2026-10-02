@@ -77,7 +77,7 @@ browser crawl, logged in as the role · **M** = manual demo step in the evaluati
 
 | ID | Story | Acceptance criteria | Pri | Verified |
 |---|---|---|---|---|
-| US-50 | As **staff**, I want to ask the AI whether a lost report and a found item match, so that I can suggest the match to the owner. | Same type and colour → 1.0. Same type, different colour → 0.5. **A different type → 0, even if the colour is the same.** If the AI is down, staff can still create a manual suggestion. | Must | A, L |
+| US-50 | As **staff**, I want to ask the AI whether a lost report and a found item match, so that I can suggest the match to the owner. | Score = 40% type + 20% colour + 25% public-description token overlap + 15% location. Missing evidence earns zero. Different type always scores zero. Only scores >=0.75 create candidates; >=0.50 and <0.75 is manual_review; below 0.50 is no_match. If the AI is down, staff can still create a manual suggestion. | Must | A, L |
 | US-51 | As the **system**, I want to check each new found post against recent open reports, so that owners hear about likely matches without waiting for staff. | Runs when a post is created. Each match creates a suggestion and a "possible match" notification. | Should | L |
 | US-52 | As **staff**, I want the AI to draft verification questions from the private details, so that claimants must prove ownership. | Fixed safe templates. Any AI wording that leaks a private value is rejected. There is a deterministic fallback. | Must | A |
 | US-53 | As **staff**, I want the AI to recommend a verdict on a claimant's answers, so that reviews are faster. | The recommendation is advisory only. Scores are never shown to the claimant. | Should | A |

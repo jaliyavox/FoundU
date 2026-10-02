@@ -159,7 +159,7 @@ approval step, and the service-key authentication.
 > **Important: be accurate about "model training".** The repository contains **no model
 > training**: no dataset, no embeddings, no fine-tuning, no training script. The AI is:
 > 1. **Deterministic, rule-based agents** (regex item-type patterns, a colour vocabulary, type
->    and colour scoring, fixed safe question templates) that always run.
+>    colour, public-description and location scoring, fixed safe question templates) that always run.
 > 2. An **optional LLM** (a local Ollama model) called with a JSON schema at temperature 0. Its
 >    output is **validated against the source text** before use.
 > 3. **LangGraph** routing requests to 5 agents, with durable workflow state in PostgreSQL and a
@@ -186,7 +186,9 @@ approval step, and the service-key authentication.
 **Demo script**
 
 1. `curl -X POST localhost:8000/agents/run` without the header → **401**. Show `service_auth.py`.
-2. Show matching scores: a black wallet vs a black wallet → 1.0 · a black wallet vs a brown wallet → 0.5 · a black wallet vs a black **umbrella** → 0 / `no_match` (fix 5, `pytest -k colour_alone`).
+2. Show matching scores: same type and colour alone = 0.60 / `manual_review`; all four components fully agree = 1.0 / `match_candidate`; wallet vs umbrella = 0 / `no_match` regardless of other evidence (`pytest -k matching`).
+   Formula: 0.40 type + 0.20 colour + 0.25 description similarity + 0.15 location. Different normalized types force zero. Normalize by casefolding, replacing punctuation with spaces and collapsing whitespace. Description similarity is Jaccard overlap (shared unique tokens / all unique tokens) after removing a fixed list of reporting boilerplate and common words; empty text earns zero. Location compares existing campus location IDs exactly (normalized text for direct agent requests), with no geographic inference. Missing components earn zero; weights are never redistributed. Scores are rounded to six decimal places. At least 0.75 means `match_candidate`; at least 0.50 but below 0.75 means `manual_review`; below 0.50 means `no_match`. Only candidates persist suggestions. The BOC Library example with one description omitting "blue" scores 0.95. These percentages measure similarity, not ownership probability.
+   Matching receives only report ID, item type, primary colour, public description and campus location ID. It excludes private verification details, arbitrary attribute JSON, answers, codes and contact information. Public descriptions are used directly because found reports have no populated equivalent of the lost-report parser's feature structure. Automatic found-post and staff generation share the same service and deterministic agent.
 3. Web: Ask FoundU as a student: "I lost a blue water bottle with black stickers near the library yesterday" → picks **blue**, searches, and offers a claim or a report draft. As a finder: "I found a wallet" → points to the owner.
 4. Report form: type a description → type, colour and features fill in. **Stop the AI service** → the form still works (graceful fallback). Restart it.
 5. Staff claim detail → **Generate questions** → show that none of the questions contain the private details. Show the agent-runs panel and the coordinator approval pause.
@@ -205,7 +207,7 @@ approval step, and the service-key authentication.
 - *Why could matching produce false positives before, and how did you prove the fix?* Colour alone scored 0.5. There is a new unit test, and the black umbrella vs black wallet case now gives no_match.
 - *Is this machine learning?* Be honest. See the note above.
 
-**Known limitations to raise:** matching compares one pair on type and colour, with no date or place weighting · 7 of the 9 registry tools are stubs · the in-memory LangGraph checkpointer is never cleared.
+**Known limitations to raise:** matching compares one pair using fixed weights and literal token overlap, with no date weighting or semantic inference · 7 of the 9 registry tools are stubs · the in-memory LangGraph checkpointer is never cleared.
 
 **Also be ready for:** *how is an answer graded?* Filler words are ignored. At least 80% of the hidden detail's meaningful words is a match, 40% is partial. An answer much longer than the detail is capped at partial, so listing every plausible word does not work (fix 41).
 

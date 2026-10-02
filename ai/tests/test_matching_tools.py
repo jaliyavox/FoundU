@@ -72,10 +72,12 @@ def test_matching_uses_shared_registry_for_typed_read_only_lookups() -> None:
     assert [call[0] for call in spy.calls] == ["getLostReportDetails", "getFoundReportDetails"]
     assert all(call[1].agent is AgentName.MATCHING for call in spy.calls)
     assert all(
-        isinstance(call[2], dict) and "description" not in call[2]["report"].model_dump()
+        isinstance(call[2], dict) and set(call[2]["report"].model_dump()) == {
+            "report_id", "item_type", "primary_color", "description", "location"
+        }
         for call in spy.calls
     )
-    assert result["output"] == {"recommendation": "match_candidate", "score": 1.0}
+    assert result["output"] == {"recommendation": "manual_review", "score": 0.6}
     assert result["trace"] == [
         "request_received",
         "routed:matching",
@@ -95,7 +97,7 @@ def test_matching_report_description_injection_is_data_not_authority() -> None:
         tool_registry=create_default_tool_registry(),
     )
 
-    assert result["output"] == {"recommendation": "match_candidate", "score": 1.0}
+    assert result["output"] == {"recommendation": "match_candidate", "score": 0.85}
     assert injection not in str(result)
     assert "tool:attempt:getLostReportDetails" in result["trace"]
     assert "tool:attempt:getFoundReportDetails" in result["trace"]
@@ -253,5 +255,58 @@ def test_colour_alone_is_not_a_match_candidate() -> None:
         )
 
     assert _score_reports(lookup("Wallet", "Black"), lookup("Umbrella", "Black")) == 0.0
-    assert _score_reports(lookup("Wallet", "Black"), lookup("wallet", "Brown")) == 0.5
-    assert _score_reports(lookup("Wallet", "Black"), lookup("Wallet", "black")) == 1.0
+    assert _score_reports(lookup("Wallet", "Black"), lookup("wallet", "Brown")) == 0.4
+    assert _score_reports(lookup("Wallet", "Black"), lookup("Wallet", "black")) == 0.6
+
+
+@pytest.mark.parametrize(
+    "changes,expected,recommendation",
+    [
+        ({}, 1.0, "match_candidate"),  # A: all four components agree
+        ({"description": "Red HSBC debit card", "location": "Canteen"}, 0.63125, "manual_review"),
+        ({"primary_color": "Red"}, 0.8, "match_candidate"),  # C
+        ({"item_type": "Wallet"}, 0.0, "no_match"),  # D: hard gate
+        ({"description": None}, 0.75, "match_candidate"),  # E: no redistributed weight
+        ({"description": " BLUE, BOC bank CARD! is found near the library student place. It is blue color."}, 1.0, "match_candidate"),
+        ({"description": None, "location": None}, 0.6, "manual_review"),
+        ({"primary_color": "Red", "description": None, "location": None}, 0.4, "no_match"),
+        ({"item_type": " bank-card ", "primary_color": " BLUE ", "location": " LIBRARY! "}, 1.0, "match_candidate"),
+        ({"description": "the item is found", "location": "Canteen"}, 0.6, "manual_review"),
+    ],
+)
+def test_weighted_public_matching(changes, expected, recommendation):
+    payload = _payload(
+        lost_type="Bank Card", found_type="Bank Card",
+        lost_description="Blue BOC bank card lost near the Library study area.",
+        found_description="BOC bank card found near the Library student area. Blue.",
+    )
+    payload["lost_report"]["location"] = "Library"
+    payload["found_report"]["location"] = "Library"
+    payload["found_report"].update(changes)
+    results = [matching_node(_state(payload), tool_registry=create_default_tool_registry())["output"]
+               for _ in range(3)]
+    assert results[0] == results[1] == results[2]
+    assert results[0] == {"recommendation": recommendation, "score": expected}
+    assert 0.0 <= results[0]["score"] <= 1.0
+
+
+def test_requested_bank_card_wording_is_high_but_not_automatically_perfect():
+    from app.agents.matching import _description_similarity
+    a = "Blue BOC bank card lost near the Library study area."
+    b = "BOC bank card found near the Library student area."
+    assert _description_similarity(a, b) == 0.8
+    payload = _payload(lost_type="Bank Card", found_type="Bank Card",
+                       lost_description=a, found_description=b)
+    for side in ("lost_report", "found_report"):
+        payload[side]["location"] = "Library"
+    result = matching_node(_state(payload), tool_registry=create_default_tool_registry())
+    assert result["output"] == {"recommendation": "match_candidate", "score": 0.95}
+
+
+@pytest.mark.parametrize("field", ["private_verification_details", "verification_answers", "collection_code"])
+def test_matching_rejects_hidden_fields(field):
+    payload = _payload()
+    payload["found_report"][field] = "secret"
+    result = matching_node(_state(payload), tool_registry=create_default_tool_registry())
+    assert result["output"] == {"recommendation": "manual_review", "score": 0.0}
+    assert "secret" not in str(result)

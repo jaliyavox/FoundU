@@ -137,7 +137,8 @@ public class MatchSuggestionService : IMatchSuggestionService
             throw new ConflictAppException("This item is already suggested for that report.");
         }
 
-        // The FastAPI contract intentionally accepts no descriptions or verification fields.
+        // Only public descriptions and structured location IDs supplement type and colour.
+        // Private verification evidence and arbitrary attribute JSON never enter this allowlist.
         // Missing comparison fields are not guessed: staff can still use the existing manual link.
         if (string.IsNullOrWhiteSpace(lostReport.PrimaryColor)
             || string.IsNullOrWhiteSpace(foundReport.PrimaryColor)
@@ -148,8 +149,10 @@ public class MatchSuggestionService : IMatchSuggestionService
         }
 
         var result = await _matchingAgent.MatchReportsAsync(
-            ToAgentSummary(lostReport.Id, lostReport.ItemType.Name, lostReport.PrimaryColor),
-            ToAgentSummary(foundReport.Id, foundReport.ItemType.Name, foundReport.PrimaryColor),
+            ToAgentSummary(lostReport.Id, lostReport.ItemType.Name, lostReport.PrimaryColor,
+                lostReport.Description, lostReport.LastSeenLocationId),
+            ToAgentSummary(foundReport.Id, foundReport.ItemType.Name, foundReport.PrimaryColor,
+                foundReport.GeneralDescription, foundReport.FoundLocationId),
             $"matching-{Guid.NewGuid():N}",
             cancellationToken);
 
@@ -289,8 +292,9 @@ public class MatchSuggestionService : IMatchSuggestionService
             throw new ConflictAppException("That item has already been handed back.");
     }
 
-    private static MatchingAgentReportSummary ToAgentSummary(Guid reportId, string itemType, string primaryColor)
-        => new(reportId.ToString(), itemType.Trim(), primaryColor.Trim());
+    private static MatchingAgentReportSummary ToAgentSummary(
+        Guid reportId, string itemType, string primaryColor, string description, Guid locationId)
+        => new(reportId.ToString(), itemType.Trim(), primaryColor.Trim(), description, locationId.ToString());
 
     private static AgentRun CreateAgentRun(
         Guid foundReportId,

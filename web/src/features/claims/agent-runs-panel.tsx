@@ -143,7 +143,7 @@ function OutcomeLines({ run }: { run: AgentRun }) {
   if (recommendation) lines.push(`Recommended: ${humanise(recommendation)}`)
 
   const score = o.score
-  if (typeof score === 'number') lines.push(`Confidence ${Math.round(score * 100)}%`)
+  if (typeof score === 'number') lines.push(`${run.agent === 'Matching' ? 'Match score' : 'Confidence'} ${Math.round(score * 100)}%`)
 
   const questions = o.questions
   if (Array.isArray(questions) && questions.length > 0) {

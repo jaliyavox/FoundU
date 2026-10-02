@@ -1,5 +1,6 @@
 """Read-only, deterministic matching agent backed by the central tool registry."""
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -41,16 +42,41 @@ class MatchingResult(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
 
 
+# Reporting boilerplate contributes no identifying information.
+_DESCRIPTION_STOP_WORDS = frozenset(
+    "a an the and or is it its was were be been my this that of to in on at near "
+    "by for with lost found item color colour area place student study".split()
+)
+
+
+def _normalize(value: str | None) -> str:
+    """Casefold, replace punctuation with spaces, and collapse whitespace."""
+    return " ".join(re.findall(r"[^\W_]+", (value or "").casefold()))
+
+
+def _description_similarity(left: str | None, right: str | None) -> float:
+    """Jaccard overlap of unique meaningful public words; missing text earns zero."""
+    a = set(_normalize(left).split()) - _DESCRIPTION_STOP_WORDS
+    b = set(_normalize(right).split()) - _DESCRIPTION_STOP_WORDS
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
 def _score_reports(lost: ReportLookupOutput, found: ReportLookupOutput) -> float:
-    """Compare only validated public fields; report descriptions are intentionally unused."""
+    """Fixed evidence weights, never renormalized when optional evidence is missing."""
     if not lost.found or not found.found or lost.report is None or found.report is None:
         return 0.0
-    same_type = lost.report.item_type.casefold() == found.report.item_type.casefold()
-    same_color = lost.report.primary_color.casefold() == found.report.primary_color.casefold()
-    # A colour alone is not a match: a black umbrella is not a lead for a black wallet.
-    if not same_type:
+    left, right = lost.report, found.report
+    item_type = _normalize(left.item_type)
+    if not item_type or item_type != _normalize(right.item_type):
         return 0.0
-    return 1.0 if same_color else 0.5
+    color = _normalize(left.primary_color)
+    same_color = bool(color) and color == _normalize(right.primary_color)
+    location = _normalize(left.location)
+    same_location = bool(location) and location == _normalize(right.location)
+    score = (0.40 + 0.20 * same_color
+             + 0.25 * _description_similarity(left.description, right.description)
+             + 0.15 * same_location)
+    return round(min(1.0, max(0.0, score)), 6)
 
 
 def _report_summary(report: SuppliedReportContext) -> ReportSummary:
@@ -59,6 +85,8 @@ def _report_summary(report: SuppliedReportContext) -> ReportSummary:
         report_id=report.report_id,
         item_type=report.item_type,
         primary_color=report.primary_color,
+        description=report.description,
+        location=report.location,
     )
 
 
@@ -168,8 +196,9 @@ def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = Non
         }
 
     score = _score_reports(lost_result.output, found_result.output)
-    recommendation: Literal["match_candidate", "no_match"]
-    recommendation = "match_candidate" if score > 0.0 else "no_match"
+    recommendation: Literal["match_candidate", "manual_review", "no_match"]
+    recommendation = ("match_candidate" if score >= 0.75 else
+                      "manual_review" if score >= 0.50 else "no_match")
     output = MatchingResult(recommendation=recommendation, score=score)
     return {
         "output": output.model_dump(),
