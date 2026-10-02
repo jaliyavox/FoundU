@@ -11,10 +11,10 @@ databases:
     region: singapore
 
 services:
-  # FastAPI + LangGraph. The language model is on Hugging Face's Inference Providers (Ollama
-  # cannot run on Render). HF_TOKEN is required - the service will not start without it (set
-  # LLM_PROVIDER to fake to run on keywords alone). Once running, any request Hugging Face
-  # fails, times out or has no credit for falls back to the agent's keyword path.
+  # FastAPI + LangGraph. The language model is on Groq (Ollama cannot run on Render).
+  # LLM_API_KEY is required - the service will not start without it (set LLM_PROVIDER to fake
+  # to run on keywords alone). Once running, any request Groq fails, times out or rate-limits
+  # falls back to the agent's keyword path.
   - type: web
     name: foundu-ai
     runtime: docker
@@ -27,16 +27,16 @@ services:
       - key: AI_SERVICE_KEY
         generateValue: true
       - key: LLM_PROVIDER
-        value: huggingface
+        value: groq
       # Any chat model with Inference Providers listed on its Hugging Face page.
       # Tried on FoundU's own jobs: ~1 s, valid JSON, reads "airpods near the canteen" as
-      # Earphones at the Cafeteria. HF_BASE_URL can point the same adapter at another
-      # OpenAI-compatible host that serves it (e.g. https://api.groq.com/openai/v1).
+      # Earphones at the Cafeteria. LLM_PROVIDER=huggingface runs the same model through
+      # Hugging Face instead, with a Hugging Face token as the key.
       - key: LLM_MODEL
         value: openai/gpt-oss-20b
       - key: LLM_TIMEOUT_SECONDS
         value: "20"
-      - key: HF_TOKEN                     # a Hugging Face access token with "Inference Providers" permission
+      - key: LLM_API_KEY                  # a Groq API key (console.groq.com -> API Keys)
         sync: false
       - key: WORKFLOW_STATE_STORE
         value: postgres

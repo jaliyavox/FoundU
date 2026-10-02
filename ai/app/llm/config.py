@@ -1,6 +1,6 @@
 """Environment-backed configuration for the shared LLM boundary.
 
-The fake, Ollama and Hugging Face providers share this contract. Provider adapters remain
+The fake, Ollama, Groq and Hugging Face providers share this contract. Provider adapters remain
 behind the common factory so agents never need provider-specific configuration.
 """
 
@@ -13,13 +13,18 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, f
 from app.llm.errors import LlmConfigurationError
 
 HUGGINGFACE_ROUTER_URL = "https://router.huggingface.co/v1"
+GROQ_API_URL = "https://api.groq.com/openai/v1"
+
+# Hosted providers that speak the OpenAI chat-completions API, and where each lives by default.
+CHAT_COMPLETIONS_PROVIDERS = {"huggingface": HUGGINGFACE_ROUTER_URL, "groq": GROQ_API_URL}
 
 
 class LlmSettings(BaseModel):
     """Settings used to compose the current LLM client.
 
-    The only secret, the Hugging Face token, is a SecretStr: it prints as asterisks and never
-    appears in a repr, a validation error or a log line.
+    The only secret, the hosted provider's API key, is a SecretStr: it prints as asterisks and
+    never appears in a repr, a validation error or a log line. (The field names say
+    "huggingface" for history; they serve every chat-completions provider.)
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -100,8 +105,13 @@ class LlmSettings(BaseModel):
             "model": model,
             "timeout_seconds": source.get("LLM_TIMEOUT_SECONDS", "5"),
             "ollama_base_url": source.get("OLLAMA_BASE_URL"),
-            "huggingface_base_url": source.get("HF_BASE_URL") or HUGGINGFACE_ROUTER_URL,
-            "huggingface_token": source.get("HF_TOKEN") or None,
+            # LLM_BASE_URL / LLM_API_KEY are canonical; the HF_ names still work.
+            "huggingface_base_url": (
+                source.get("LLM_BASE_URL")
+                or source.get("HF_BASE_URL")
+                or CHAT_COMPLETIONS_PROVIDERS.get(provider.strip().lower(), HUGGINGFACE_ROUTER_URL)
+            ),
+            "huggingface_token": source.get("LLM_API_KEY") or source.get("HF_TOKEN") or None,
         }
         try:
             settings = cls.model_validate(values)
@@ -113,11 +123,11 @@ class LlmSettings(BaseModel):
         if settings is None:
             raise LlmConfigurationError()
 
-        if settings.provider not in {"fake", "ollama", "huggingface"}:
+        if settings.provider not in {"fake", "ollama", *CHAT_COMPLETIONS_PROVIDERS}:
             raise LlmConfigurationError()
         if settings.provider == "ollama" and settings.ollama_base_url is None:
             raise LlmConfigurationError()
-        if settings.provider == "huggingface" and (
+        if settings.provider in CHAT_COMPLETIONS_PROVIDERS and (
             settings.huggingface_token is None
             or not settings.huggingface_token.get_secret_value().strip()
         ):

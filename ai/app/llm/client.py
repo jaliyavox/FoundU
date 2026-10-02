@@ -40,6 +40,6 @@ def create_llm_client(settings: LlmSettings) -> LlmClient:
         return FakeLlmClient()
     if settings.provider == "ollama":
         return OllamaLlmClient(settings)
-    if settings.provider == "huggingface":
+    if settings.provider in {"huggingface", "groq"}:
         return HuggingFaceLlmClient(settings)
     raise LlmConfigurationError()

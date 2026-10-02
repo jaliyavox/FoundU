@@ -150,3 +150,26 @@ def test_the_token_is_required_and_never_printed() -> None:
     assert TOKEN not in repr(configured)
     assert TOKEN not in str(configured.model_dump())
     assert isinstance(create_llm_client(configured), HuggingFaceLlmClient)
+
+
+def test_groq_uses_the_same_adapter_at_its_own_address() -> None:
+    configured = LlmSettings.from_environment(
+        {"LLM_PROVIDER": "groq", "LLM_MODEL": "openai/gpt-oss-20b", "LLM_API_KEY": TOKEN}
+    )
+    assert configured.huggingface_base_url == "https://api.groq.com/openai/v1"
+    assert isinstance(create_llm_client(configured), HuggingFaceLlmClient)
+
+    seen: dict[str, str] = {}
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(http_request.url)
+        seen["auth"] = http_request.headers["authorization"]
+        return reply('{"answer":"groq","confidence":5}')
+
+    groq = HuggingFaceLlmClient(configured, transport=httpx.MockTransport(handler))
+    assert groq.generate_structured(request(), StrictReply).answer == "groq"
+    assert seen["url"] == "https://api.groq.com/openai/v1/chat/completions"
+    assert seen["auth"] == f"Bearer {TOKEN}"
+
+    with pytest.raises(LlmConfigurationError):
+        LlmSettings.from_environment({"LLM_PROVIDER": "groq", "LLM_MODEL": "openai/gpt-oss-20b"})

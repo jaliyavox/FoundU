@@ -1,7 +1,7 @@
-"""Hugging Face Inference Providers adapter for the structured-generation interface.
+"""Chat-completions adapter for hosted models: Groq, and Hugging Face Inference Providers.
 
-Hugging Face's router speaks the OpenAI chat-completions API and forwards each request to a
-provider hosting the chosen model. Providers differ in one way that matters here: some can
+Both speak the OpenAI chat-completions API (Hugging Face's router forwards each request to a
+provider hosting the chosen model). Providers differ in one way that matters here: some can
 enforce a JSON schema on the reply and some cannot. So the schema is always written into the
 instructions, enforcement is asked for as well, and a provider that refuses the enforcement is
 asked once more without it. Whatever comes back is validated against the schema before any
@@ -39,7 +39,7 @@ class HuggingFaceLlmClient:
 
     def __init__(self, settings: LlmSettings, transport: httpx.BaseTransport | None = None) -> None:
         token = settings.huggingface_token
-        if settings.provider != "huggingface" or token is None:
+        if settings.provider not in {"huggingface", "groq"} or token is None:
             raise LlmProviderError()
         self._model = settings.model
         try:
