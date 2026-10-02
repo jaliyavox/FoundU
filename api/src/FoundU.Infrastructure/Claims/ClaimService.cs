@@ -269,7 +269,10 @@ public class ClaimService : IClaimService
 
         // The code is the owner's to quote and the desk's to type. Staff reading it off the
         // screen would make the quoting step theatre.
-        return studentId == requesterId ? detail : ForStaff(detail);
+        // Staff opening a claim also see the item's hidden detail, to judge the answers beside
+        // it. Only here: action responses (questions, AI drafts, decisions) stay without it, so
+        // nothing generated in them can be mistaken for - or carry - the evidence.
+        return studentId == requesterId ? detail : await WithHiddenDetailAsync(ForStaff(detail), cancellationToken);
     }
 
     public async Task<ClaimDetailDto> AddQuestionsAsync(
@@ -830,6 +833,17 @@ public class ClaimService : IClaimService
     /// </summary>
     private static ClaimDetailDto ForStaff(ClaimDetailDto detail) => detail with { CollectionCode = null };
 
+    /// <summary>The item's hidden detail, for a staff reader opening the claim. Never for the owner.</summary>
+    private async Task<ClaimDetailDto> WithHiddenDetailAsync(ClaimDetailDto detail, CancellationToken cancellationToken)
+    {
+        var hidden = await _db.FoundReports
+            .AsNoTracking()
+            .Where(r => r.Id == detail.FoundItem.Id)
+            .Select(r => r.PrivateVerificationDetails)
+            .FirstOrDefaultAsync(cancellationToken);
+        return detail with { HiddenDetailForStaff = hidden };
+    }
+
     private async Task<string> NextCollectionCodeAsync(CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < 10; attempt++)
@@ -1262,7 +1276,8 @@ public class ClaimService : IClaimService
                 c.Student.FullName,
                 c.VerificationQuestions.Count(q => q.Answer == null),
                 c.CreatedAt,
-                c.UpdatedAt))
+                c.UpdatedAt,
+                c.CollectedAt))
             .ToListAsync(cancellationToken);
 
         return PagedResult<ClaimListItemDto>.Create(items, query.Page, query.PageSize, totalCount);
@@ -1321,7 +1336,9 @@ public class ClaimService : IClaimService
                 c.CollectionCode,
                 c.CollectedAt,
                 c.CreatedAt,
-                c.UpdatedAt))
+                c.UpdatedAt,
+                // Filled in only on the staff path - see ForStaffAsync.
+                null))
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundAppException($"Claim '{id}' was not found.");
 }

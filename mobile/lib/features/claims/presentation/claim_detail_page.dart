@@ -139,7 +139,7 @@ class _ClaimDetailPageState extends ConsumerState<ClaimDetailPage> {
                             Text(claim.foundItem.generalDescription),
                           ],
                           const SizedBox(height: 12),
-                          Chip(label: Text(claimStatusLabel(claim.status))),
+                          Chip(label: Text(claimLabel(claim.status, claim.collectedAt))),
                         ],
                       ),
                     ),

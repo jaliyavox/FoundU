@@ -149,7 +149,7 @@ export function ClaimQueuePage() {
                   <div className="relative min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-medium">{claim.itemTypeName}</h2>
-                      <ClaimStatusChip status={claim.status} />
+                      <ClaimStatusChip status={claim.status} collectedAt={claim.collectedAt} />
                     </div>
                     <p className="pt-1 text-sm text-muted-foreground">
                       {claim.studentName} · {claim.categoryName}

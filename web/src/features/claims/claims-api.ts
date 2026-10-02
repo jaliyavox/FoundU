@@ -53,6 +53,8 @@ export interface ClaimListItem {
   unansweredQuestionCount: number
   createdAt: string
   updatedAt: string
+  /** Set once the owner took it home - the status stays Approved, the decision. */
+  collectedAt?: string | null
 }
 
 export interface ClaimDetail {
@@ -73,6 +75,8 @@ export interface ClaimDetail {
   /** Present only for the owner of an approved, uncollected claim. Staff never receive it. */
   collectionCode: string | null
   collectedAt: string | null
+  /** The item's hidden detail - only when staff open the claim; never for the owner. */
+  hiddenDetailForStaff?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -157,6 +161,17 @@ export const cancelClaim = (id: string, reason?: string) =>
  * What each status means to the person reading it, in their own terms - a student is told
  * what to do next, staff are told what the queue is waiting on.
  */
+/**
+ * The status to show. An approved claim that has been collected is finished: the decision is
+ * still Approved, but "take your code to the desk" would be the wrong thing to say.
+ */
+export function claimView(claim: { status: ClaimStatus; collectedAt?: string | null }) {
+  if (claim.status === 'Approved' && claim.collectedAt) {
+    return { label: 'Collected', student: 'Collected from the desk. It is back with you.', tone: 'good' as Tone }
+  }
+  return CLAIM_STATUS_COPY[claim.status]
+}
+
 export const CLAIM_STATUS_COPY: Record<ClaimStatus, { label: string; student: string; tone: Tone }> = {
   Pending: {
     label: 'Submitted',

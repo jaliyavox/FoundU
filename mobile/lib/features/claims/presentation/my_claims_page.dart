@@ -105,7 +105,7 @@ class _ClaimCard extends StatelessWidget {
                   : claim.itemTypeName,
               style: const TextStyle(fontWeight: FontWeight.bold)),
           subtitle: Text(
-              '${claimStatusLabel(claim.status)}\nUpdated ${DateFormat('MMM d, y').format(claim.updatedAt.toLocal())}'),
+              '${claimLabel(claim.status, claim.collectedAt)}\nUpdated ${DateFormat('MMM d, y').format(claim.updatedAt.toLocal())}'),
           isThreeLine: true,
           trailing: claim.unansweredQuestionCount > 0
               ? Chip(label: Text('${claim.unansweredQuestionCount} to answer'))

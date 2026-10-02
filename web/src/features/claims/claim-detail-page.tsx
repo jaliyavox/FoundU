@@ -13,6 +13,7 @@ import {
   ShieldOffIcon,
   Trash2Icon,
   UndoIcon,
+  EyeOffIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,7 @@ import { cn } from '@/lib/utils'
 import {
   addQuestions,
   cancelClaim,
-  CLAIM_STATUS_COPY,
+  claimView,
   decideClaim,
   generateVerificationQuestions,
   getClaim,
@@ -94,7 +95,7 @@ export function ClaimDetailPage() {
     )
   }
 
-  const copy = CLAIM_STATUS_COPY[claim.status]
+  const copy = claimView(claim)
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -119,7 +120,7 @@ export function ClaimDetailPage() {
                 : copy.student}
             </p>
           </div>
-          <ClaimStatusChip status={claim.status} />
+          <ClaimStatusChip status={claim.status} collectedAt={claim.collectedAt} />
         </div>
 
         {claim.decision && (
@@ -157,6 +158,22 @@ export function ClaimDetailPage() {
       )}
 
       <ItemPanel claim={claim} />
+
+      {/* What the answers are judged against. Staff only - the API never sends it to the owner. */}
+      {isStaff && (
+        <DashboardPanel className="flex flex-col gap-2 border-amber-500/30 bg-amber-500/[0.06]">
+          <div className="flex items-center gap-2">
+            <EyeOffIcon className="size-4 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+            <h2 className="font-heading text-base font-medium">Hidden detail - staff only</h2>
+          </div>
+          <p className="text-sm text-pretty">
+            {claim.hiddenDetailForStaff ?? 'None was recorded when the item was logged. Judge the answers on what you can check at the desk.'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Compare the claimant&apos;s answers with this. Never read it out or hint at it.
+          </p>
+        </DashboardPanel>
+      )}
 
       <QuestionsPanel claim={claim} isStaff={isStaff} />
 
@@ -539,7 +556,7 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
       refresh()
       toast.success(
         updated.status === 'Approved'
-          ? 'Approved. The item is marked returned and the report resolved.'
+          ? 'Approved. The student now has a collection code - the item stays in storage until they collect it.'
           : updated.status === 'Rejected'
             ? 'Rejected.'
             : 'Sent back for more detail.',

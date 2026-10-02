@@ -70,6 +70,10 @@ public sealed class ClaimsEndpointIntegrationTests
         studentDetail.EnsureSuccessStatusCode();
         Assert.DoesNotContain(Secret, await studentDetail.Content.ReadAsStringAsync());
 
+        // Staff opening the claim see the hidden detail beside the questions, to judge the answers.
+        var staffDetail = await staff.GetFromJsonAsync<ClaimDetailDto>($"/api/claims/{claim.Id}");
+        Assert.Equal(Secret, staffDetail!.HiddenDetailForStaff);
+
         var answered = await student.PostAsJsonAsync($"/api/claims/{claim.Id}/answers",
             new SubmitClaimAnswersRequest([new(question.Id, "blue keychain")]));
         answered.EnsureSuccessStatusCode();
@@ -124,6 +128,9 @@ public sealed class ClaimsEndpointIntegrationTests
         Assert.True(await app.HasLostHistoryAsync(app.LostReport.Id, LostReportStatus.Resolved));
         // The owner is told it was collected, with the alarm in case it was not them.
         Assert.Contains("Wasn't you?", await app.CollectedReceiptAsync());
+        // And their claims list says it is over - the decision stays Approved, the collection is dated.
+        var mine = await student.GetFromJsonAsync<PagedResult<ClaimListItemDto>>("/api/claims/mine");
+        Assert.NotNull(Assert.Single(mine!.Items).CollectedAt);
 
         // Once. The same code the second time looks like one that never existed.
         var again = await staff.PostAsJsonAsync("/api/claims/collect", new CollectClaimRequest(code, OwnerIdChecked: true));

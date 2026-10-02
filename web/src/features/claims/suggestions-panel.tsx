@@ -98,7 +98,7 @@ function SuggestionRow({ suggestion }: { suggestion: MatchSuggestion }) {
           <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <MapPinIcon className="size-3.5 text-brand-green" aria-hidden="true" />
-              Handed in at {item.foundLocationName}
+              {item.status === 'Posted' ? 'Found at' : 'Handed in at'} {item.foundLocationName}
             </span>
             <span className="flex items-center gap-1.5">
               <ClockIcon className="size-3.5 text-brand-green" aria-hidden="true" />
@@ -133,6 +133,18 @@ function SuggestionRow({ suggestion }: { suggestion: MatchSuggestion }) {
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setConfirmingDismiss(false)} disabled={isBusy}>
             Keep it
+          </Button>
+        </div>
+      ) : item.status === 'Posted' ? (
+        // Still with the finder: there is nothing at a desk to claim yet, and the API says so.
+        // Offering "This is mine" here only ever ended in an error.
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+            The finder still has it. Once they hand it in at a desk you can claim it here - we will let you know.
+          </p>
+          <Button variant="ghost" onClick={() => setConfirmingDismiss(true)} disabled={isBusy}>
+            <XIcon aria-hidden="true" />
+            Not mine
           </Button>
         </div>
       ) : (

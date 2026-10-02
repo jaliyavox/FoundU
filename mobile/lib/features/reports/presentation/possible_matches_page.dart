@@ -263,7 +263,14 @@ class PossibleMatchesPage extends ConsumerWidget {
 
                             const SizedBox(height: 14),
 
-                            // Action footer
+                            // Action footer. Still with the finder: nothing is at a desk to
+                            // claim yet, and the API refuses - so say when it can be claimed.
+                            if (item.status == 'Posted')
+                              const Text(
+                                'The finder still has it. Once they hand it in at a desk you can claim it here.',
+                                style: TextStyle(fontSize: 13, color: Color(0xFF8A5A00)),
+                              )
+                            else
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
