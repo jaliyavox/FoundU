@@ -28,7 +28,15 @@ namespace FoundU.Infrastructure.Persistence.Seed;
 /// </summary>
 public static class DevelopmentDataSeeder
 {
-    public static async Task SeedAsync(UserManager<AppUser> userManager, FoundUDbContext db, IConfiguration configuration)
+    /// <param name="allowFallbackPassword">
+    /// Development only. Anywhere else the admin password must be configured: a deployed
+    /// server with a password printed in the source is an open door.
+    /// </param>
+    public static async Task SeedAsync(
+        UserManager<AppUser> userManager,
+        FoundUDbContext db,
+        IConfiguration configuration,
+        bool allowFallbackPassword = true)
     {
         await db.Database.MigrateAsync();
 
@@ -38,9 +46,14 @@ public static class DevelopmentDataSeeder
             return;
         }
 
-        var devPassword = configuration["Seed:DevAdminPassword"]
-            ?? Environment.GetEnvironmentVariable("DEV_ADMIN_PASSWORD")
-            ?? "DevOnly-ChangeMe-123!"; // clearly-labelled fallback, dev environments only
+        var configured = configuration["Seed:DevAdminPassword"]
+            ?? Environment.GetEnvironmentVariable("DEV_ADMIN_PASSWORD");
+        if (string.IsNullOrWhiteSpace(configured) && !allowFallbackPassword)
+            throw new InvalidOperationException(
+                "Set Seed__DevAdminPassword before the first start: it becomes the admin account's password.");
+        var devPassword = string.IsNullOrWhiteSpace(configured)
+            ? "DevOnly-ChangeMe-123!" // clearly-labelled fallback, dev environments only
+            : configured;
 
         const string email = "admin@foundu.com";
 

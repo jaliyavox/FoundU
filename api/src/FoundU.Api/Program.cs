@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using FoundU.Infrastructure.Persistence;
 using FoundU.Api.Filters;
 using FoundU.Api.Middleware;
@@ -98,17 +99,36 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 
+// Behind a hosting proxy (Render) the request arrives as plain HTTP from the proxy. Trust its
+// forwarded headers so the API sees the caller's scheme and address - otherwise HTTPS
+// redirection loops and every audit row records the proxy's IP. The proxy's address is not
+// fixed, so no network list is pinned; nothing here is exposed except through it.
+var forwarded = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+};
+forwarded.KnownNetworks.Clear();
+forwarded.KnownProxies.Clear();
+app.UseForwardedHeaders(forwarded);
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
 
+// Migrations and starter data (categories, places, the admin) on every start: the seeder is
+// idempotent. Deployed, it insists on a configured admin password rather than the dev one.
+// Database:MigrateOnStartup=false skips it, for a host that migrates some other way.
+if (app.Configuration.GetValue("Database:MigrateOnStartup", true))
+{
     using var scope = app.Services.CreateScope();
-        await DevelopmentDataSeeder.SeedAsync(
-            scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>(),
-            scope.ServiceProvider.GetRequiredService<FoundUDbContext>(),
-            scope.ServiceProvider.GetRequiredService<IConfiguration>());
-    }
+    await DevelopmentDataSeeder.SeedAsync(
+        scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>(),
+        scope.ServiceProvider.GetRequiredService<FoundUDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IConfiguration>(),
+        allowFallbackPassword: app.Environment.IsDevelopment());
+}
 
 // Uploaded photos are served from wwwroot. The feed is public, so these are too.
 //

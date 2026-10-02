@@ -41,7 +41,7 @@ public static class DependencyInjection
         services.AddScoped<NotificationPushSaveChangesInterceptor>();
         services.AddScoped<NotificationPushDispatcher>();
         services.AddDbContext<FoundUDbContext>((serviceProvider, options) =>
-            options.UseNpgsql(configuration.GetConnectionString("FoundUDatabase"))
+            options.UseNpgsql(ConnectionStrings.Normalize(configuration.GetConnectionString("FoundUDatabase")))
                 .AddInterceptors(serviceProvider.GetRequiredService<NotificationPushSaveChangesInterceptor>()));
 
         services.AddIdentityCore<AppUser>(options =>
