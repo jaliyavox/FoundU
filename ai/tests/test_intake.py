@@ -279,3 +279,15 @@ def test_the_first_colour_named_is_the_items_and_gray_is_grey():
 
     assert colour_of("a blue water bottle with black stickers") == "blue"
     assert colour_of("a gray water bottle") == "grey"
+
+
+def test_a_name_inside_another_word_is_not_a_match():
+    vocab = {"item_types": ["Phone", "Headphones", "Earphones", "Keys"], "locations": ["Library"]}
+    out = run({"history": [{"role": "user", "text": "I lost my headphone"}], "vocabulary": vocab})
+    assert out["slots"]["item_type"] == "Headphones"
+
+    out = run({"history": [{"role": "user", "text": "I lost my phone"}], "vocabulary": vocab})
+    assert out["slots"]["item_type"] == "Phone"
+
+    out = run({"history": [{"role": "user", "text": "lost my earphones"}], "vocabulary": vocab})
+    assert out["slots"]["item_type"] == "Earphones"

@@ -218,6 +218,12 @@ def _detect_intent(text: str) -> Literal["lost", "found"] | None:
     return "found" if found_at < lost_at else "lost"
 
 
+def _names(name: str, lowered: str) -> bool:
+    """The whole name as words, singular or plural - "headphone" names "Headphones"."""
+    words = name.lower().rstrip("s")
+    return bool(words) and re.search(rf"\b{re.escape(words)}s?\b", lowered) is not None
+
+
 def _keyword_extract(text: str, vocabulary: IntakeVocabulary) -> SlotExtraction:
     """The path that never fails: match the person's words against the campus's own names."""
     lowered = text.lower()
@@ -230,9 +236,10 @@ def _keyword_extract(text: str, vocabulary: IntakeVocabulary) -> SlotExtraction:
         "intent": _detect_intent(text),
     }
 
-    # Longest names first, so "student id card" beats "card".
+    # Longest names first, so "student id card" beats "card". Whole words only: "phone" is
+    # inside "headphone", and a plain substring test turned lost headphones into a phone.
     for name in sorted(vocabulary.item_types, key=len, reverse=True):
-        if name.lower() in lowered:
+        if _names(name, lowered):
             found["item_type"] = name
             break
     if found["item_type"] is None:
@@ -258,7 +265,7 @@ def _keyword_extract(text: str, vocabulary: IntakeVocabulary) -> SlotExtraction:
         found["colour"] = "grey" if colour == "gray" else colour
 
     for name in sorted(vocabulary.locations, key=len, reverse=True):
-        if name.lower() in lowered:
+        if _names(name, lowered):
             found["location"] = name
             break
     if found["location"] is None:
