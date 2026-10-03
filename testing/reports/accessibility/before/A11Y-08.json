@@ -1,0 +1,17 @@
+{
+  "id": "A11Y-08",
+  "path": "/support",
+  "as": "student",
+  "passes": 25,
+  "violations": [
+    {
+      "rule": "listitem",
+      "impact": "serious",
+      "help": "<li> elements must be contained in a <ul> or <ol>",
+      "nodes": 1,
+      "sample": [
+        "ol[role=\"log\"] > .gap-3"
+      ]
+    }
+  ]
+}

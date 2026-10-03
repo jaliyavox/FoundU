@@ -1,0 +1,12 @@
+{
+  "name": "foundu-security-tests",
+  "private": true,
+  "scripts": {
+    "test": "./run-newman.sh",
+    "test:local-newman": "newman run foundu-security.postman_collection.json -e local.postman_environment.json -r cli,htmlextra,junit --reporter-htmlextra-export ../reports/security/latest/newman-report.html --reporter-junit-export ../reports/security/latest/newman-junit.xml"
+  },
+  "devDependencies": {
+    "newman": "^6.2.1",
+    "newman-reporter-htmlextra": "^1.23.1"
+  }
+}

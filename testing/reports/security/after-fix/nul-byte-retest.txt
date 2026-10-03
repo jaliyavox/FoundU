@@ -1,0 +1,6 @@
+api/lost-reports/feed?search=%00 -> 400
+api/found-posts/feed?search=a%00b -> 400
+api/support/tickets?search=%00 -> 400
+api/found-reports?search=%00 -> 400
+api/lost-reports?search=%00 -> 400
+support ticket with NUL in body -> 400

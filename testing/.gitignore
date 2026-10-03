@@ -1,0 +1,12 @@
+# Regenerated on every run - kept out of git. The summaries and HTML reports are committed.
+node_modules/
+reports/logs/
+reports/e2e/artifacts/
+reports/api/*/
+!reports/api/coverage/
+reports/api/coverage/*
+!reports/api/coverage/Summary.txt
+!reports/api/coverage/SummaryGithub.md
+reports/**/zap.yaml
+reports/ai/coverage/*
+!reports/ai/coverage/index.html

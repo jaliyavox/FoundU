@@ -1,0 +1,17 @@
+{
+  "id": "A11Y-04",
+  "path": "/feed",
+  "as": "anonymous",
+  "passes": 26,
+  "violations": [
+    {
+      "rule": "color-contrast",
+      "impact": "serious",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "nodes": 13,
+      "sample": [
+        ".w-64.snap-start:nth-child(1) > .h-full.bg-\\[oklch\\(0\\.21_0\\.03_148\\)\\].text-left > .p-5.flex-col.flex-1 > .pt-3.text-xs.text-white\\/40 > .truncate"
+      ]
+    }
+  ]
+}

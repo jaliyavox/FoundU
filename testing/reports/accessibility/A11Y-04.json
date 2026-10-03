@@ -1,0 +1,7 @@
+{
+  "id": "A11Y-04",
+  "path": "/feed",
+  "as": "anonymous",
+  "passes": 26,
+  "violations": []
+}

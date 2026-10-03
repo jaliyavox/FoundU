@@ -1,0 +1,5 @@
+00:00 +0: Mobile <-> API integration MOB-INT-01 a student registers from the app and is signed in as a Student
+00:00 +1: Mobile <-> API integration MOB-INT-02 a wrong password surfaces as a 401 ApiException, not a crash
+00:00 +2: Mobile <-> API integration MOB-INT-03 an invalid report comes back as field errors the form can show
+00:00 +3: Mobile <-> API integration MOB-INT-04 cross-platform: report on mobile, match and question at the desk, claim and answer on mobile
+00:00 +4: All tests passed!

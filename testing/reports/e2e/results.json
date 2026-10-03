@@ -1,0 +1,1623 @@
+{
+  "config": {
+    "argv": [
+      "/usr/local/bin/node",
+      "/Users/jayvox/UNI/my/Github/FoundU/testing/e2e/node_modules/.bin/playwright",
+      "test"
+    ],
+    "configFile": "/Users/jayvox/UNI/my/Github/FoundU/testing/e2e/playwright.config.ts",
+    "rootDir": "/Users/jayvox/UNI/my/Github/FoundU/testing/e2e/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/jayvox/UNI/my/Github/FoundU/testing/e2e/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "../reports/e2e/html",
+          "open": "never"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "../reports/e2e/junit.xml"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../reports/e2e/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "accessibility.spec.ts",
+      "file": "accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Accessibility (axe-core, WCAG 2.1 AA)",
+          "file": "accessibility.spec.ts",
+          "line": 25,
+          "column": 6,
+          "specs": [
+            {
+              "title": "A11Y-01 / has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1650,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:41.885Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-4df62-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-6e7bdc863dac21539396",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-02 /login has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4506,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:43.985Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-f00ff-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-cd5f9b349e48fd659370",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-03 /register has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5298,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:48.498Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-223d9-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-91e10d12f35e68491ea7",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-04 /feed has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1316,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:53.802Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-0d5df-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-53ce486d5bd213aa7ab4",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-05 /my-reports as student has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1707,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:55.124Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-e8055-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-197e0075bdc206886b3d",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-06 /my-claims as student has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1414,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:56.837Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-9cece-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-d4b56b921cf789fd5b68",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-07 /ask-foundu as student has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1405,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:58.256Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-8baeb-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-a2b942b9b795827200d3",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-08 /support as student has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1433,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:55:59.670Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-d63da-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-2d068dec4926decec4ad",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-09 /items as staff has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1496,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:01.108Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-12d71-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-7d876a89653375484498",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-10 /claims as staff has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1419,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:02.609Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-d927c-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-9d5828549740d75e4110",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            },
+            {
+              "title": "A11Y-11 /items/new as staff has no serious or critical violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1435,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:04.033Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/accessibility-Accessibilit-a399f-ious-or-critical-violations/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-fb90c32625cf95305966",
+              "file": "accessibility.spec.ts",
+              "line": 27,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "auth.spec.ts",
+      "file": "auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Authentication and protected routes",
+          "file": "auth.spec.ts",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "E2E-AUTH-01 a student signs in through the form and lands on My reports",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 606,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:05.483Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-c2f1a-orm-and-lands-on-My-reports/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-33159f0e8c58841e1a98",
+              "file": "auth.spec.ts",
+              "line": 6,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-02 staff sign in and land on the found-items desk",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 555,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:06.093Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-9927a-and-on-the-found-items-desk/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-cc785c8f0ffb180b8023",
+              "file": "auth.spec.ts",
+              "line": 14,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-03 a wrong password is refused and the user stays on the sign-in page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 554,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:06.652Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-1fe22-r-stays-on-the-sign-in-page/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-53e2831d9e3f2f37ec5b",
+              "file": "auth.spec.ts",
+              "line": 22,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-04 an empty sign-in form shows field errors from the API",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 454,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:07.212Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-c14ea-s-field-errors-from-the-API/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-60d6f913b87d8108fdbb",
+              "file": "auth.spec.ts",
+              "line": 31,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-05 registration refuses a 7-character password (boundary) and accepts a valid one",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 639,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:07.672Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-868f9-ary-and-accepts-a-valid-one/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-aa0a60f7d419eb65dbb2",
+              "file": "auth.spec.ts",
+              "line": 38,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-06 registering an email that already exists is refused with a clear message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 512,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:08.316Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-6328a-efused-with-a-clear-message/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-390b69d52d4e42438be3",
+              "file": "auth.spec.ts",
+              "line": 55,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-07 an anonymous visitor is sent to sign in from a protected page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 371,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:08.832Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-289c9-gn-in-from-a-protected-page/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-fea41425cd7117448096",
+              "file": "auth.spec.ts",
+              "line": 64,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-11 after signing in, the student is taken back to the page they were trying to open",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 517,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:09.208Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-87a81-ge-they-were-trying-to-open/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-4a23e51f3319093e748d",
+              "file": "auth.spec.ts",
+              "line": 69,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-08 a student cannot open the staff desk or the admin area",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 923,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:09.729Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-f62e2-taff-desk-or-the-admin-area/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-7a29f3cfb21330c91cd5",
+              "file": "auth.spec.ts",
+              "line": 78,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-09 staff cannot open admin-only pages",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 683,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:10.658Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-7cc33-annot-open-admin-only-pages/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-90bd13e0406a74c4137f",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "E2E-AUTH-10 signing out ends the session and revokes the refresh token",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1090,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:11.347Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/auth-Authentication-and-pr-ae2ef-d-revokes-the-refresh-token/test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-732d260ae2add57c2193",
+              "file": "auth.spec.ts",
+              "line": 90,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "claim-workflow.spec.ts",
+      "file": "claim-workflow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "E2E-WF-01 lost item to collected: match, claim, verify, approve and collect",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4983,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "staff ask the matching agent whether the item fits the lost report",
+                      "duration": 986
+                    },
+                    {
+                      "title": "the owner sees the item as \"might be yours\" and claims it",
+                      "duration": 790
+                    },
+                    {
+                      "title": "staff send a verification question",
+                      "duration": 1243
+                    },
+                    {
+                      "title": "the owner answers from memory",
+                      "duration": 271
+                    },
+                    {
+                      "title": "staff compare the answer with the hidden detail and approve",
+                      "duration": 339
+                    },
+                    {
+                      "title": "the owner receives a six-digit collection code that staff never see",
+                      "duration": 234
+                    },
+                    {
+                      "title": "the desk finds the item by code, checks ID and hands it over",
+                      "duration": 418
+                    },
+                    {
+                      "title": "the owner sees it collected and gets a receipt notification",
+                      "duration": 241
+                    },
+                    {
+                      "title": "the code works once: a second hand-over is refused",
+                      "duration": 4
+                    }
+                  ],
+                  "startTime": "2026-10-03T11:56:12.447Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/claim-workflow-E2E-WF-01-l-97ce0--verify-approve-and-collect/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/claim-workflow-E2E-WF-01-l-97ce0--verify-approve-and-collect/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bf3b2b50c8f1a2eb91ca-1fb0083c3c0d676f8ec7",
+          "file": "claim-workflow.spec.ts",
+          "line": 10,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "csp.spec.ts",
+      "file": "csp.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "CSP-01 public pages and Google sign-in load with no violation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7194,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T11:56:17.443Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-01-public-pages-an-0256a-n-in-load-with-no-violation/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-01-public-pages-an-0256a-n-in-load-with-no-violation/test-finished-3.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-01-public-pages-an-0256a-n-in-load-with-no-violation/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7ddd34f8774fe467a796-4e263f398170d62ed137",
+          "file": "csp.spec.ts",
+          "line": 31,
+          "column": 1
+        },
+        {
+          "title": "CSP-02 student pages, API calls and photos load with no violation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2664,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T11:56:24.645Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-02-student-pages-A-2ff77-otos-load-with-no-violation/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-02-student-pages-A-2ff77-otos-load-with-no-violation/test-finished-3.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-02-student-pages-A-2ff77-otos-load-with-no-violation/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7ddd34f8774fe467a796-bc5da53266f30b0b0fdd",
+          "file": "csp.spec.ts",
+          "line": 42,
+          "column": 1
+        },
+        {
+          "title": "CSP-03 staff desk pages load with no violation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2084,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T11:56:27.326Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-03-staff-desk-pages-load-with-no-violation/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-03-staff-desk-pages-load-with-no-violation/test-finished-3.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-03-staff-desk-pages-load-with-no-violation/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7ddd34f8774fe467a796-758cc8e765c0b9733bda",
+          "file": "csp.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "CSP-04 the site refuses to be framed (clickjacking)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 135,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T11:56:29.427Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-04-the-site-refuses-to-be-framed-clickjacking-/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/csp-CSP-04-the-site-refuses-to-be-framed-clickjacking-/test-finished-2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7ddd34f8774fe467a796-dbe6471f8fe7c11296c1",
+          "file": "csp.spec.ts",
+          "line": 63,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "desk-handin.spec.ts",
+      "file": "desk-handin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Security desk hand-in by code",
+          "file": "desk-handin.spec.ts",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "E2E-DESK-01 a posted found item is pulled up by its post code and confirmed into storage",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1377,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:29.580Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--429cb--and-confirmed-into-storage/test-finished-2.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--429cb--and-confirmed-into-storage/test-finished-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--429cb--and-confirmed-into-storage/test-finished-3.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "966da776b757ae02b0a0-087a6afd41c18b37c6b6",
+              "file": "desk-handin.spec.ts",
+              "line": 6,
+              "column": 3
+            },
+            {
+              "title": "E2E-DESK-02 a handover code from \"I found this\" is taken in at the desk and the owner is told",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1316,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:30.966Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--ad98d--desk-and-the-owner-is-told/test-finished-2.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--ad98d--desk-and-the-owner-is-told/test-finished-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--ad98d--desk-and-the-owner-is-told/test-finished-3.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "966da776b757ae02b0a0-2335c501953a7608a841",
+              "file": "desk-handin.spec.ts",
+              "line": 40,
+              "column": 3
+            },
+            {
+              "title": "E2E-DESK-03 the code box takes exactly six digits: letters are dropped, five digits cannot be sent",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 791,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:32.299Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--dfac8--five-digits-cannot-be-sent/test-finished-2.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--dfac8--five-digits-cannot-be-sent/test-finished-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--dfac8--five-digits-cannot-be-sent/test-finished-3.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "966da776b757ae02b0a0-4ecaedd76eb5e9073393",
+              "file": "desk-handin.spec.ts",
+              "line": 63,
+              "column": 3
+            },
+            {
+              "title": "E2E-DESK-04 an unknown six-digit code is reported clearly and the desk stays put",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 852,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-03T11:56:33.110Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--f3fdb-arly-and-the-desk-stays-put/test-finished-2.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--f3fdb-arly-and-the-desk-stays-put/test-finished-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/desk-handin-Security-desk--f3fdb-arly-and-the-desk-stays-put/test-finished-3.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "966da776b757ae02b0a0-27b0dffcbc5e03310d06",
+              "file": "desk-handin.spec.ts",
+              "line": 74,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "regressions.spec.ts",
+      "file": "regressions.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "E2E-REG-01 (D49, D54) a question asked before signing in is answered after sign-in - no stuck spinner, not lost",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1780,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T11:56:33.983Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/regressions-E2E-REG-01-D49-bcc30---no-stuck-spinner-not-lost/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/regressions-E2E-REG-01-D49-bcc30---no-stuck-spinner-not-lost/test-finished-3.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/regressions-E2E-REG-01-D49-bcc30---no-stuck-spinner-not-lost/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a34af78d704591628420-ce5dce4a5b518549fe56",
+          "file": "regressions.spec.ts",
+          "line": 6,
+          "column": 1
+        },
+        {
+          "title": "E2E-REG-02 (D48) logging an item with nothing chosen names the missing fields instead of a 400",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 894,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-03T11:56:35.776Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/regressions-E2E-REG-02-D48-3233b-ing-fields-instead-of-a-400/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/regressions-E2E-REG-02-D48-3233b-ing-fields-instead-of-a-400/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/jayvox/UNI/my/Github/FoundU/testing/reports/e2e/artifacts/regressions-E2E-REG-02-D48-3233b-ing-fields-instead-of-a-400/test-finished-3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a34af78d704591628420-54f9bf61379ab4258443",
+          "file": "regressions.spec.ts",
+          "line": 28,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-03T11:55:41.628Z",
+    "duration": 55223.068,
+    "expected": 33,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
