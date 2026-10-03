@@ -73,3 +73,7 @@ ollama-data/
 
 # Uploaded photos - user content, not source
 api/src/FoundU.Api/wwwroot/uploads/
+
+# ---------- Python coverage ----------
+.coverage
+htmlcov/
