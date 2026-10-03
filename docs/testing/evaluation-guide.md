@@ -260,7 +260,7 @@ route guards, and the global error handling.
 ## 6. Test commands for the evaluation
 
 ```bash
-cd api && dotnet test FoundU.sln                     # 166 tests (8 need TEST_DATABASE_URL)
+cd api && dotnet test FoundU.sln                     # 173 tests (9 need TEST_DATABASE_URL)
 cd ai && ruff check . && pytest -q                   # 296 tests
 cd web && npm run lint && npm test && npm run build  # 45 tests
 cd mobile && flutter analyze && flutter test         # 78 tests
