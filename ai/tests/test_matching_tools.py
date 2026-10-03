@@ -267,10 +267,23 @@ def test_colour_alone_is_not_a_match_candidate() -> None:
         ({"primary_color": "Red"}, 0.8, "match_candidate"),  # C
         ({"item_type": "Wallet"}, 0.0, "no_match"),  # D: hard gate
         ({"description": None}, 0.75, "match_candidate"),  # E: no redistributed weight
-        ({"description": " BLUE, BOC bank CARD! is found near the library student place. It is blue color."}, 1.0, "match_candidate"),
+        (
+            {
+                "description": (
+                    " BLUE, BOC bank CARD! is found near the library student place. "
+                    "It is blue color."
+                )
+            },
+            1.0,
+            "match_candidate",
+        ),
         ({"description": None, "location": None}, 0.6, "manual_review"),
         ({"primary_color": "Red", "description": None, "location": None}, 0.4, "no_match"),
-        ({"item_type": " bank-card ", "primary_color": " BLUE ", "location": " LIBRARY! "}, 1.0, "match_candidate"),
+        (
+            {"item_type": " bank-card ", "primary_color": " BLUE ", "location": " LIBRARY! "},
+            1.0,
+            "match_candidate",
+        ),
         ({"description": "the item is found", "location": "Canteen"}, 0.6, "manual_review"),
     ],
 )
@@ -283,8 +296,10 @@ def test_weighted_public_matching(changes, expected, recommendation):
     payload["lost_report"]["location"] = "Library"
     payload["found_report"]["location"] = "Library"
     payload["found_report"].update(changes)
-    results = [matching_node(_state(payload), tool_registry=create_default_tool_registry())["output"]
-               for _ in range(3)]
+    results = [
+        matching_node(_state(payload), tool_registry=create_default_tool_registry())["output"]
+        for _ in range(3)
+    ]
     assert results[0] == results[1] == results[2]
     assert results[0] == {"recommendation": recommendation, "score": expected}
     assert 0.0 <= results[0]["score"] <= 1.0
@@ -303,7 +318,9 @@ def test_requested_bank_card_wording_is_high_but_not_automatically_perfect():
     assert result["output"] == {"recommendation": "match_candidate", "score": 0.95}
 
 
-@pytest.mark.parametrize("field", ["private_verification_details", "verification_answers", "collection_code"])
+@pytest.mark.parametrize(
+    "field", ["private_verification_details", "verification_answers", "collection_code"]
+)
 def test_matching_rejects_hidden_fields(field):
     payload = _payload()
     payload["found_report"][field] = "secret"
