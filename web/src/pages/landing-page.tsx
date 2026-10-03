@@ -129,22 +129,22 @@ export function LandingPage() {
             FoundU - smart campus lost &amp; found.
           </span>
 
-          <div className="flex items-center gap-5 text-xs text-white/40">
+          <div className="flex items-center gap-5 text-xs text-white/70">
             <a
               href="#how-it-works"
-              className="transition-colors hover:text-white/75 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              className="transition-colors hover:text-white focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               How it works
             </a>
             <a
               href="#features"
-              className="transition-colors hover:text-white/75 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              className="transition-colors hover:text-white focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               Features
             </a>
             <Link
               to="/login"
-              className="transition-colors hover:text-white/75 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              className="transition-colors hover:text-white focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               Staff sign in
             </Link>

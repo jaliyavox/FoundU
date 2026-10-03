@@ -251,7 +251,7 @@ export function MyReportsPage() {
               setPage(1)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by category">
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
             <SelectContent>
@@ -271,7 +271,7 @@ export function MyReportsPage() {
               setPage(1)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by location">
               <SelectValue placeholder="All locations" />
             </SelectTrigger>
             <SelectContent>
@@ -291,7 +291,7 @@ export function MyReportsPage() {
               setPage(1)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by status">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -314,7 +314,7 @@ export function MyReportsPage() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-8 text-xs w-[140px]">
+              <SelectTrigger aria-label="Sort by" className="h-8 text-xs w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

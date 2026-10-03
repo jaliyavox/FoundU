@@ -220,7 +220,7 @@ export function FeedPage() {
             />
           ) : (
             <>
-              <p className="pb-5 text-xs text-brand-forest/60">
+              <p className="pb-5 text-xs text-brand-forest">
                 {data.totalCount} open {data.totalCount === 1 ? 'report' : 'reports'}
                 {search && ` matching “${search}”`}
               </p>
@@ -262,7 +262,7 @@ export function FeedPage() {
                     Previous
                   </Button>
 
-                  <span className="text-xs text-brand-forest/60 tabular-nums">
+                  <span className="text-xs text-brand-forest tabular-nums">
                     Page {data.page} of {data.totalPages}
                   </span>
 
@@ -381,7 +381,7 @@ function FeedError({ error, onRetry }: { error: unknown; onRetry: () => void }) 
       className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-6 py-16 text-center"
     >
       <p className="text-base font-medium text-brand-forest">The feed could not be loaded</p>
-      <p className="max-w-sm text-sm text-brand-forest/70">{message}</p>
+      <p className="max-w-sm text-sm text-brand-forest">{message}</p>
       <Button
         variant="outline"
         onClick={onRetry}

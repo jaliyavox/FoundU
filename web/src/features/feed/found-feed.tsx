@@ -60,7 +60,7 @@ export function FoundFeed({ search }: { search: string }) {
   }
 
   if (isError) {
-    return <p className="text-sm text-brand-forest/70">Could not load found items. Check the API is running.</p>
+    return <p className="text-sm text-brand-forest">Could not load found items. Check the API is running.</p>
   }
 
   if (data.items.length === 0) {
@@ -81,7 +81,7 @@ export function FoundFeed({ search }: { search: string }) {
 
   return (
     <>
-      <p className="pb-5 text-xs text-brand-forest/60">
+      <p className="pb-5 text-xs text-brand-forest">
         {data.totalCount} {data.totalCount === 1 ? 'item' : 'items'} waiting for {data.totalCount === 1 ? 'its owner' : 'their owners'}
         {search && ` matching “${search}”`}
       </p>
@@ -99,7 +99,7 @@ export function FoundFeed({ search }: { search: string }) {
           <Button variant="outline" disabled={!data.hasPreviousPage} onClick={() => setPage((p) => p - 1)}>
             Previous
           </Button>
-          <span className="text-xs text-brand-forest/60 tabular-nums">
+          <span className="text-xs text-brand-forest tabular-nums">
             Page {data.page} of {data.totalPages}
           </span>
           <Button variant="outline" disabled={!data.hasNextPage} onClick={() => setPage((p) => p + 1)}>
@@ -139,7 +139,7 @@ export function FoundPostCard({ item, onOpen }: { item: FoundPostItem; onOpen: (
         <h3 className="text-lg leading-snug font-medium text-white">{item.itemTypeName}</h3>
         {meta && <p className="text-sm text-white/55">{meta}</p>}
         <p className="line-clamp-2 flex-1 text-sm leading-relaxed text-pretty text-white/70">{item.description}</p>
-        <div className="flex items-center gap-2 pt-3 text-xs text-white/40">
+        <div className="flex items-center gap-2 pt-3 text-xs text-white/65">
           <HandIcon className="size-3.5 text-brand-green" aria-hidden="true" />
           <span className="truncate">Found by {item.isMine ? 'you' : item.postedByName}</span>
           <span aria-hidden="true">·</span>

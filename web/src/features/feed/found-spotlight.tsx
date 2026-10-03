@@ -83,7 +83,7 @@ export function FoundSpotlight({ item }: { item: FoundPostItem | null }) {
             {item.description}
           </p>
 
-          <div className="flex items-center gap-2 pt-3 text-xs text-white/40">
+          <div className="flex items-center gap-2 pt-3 text-xs text-white/65">
             <span className="truncate">Found by {item.isMine ? 'you' : item.postedByName}</span>
             <span>·</span>
             <span className="shrink-0">{timeAgo(item.createdAt)}</span>

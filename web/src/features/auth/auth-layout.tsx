@@ -55,14 +55,15 @@ export function AuthLayout({
             <FoundULogo markClassName="size-9" />
           </Link>
 
-          <div className="flex flex-1 items-center py-12">
+          {/* The page's one main landmark, so screen-reader users can jump straight to the form. */}
+          <main className="flex flex-1 items-center py-12">
             <div className="w-full">
               <h1 className="text-3xl font-semibold tracking-tight text-balance">{title}</h1>
               <p className="pt-2 text-sm text-pretty text-muted-foreground">{subtitle}</p>
 
               <div className="pt-8">{children}</div>
             </div>
-          </div>
+          </main>
 
           <div className="text-sm text-muted-foreground">{footer}</div>
         </div>

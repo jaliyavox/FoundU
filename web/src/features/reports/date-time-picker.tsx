@@ -104,6 +104,7 @@ export function DateTimePicker({
           onValueChange={(next) => setTime(next, minute)}
           options={HOURS}
           placeholder="00"
+          label="Hour"
         />
         <span className="text-muted-foreground" aria-hidden="true">
           :
@@ -114,6 +115,7 @@ export function DateTimePicker({
           onValueChange={(next) => setTime(hour, next)}
           options={MINUTES}
           placeholder="00"
+          label="Minute"
         />
       </div>
 
