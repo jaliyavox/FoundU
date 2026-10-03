@@ -180,13 +180,25 @@ def test_TC02_parser_handles_a_conversational_description(service):
     assert "bottle" in (out["itemType"] or "").lower()
 
 
-def test_TC03_matching_same_type_and_colour_is_a_candidate(service):
-    assert (
-        run(service, "matching", matching("Backpack", "Blue", "Backpack", "Blue"))["output"][
-            "recommendation"
-        ]
-        == "match_candidate"
-    )
+def test_TC03_matching_type_colour_place_and_wording_is_a_candidate(service):
+    # PR #46: type and colour alone are not enough; place and public wording complete the case.
+    payload = matching("Backpack", "Blue", "Backpack", "Blue")
+    payload["lost_report"] |= {
+        "description": "Blue backpack with a laptop and a red keyring",
+        "location": "library",
+    }
+    payload["found_report"] |= {
+        "description": "Blue backpack, laptop inside, red keyring",
+        "location": "library",
+    }
+    out = run(service, "matching", payload)["output"]
+    assert out["recommendation"] == "match_candidate"
+    assert out["score"] >= 0.75
+
+
+def test_TC11_matching_type_and_colour_alone_goes_to_manual_review(service):
+    out = run(service, "matching", matching("Backpack", "Blue", "Backpack", "Blue"))["output"]
+    assert out == {"recommendation": "manual_review", "score": 0.6}
 
 
 def test_TC04_verification_drafts_questions_from_hidden_evidence(service):
