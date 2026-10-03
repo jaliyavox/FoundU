@@ -3,6 +3,7 @@ using FoundU.Application.Auth.Dtos;
 using FoundU.Application.Email;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace FoundU.Api.Controllers;
@@ -27,6 +28,7 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("forgot-password")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.AccountEmail)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
     {
         await _emails.RequestPasswordResetAsync(request.Email, cancellationToken);
@@ -53,6 +55,7 @@ public class AuthController : ControllerBase
     /// <summary>Sends the confirmation link again, to the signed-in account's current address.</summary>
     [HttpPost("resend-confirmation")]
     [Authorize]
+    [EnableRateLimiting(RateLimitPolicies.AccountEmail)]
     public async Task<IActionResult> ResendConfirmation(CancellationToken cancellationToken)
     {
         var id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");

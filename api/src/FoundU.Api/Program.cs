@@ -1,5 +1,8 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using FoundU.Infrastructure.Persistence;
+using FoundU.Api;
 using FoundU.Api.Filters;
 using FoundU.Api.Middleware;
 using FoundU.Domain.Entities;
@@ -30,7 +33,8 @@ builder.Services.AddControllers(options =>
         // Runs FluentValidation against every request DTO before the action executes -
         // see /docs/api/conventions.md "Validation".
         options.Filters.Add<ValidationFilter>();
-    });
+    })
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new NoNullCharacterStringConverter()));
 
 builder.Services.AddEndpointsApiExplorer();
 
@@ -94,10 +98,50 @@ builder.Services.AddCors(options =>
         });
     });
 
+// Kestrel would otherwise name itself in a Server header on every response.
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
+
+// Endpoints that send an email are limited per caller address: without it, anyone could make
+// the API mail a stranger's inbox (and spend the Resend quota) as fast as they can post.
+// Sign-in needs no limit of its own - Identity locks an account after five wrong passwords.
+builder.Services.AddRateLimiter(options =>
+{
+    var perMinute = builder.Configuration.GetValue("RateLimiting:AccountEmailPerMinute", 5);
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(RateLimitPolicies.AccountEmail, context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            title = "Too many requests",
+            status = 429,
+            detail = "Please wait a minute before asking for another email.",
+        }, cancellationToken);
+    };
+});
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
+app.Use(NullCharacterGuard.RejectInQueryOrPath);
+
+// Baseline response headers. The API returns JSON only, so it is never framed, never
+// content-sniffed and sends no referrer; the photo endpoint is covered by the same rules.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers.XFrameOptions = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    // Swagger UI (development only) is a page with scripts; everything else is data.
+    if (!context.Request.Path.StartsWithSegments("/swagger"))
+        headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'";
+    await next();
+});
 
 // Behind a hosting proxy (Render) the request arrives as plain HTTP from the proxy. Trust its
 // forwarded headers so the API sees the caller's scheme and address - otherwise HTTPS
@@ -145,6 +189,7 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseHttpsRedirection();
 app.UseCors("ReactDev");
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
