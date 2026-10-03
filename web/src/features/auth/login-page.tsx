@@ -10,7 +10,25 @@ import { AuthLoading } from './auth-loading'
 import { useAuth } from './use-auth'
 import { ApiError } from '@/lib/api/client'
 import { canRoleOpen, homeRouteForRole } from '@/routes/role-home'
+import type { UserRole } from '@/lib/api/types'
 import { GoogleButton } from '@/features/account/google-button'
+
+type SignInState = {
+  from?: { pathname: string; search?: string; hash?: string }
+  askFoundU?: string
+} | null
+
+/** Where a fresh sign-in lands: back to Ask FoundU, back where the guard interrupted, or home. */
+function afterSignIn(role: UserRole, state: unknown): { to: string; state?: { askFoundU: string } } {
+  const { from, askFoundU } = (state as SignInState) ?? {}
+  // Someone who started typing in the Ask FoundU bubble arrives with their sentence
+  // still in hand, rather than having to write it again on the other side of a form.
+  if (askFoundU && role === 'Student') return { to: '/ask-foundu', state: { askFoundU } }
+  // Only back to where they were if their role can open it; a staff member following a
+  // student's link would otherwise land on Forbidden straight after signing in.
+  if (from && canRoleOpen(role, from.pathname)) return { to: `${from.pathname}${from.search ?? ''}${from.hash ?? ''}` }
+  return { to: homeRouteForRole(role) }
+}
 
 export function LoginPage() {
   const { user, isInitializing, login } = useAuth()
@@ -25,9 +43,12 @@ export function LoginPage() {
 
   if (isInitializing) return <AuthLoading />
 
-  // Already signed in - skip the form entirely.
+  // Already signed in - skip the form entirely. This also runs the moment login() stores the
+  // user, racing the navigate() in handleSubmit, so both must agree on where to go: before
+  // they did, the redirect to the role's home won and a question from Ask FoundU was lost.
   if (user) {
-    return <Navigate to={homeRouteForRole(user.role)} replace />
+    const next = afterSignIn(user.role, location.state)
+    return <Navigate to={next.to} state={next.state} replace />
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -37,25 +58,8 @@ export function LoginPage() {
 
     try {
       const signedIn = await login(email, password)
-
-      // Return them to wherever the guard interrupted, otherwise their role's home.
-      const from = (location.state as {
-        from?: { pathname: string; search?: string; hash?: string }
-      } | null)?.from
-      // Someone who started typing in the Ask FoundU bubble arrives with their sentence
-      // still in hand, rather than having to write it again on the other side of a form.
-      const asked = (location.state as { askFoundU?: string } | null)?.askFoundU
-      if (asked && signedIn.role === 'Student') {
-        navigate('/ask-foundu', { replace: true, state: { askFoundU: asked } })
-        return
-      }
-
-      // Only back to where they were if their role can open it; a staff member following a
-      // student's link would otherwise land on Forbidden straight after signing in.
-      const destination = from && canRoleOpen(signedIn.role, from.pathname)
-        ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
-        : homeRouteForRole(signedIn.role)
-      navigate(destination, { replace: true })
+      const next = afterSignIn(signedIn.role, location.state)
+      navigate(next.to, { replace: true, state: next.state })
     } catch (error) {
       if (error instanceof ApiError) {
         setFieldErrors(error.fieldErrors)
