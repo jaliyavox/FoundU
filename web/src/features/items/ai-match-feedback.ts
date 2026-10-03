@@ -7,7 +7,7 @@ export function canGenerateAiSuggestion(selectedReportId: string | null, aiPendi
 export function aiMatchSuccessMessage(result: GenerateMatchSuggestionResult) {
   if (!result.suggestion) return 'The Matching Agent did not create a suggestion.'
   const score = result.suggestion.matchScore ?? result.score
-  return `AI-assisted match suggestion created (score ${score.toFixed(2)}).`
+  return `AI-assisted match suggestion created (match score ${Math.round(score * 100)}%).`
 }
 
 export function aiMatchFailureMessage(status?: number) {

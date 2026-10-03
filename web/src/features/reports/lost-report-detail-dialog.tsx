@@ -190,9 +190,9 @@ export function LostReportDetailDialog({
                       </p>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Found on {formatDateTime(match.foundItem.foundAt)}</span>
-                        {match.matchScore && (
+                        {match.matchScore != null && (
                           <span className="font-medium text-primary">
-                            Match Score: {Math.round(match.matchScore * 100)}%
+                            Match score: {Math.round(match.matchScore * 100)}%
                           </span>
                         )}
                       </div>

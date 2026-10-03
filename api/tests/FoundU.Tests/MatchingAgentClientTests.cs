@@ -20,11 +20,13 @@ public sealed class MatchingAgentClientTests
         var client = CreateClient(handler);
 
         var result = await client.MatchReportsAsync(
-            new("lost-1", "Backpack", "Blue"),
-            new("found-1", "Laptop Bag", "Red"),
+            new("lost-1", "Backpack", "Blue", "Blue backpack", "library-id"),
+            new("found-1", "Laptop Bag", "Red", "Red laptop bag", "canteen-id"),
             "correlation-1");
 
         Assert.True(result.IsSuccess);
+        Assert.Contains("\"description\":\"Blue backpack\"", handler.RequestBody);
+        Assert.Contains("\"location\":\"library-id\"", handler.RequestBody);
         Assert.Equal(ServiceKey, handler.Request!.Headers.GetValues(AiServiceOptions.ServiceKeyHeaderName).Single());
         Assert.Contains("\"agent\":\"matching\"", handler.RequestBody);
         Assert.Contains("\"operation\":\"match_reports\"", handler.RequestBody);
