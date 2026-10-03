@@ -6,7 +6,9 @@ namespace FoundU.Application.Matching.Dtos;
 public record MatchingAgentReportSummary(
     [property: JsonPropertyName("report_id")] string ReportId,
     [property: JsonPropertyName("item_type")] string ItemType,
-    [property: JsonPropertyName("primary_color")] string PrimaryColor);
+    [property: JsonPropertyName("primary_color")] string PrimaryColor,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("location")] string? Location = null);
 
 /// <summary>Validated, non-authoritative comparison result returned by the Matching Agent.</summary>
 public record MatchingAgentRecommendation(string Recommendation, decimal Score, string AgentRunId);

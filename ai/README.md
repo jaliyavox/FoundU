@@ -143,19 +143,26 @@ deterministic match recommendation
 The shared registry is composed once during FastAPI lifespan and injected into the Matching graph
 node. Its immutable `ToolExecutionContext` is built only from graph-owned agent/run state. Matching
 executes `getLostReportDetails` and `getFoundReportDetails`; it compares only the returned public
-item type and primary colour, and emits a recommendation rather than creating a claim or writing a
+item type, primary colour, public description and campus location, and emits a recommendation rather than creating a claim or writing a
 match candidate.
 
 The lookup provider currently reads validated report context supplied with the AI request. It is
 local, deterministic, and read-only: it has no PostgreSQL connection and does not reproduce
 ASP.NET business rules. A future application-owned provider can replace it without changing tool
 contracts. Tool failures yield a bounded `manual_review` result; Matching never falls back to raw
-context or adapter calls after a registry failure. Report descriptions remain data and are not
-returned, scored, used for tool selection, or able to affect workflow authority. ASP.NET invokes
+context or adapter calls after a registry failure. Public descriptions are scored as token data, never
+returned in the result, used for tool selection, or able to affect workflow authority. ASP.NET invokes
 this agent through its authenticated service client when staff use **Generate AI Match Suggestion**
-from a found item's matching dialog. Only a validated `match_candidate` creates a suggestion;
+from a found item's matching dialog and for automatic found-post comparisons. Only a validated `match_candidate` creates a suggestion;
 `no_match`, `manual_review`, and service failure leave staff free to use the existing manual link.
 Matching cannot create claims or decide ownership.
+
+The deterministic score is 40% matching type + 20% matching colour + 25% public-description
+Jaccard token similarity + 15% matching location. Different normalized types force zero.
+Casefolding, punctuation removal and whitespace normalization precede comparison; description
+boilerplate is removed using a fixed stop-word list. Missing evidence earns zero without weight
+redistribution. Scores >=0.75 are candidates, >=0.50 and <0.75 require manual review, and lower
+scores are no_match. UI percentages are labelled "Match score", not ownership confidence.
 
 ## Structured execution plans (Phase 6)
 

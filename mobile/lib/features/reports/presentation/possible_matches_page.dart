@@ -150,7 +150,7 @@ class PossibleMatchesPage extends ConsumerWidget {
                                             size: 14, color: Colors.white),
                                         const SizedBox(width: 4),
                                         Text(
-                                          '$scorePercentage% MATCH',
+                                          'Match score $scorePercentage%',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 11,

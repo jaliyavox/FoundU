@@ -141,7 +141,7 @@ def test_matching_checkpoint_keeps_plan_and_registry_execution_boundary():
     )
     loaded_state = load_checkpointed_state(graph, state["agent_run_id"], AgentName.MATCHING)
 
-    assert loaded_state["output"] == {"recommendation": "match_candidate", "score": 1.0}
+    assert loaded_state["output"] == {"recommendation": "manual_review", "score": 0.6}
     assert [step.tool_name for step in loaded_state["plan"].steps if step.tool_name] == [
         "getLostReportDetails",
         "getFoundReportDetails",
