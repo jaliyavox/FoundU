@@ -15,11 +15,8 @@ class ApiException implements Exception {
   factory ApiException.fromDio(DioException error) {
     final data = error.response?.data;
     if (data is Map) {
-      final detail = data['detail'];
-      if (detail is String && detail.trim().isNotEmpty) {
-        return ApiException(detail, statusCode: error.response?.statusCode);
-      }
-
+      // Field errors first: a validation 400 also carries a generic detail ("One or more
+      // validation errors occurred."), which would otherwise hide the messages the form shows.
       final errors = data['errors'];
       if (errors is Map) {
         final messages = errors.values
@@ -41,6 +38,11 @@ class ApiException implements Exception {
             fieldErrors: byField,
           );
         }
+      }
+
+      final detail = data['detail'];
+      if (detail is String && detail.trim().isNotEmpty) {
+        return ApiException(detail, statusCode: error.response?.statusCode);
       }
 
       final title = data['title'];
