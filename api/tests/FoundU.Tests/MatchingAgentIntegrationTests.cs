@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FoundU.Application.Abstractions;
+using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Matching.Dtos;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
@@ -14,6 +15,36 @@ public sealed class MatchingAgentIntegrationTests
 {
     private const string Secret = "SECRET-OWNERSHIP-DETAIL-DO-NOT-LEAK";
     private const string StaffNote = "Staff observed matching straps.";
+
+    [Theory]
+    [InlineData(LostReportStatus.Withdrawn)]
+    [InlineData(LostReportStatus.Resolved)]
+    public async Task ClosedReportCannotReceiveManualOrAiSuggestion(LostReportStatus status)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        fixture.Lost.Status = status;
+        await fixture.Db.SaveChangesAsync();
+        var request = new CreateMatchSuggestionRequest(fixture.Lost.Id, fixture.Found.Id, null);
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Service.CreateAsync(request, fixture.Staff.Id));
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Service.GenerateWithAgentAsync(request, fixture.Staff.Id));
+        Assert.Empty(fixture.Db.MatchSuggestions);
+        Assert.Null(fixture.Agent.Lost);
+    }
+
+    [Fact]
+    public async Task ReportAwaitingApprovedCollectionCannotReceiveAnotherSuggestion()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        fixture.Lost.Status = LostReportStatus.Matched;
+        fixture.Db.Claims.Add(new Claim { LostReportId = fixture.Lost.Id, FoundReportId = fixture.Found.Id,
+            StudentId = fixture.Lost.StudentId, Status = ClaimStatus.Approved });
+        await fixture.Db.SaveChangesAsync();
+        var request = new CreateMatchSuggestionRequest(fixture.Lost.Id, fixture.Found.Id, null);
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Service.CreateAsync(request, fixture.Staff.Id));
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Service.GenerateWithAgentAsync(request, fixture.Staff.Id));
+        Assert.Empty(fixture.Db.MatchSuggestions);
+        Assert.Null(fixture.Agent.Lost);
+    }
 
     [Fact]
     public async Task Candidate_UsesSafeServerContextAndCreatesOnlyASuggestion()

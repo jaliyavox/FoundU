@@ -1,3 +1,4 @@
+import 'report_progress.dart';
 import 'package:flutter/material.dart';
 
 import '../../feed/presentation/message_thread.dart';
@@ -109,20 +110,6 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
     }
   }
 
-  int _getStageIndex(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 0; // Reported
-      case 'matched':
-        return 1; // Matched
-      case 'claimed':
-        return 2; // Claimed
-      case 'resolved':
-        return 3; // Handover / Resolved
-      default:
-        return 0;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +156,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
           final statusColor = _getStatusColor(report.status);
           final isActive = report.status.toLowerCase() == 'active';
           final isWithdrawn = report.status.toLowerCase() == 'withdrawn';
-          final stageIndex = _getStageIndex(report.status);
+          final stageIndex = reportProgressIndex(report.status, report.progressStage);
 
           return Stack(
             children: [
@@ -559,7 +546,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
   }
 
   Widget _buildStageTracker(int currentStage) {
-    final stages = ['Reported', 'Matched', 'Claimed', 'Resolved'];
+    const stages = reportProgressLabels;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,7 +586,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            for (final (index, label) in const ['Reported', 'Matched', 'Claimed', 'Resolved'].indexed)
+            for (final (index, label) in reportProgressLabels.indexed)
               Flexible(
                 child: Text(
                   label,

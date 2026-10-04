@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { type FoundReportDetail, confirmFoundPost, getItem, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
+import { type FoundReportDetail, confirmFoundPost, searchLostReports, getItem, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
 import { LinkReportDialog } from './link-report-dialog'
 
 /**
@@ -49,6 +49,13 @@ export function ItemDetailPage() {
     queryKey: ['item-suggestions', id],
     queryFn: () => getSuggestionsForItem(id),
     enabled: Boolean(item),
+  })
+
+  const eligible = useQuery({
+    queryKey: ['eligible-reports-for-item', id, suggestions?.length],
+    queryFn: () => searchLostReports(1, 1, undefined, item!, true),
+    enabled: Boolean(item),
+    refetchInterval: 5000,
   })
 
   if (isPending) {
@@ -174,10 +181,10 @@ export function ItemDetailPage() {
             </p>
           </div>
 
-          {(item.status === 'Unclaimed' || item.status === 'Posted') && (
+          {(item.status === 'Unclaimed' || item.status === 'Posted') && (!item.finderName || (eligible.data?.totalCount ?? 0) > 0) && (
             <Button variant="outline" onClick={() => setLinking(true)}>
               <LinkIcon aria-hidden="true" />
-              Suggest to a report
+              {item.finderName && (suggestions?.length ?? 0) > 0 ? 'Suggest to another report' : 'Suggest to a report'}
             </Button>
           )}
         </div>
@@ -195,6 +202,13 @@ export function ItemDetailPage() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm">{suggestion.lostReportDescription}</p>
+                  {suggestion.isAgentGenerated && suggestion.matchScore != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Possible match · {Math.round(suggestion.matchScore * 100)}% match score
+                    </p>
+                  )}
+                  {suggestion.note && <p className="text-xs text-muted-foreground">{suggestion.note}</p>}
+                  {suggestion.matchReason && <p className="text-xs text-muted-foreground">{suggestion.matchReason}</p>}
                   <p className="text-xs text-muted-foreground">
                     {suggestion.status === 'Confirmed'
                       ? 'They opened a claim'
@@ -306,6 +320,9 @@ function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['found-item', item.id] })
       queryClient.invalidateQueries({ queryKey: ['found-items'] })
+      queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
+      queryClient.invalidateQueries({ queryKey: ['match-suggestions'] })
+      queryClient.invalidateQueries({ queryKey: ['found-feed'] })
       toast.success('Confirmed. It is in storage and can be claimed now.')
     },
     onError: (error) => {

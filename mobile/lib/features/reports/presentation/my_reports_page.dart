@@ -1,3 +1,4 @@
+import 'report_progress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -417,20 +418,6 @@ class _ReportCard extends StatelessWidget {
     }
   }
 
-  int _getStageIndex(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 0; // Reported
-      case 'matched':
-        return 1; // Matched
-      case 'claimed':
-        return 2; // Claimed
-      case 'resolved':
-        return 3; // Handover / Resolved
-      default:
-        return 0;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +425,7 @@ class _ReportCard extends StatelessWidget {
     final statusColor = _getStatusColor(item.status);
     final isWithdrawn = item.status.toLowerCase() == 'withdrawn';
     final isActive = item.status.toLowerCase() == 'active';
-    final stageIndex = _getStageIndex(item.status);
+    final stageIndex = reportProgressIndex(item.status, item.progressStage);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -755,7 +742,7 @@ class _ReportCard extends StatelessWidget {
   }
 
   Widget _buildStageTracker(BuildContext context, int currentStage) {
-    final stages = ['Reported', 'Matched', 'Claimed', 'Resolved'];
+    const stages = reportProgressLabels;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

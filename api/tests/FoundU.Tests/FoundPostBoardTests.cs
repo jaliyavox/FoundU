@@ -21,6 +21,21 @@ namespace FoundU.Tests;
 public sealed class FoundPostBoardTests
 {
     [Fact]
+    public async Task FinderMessagesStopAtSecurityIntakeButHistoryRemainsReadable()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var post = await fixture.Posts.PostAsync(fixture.NewPost(), fixture.Finder.Id);
+        await fixture.Posts.SendMessageAsync(post.Id, fixture.Owner.Id, "Is it a bottle?", null);
+        var before = await fixture.Posts.GetFeedAsync(new FoundPostQuery(), fixture.Owner.Id);
+        Assert.True(before.Items.Single(p => p.Id == post.Id).CanMessageFinder);
+        await fixture.Posts.ConfirmAsync(post.Id, fixture.Staff.Id, new(fixture.Storage.Id, "Private initials underneath cap", null));
+        var after = await fixture.Posts.GetFeedAsync(new FoundPostQuery(), fixture.Owner.Id);
+        Assert.False(after.Items.Single(p => p.Id == post.Id).CanMessageFinder);
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Posts.SendMessageAsync(post.Id, fixture.Owner.Id, "I think it is mine", null));
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Posts.SendMessageAsync(post.Id, fixture.Finder.Id, "Reply", fixture.Owner.Id));
+        Assert.Single(await fixture.Posts.GetMessagesAsync(post.Id, fixture.Owner.Id, false));
+    }
+    [Fact]
     public async Task APostStaysOnTheBoardUntilTheOwnerCollectsIt()
     {
         await using var fixture = await Fixture.CreateAsync();

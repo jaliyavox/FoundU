@@ -38,6 +38,8 @@ public record MatchSuggestionDto(
     decimal? MatchScore,
     /// <summary>Set once the student has opened a claim from this suggestion.</summary>
     Guid? ClaimId,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    /// <summary>Reasons derived only from public comparison fields, never verification evidence.</summary>
+    string? MatchReason = null);
 
 public record DismissMatchSuggestionRequest(string? Reason);

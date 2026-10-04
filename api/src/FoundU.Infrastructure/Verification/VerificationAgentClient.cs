@@ -181,7 +181,12 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
         }
 
         return VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Success(
-            new(expectedClaimId, output.Recommendation!, response.AgentRunId!));
+            new(expectedClaimId, output.Recommendation!, response.AgentRunId!,
+                Math.Round(output.Evaluations!.Average(e => e.Score) * 100, 1),
+                output.Evaluations!.Where(e => e.Result == "match").Select(e => $"Question {e.QuestionId}: identifying evidence matched.").ToList(),
+                output.Evaluations!.Where(e => e.Result is "partial_match" or "insufficient").Select(e => $"Question {e.QuestionId}: more information required.").ToList(),
+                output.Evaluations!.Where(e => e.Result == "no_match").Select(e => $"Question {e.QuestionId}: evidence did not match.").ToList(),
+                "Comparison of the claimant's description with staff-held evidence. Staff must decide ownership."));
     }
 
     private static bool IsValidEnvelope(AiAgentResponse response)

@@ -219,6 +219,10 @@ public class LostReportService : ILostReportService
         return await _db.MatchSuggestions
             .AsNoTracking()
             .Where(m => m.LostReportId == reportId && m.Status != MatchSuggestionStatus.Dismissed)
+            .Where(m => m.LostReport.Status != LostReportStatus.Withdrawn && m.LostReport.Status != LostReportStatus.Resolved)
+            .Where(m => m.FoundReport.Status != FoundReportStatus.Disposed && m.FoundReport.Status != FoundReportStatus.Returned)
+            .Where(m => m.Status == MatchSuggestionStatus.Confirmed || m.FoundReport.Status != FoundReportStatus.Claimed)
+            .Where(m => m.Status == MatchSuggestionStatus.Confirmed || !m.LostReport.Claims.Any(c => c.Status == ClaimStatus.Approved))
             .OrderByDescending(m => m.CreatedAt)
             .Select(m => new MatchSuggestionDto(
                 m.Id,
@@ -232,7 +236,8 @@ public class LostReportService : ILostReportService
                     m.FoundReport.GeneralDescription,
                     m.FoundReport.PrimaryColor,
                     m.FoundReport.FoundAt,
-                    m.FoundReport.Status.ToString()),
+                    m.FoundReport.Status.ToString(),
+                    m.FoundReport.StorageLocation == null ? null : m.FoundReport.StorageLocation.Name),
                 m.Status.ToString(),
                 m.StaffNote,
                 m.GeneratedByAgentRunId != null,
@@ -242,7 +247,12 @@ public class LostReportService : ILostReportService
                     .OrderByDescending(c => c.CreatedAt)
                     .Select(c => (Guid?)c.Id)
                     .FirstOrDefault(),
-                m.CreatedAt))
+                m.CreatedAt,
+            m.GeneratedByAgentRunId == null ? null :
+                (m.LostReport.ItemTypeId == m.FoundReport.ItemTypeId ? "Same item type. " : "") +
+                (m.LostReport.PrimaryColor != null && m.FoundReport.PrimaryColor != null
+                    && m.LostReport.PrimaryColor.ToLower() == m.FoundReport.PrimaryColor.ToLower() ? "Same reported colour. " : "") +
+                "AI comparison suggests a possible match; staff must verify ownership."))
             .ToListAsync(cancellationToken);
     }
 
@@ -802,6 +812,9 @@ public class LostReportService : ILostReportService
         if (query.ItemTypeId is { } itemTypeId) reports = reports.Where(r => r.ItemTypeId == itemTypeId);
         if (query.LastSeenLocationId is { } locationId) reports = reports.Where(r => r.LastSeenLocationId == locationId);
         if (query.Flagged is { } flagged) reports = reports.Where(r => r.IsFlagged == flagged);
+        if (query.ExcludeSuggestedForFoundReportId is { } suggestedItem)
+            reports = reports.Where(r => !_db.MatchSuggestions.Any(m => m.LostReportId == r.Id && m.FoundReportId == suggestedItem)
+                && !_db.Claims.Any(c => c.LostReportId == r.Id && c.Status == ClaimStatus.Approved));
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -841,7 +854,12 @@ public class LostReportService : ILostReportService
                 r.FlagReason,
                 r.FlaggedAt,
                 r.FlaggedByUser == null ? null : r.FlaggedByUser.FullName,
-                r.CreatedAt))
+                r.CreatedAt,
+                r.Status == LostReportStatus.Resolved ? "Resolved" :
+                r.Status == LostReportStatus.Withdrawn ? "Reported" :
+                r.Claims.Any(c => c.Status != ClaimStatus.Rejected && c.Status != ClaimStatus.Cancelled) ? "ClaimSubmitted" :
+                r.MatchSuggestions.Any(m => m.Status == MatchSuggestionStatus.Suggested
+                    && (m.FoundReport.Status == FoundReportStatus.Posted || m.FoundReport.Status == FoundReportStatus.Unclaimed)) ? "PossibleMatch" : "Reported"))
             .ToListAsync(cancellationToken);
 
         return PagedResult<LostReportListItemDto>.Create(items, query.Page, query.PageSize, totalCount);
@@ -876,7 +894,12 @@ public class LostReportService : ILostReportService
                 r.IsFlagged,
                 r.FlagReason,
                 r.CreatedAt,
-                r.UpdatedAt))
+                r.UpdatedAt,
+                r.Status == LostReportStatus.Resolved ? "Resolved" :
+                r.Status == LostReportStatus.Withdrawn ? "Reported" :
+                r.Claims.Any(c => c.Status != ClaimStatus.Rejected && c.Status != ClaimStatus.Cancelled) ? "ClaimSubmitted" :
+                r.MatchSuggestions.Any(m => m.Status == MatchSuggestionStatus.Suggested
+                    && (m.FoundReport.Status == FoundReportStatus.Posted || m.FoundReport.Status == FoundReportStatus.Unclaimed)) ? "PossibleMatch" : "Reported"))
             .FirstOrDefaultAsync(cancellationToken);
 
         return report ?? throw new NotFoundAppException($"Lost report '{id}' was not found.");

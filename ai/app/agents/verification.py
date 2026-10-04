@@ -91,7 +91,7 @@ def _build_challenges(details: dict[str, str]) -> list[_InternalChallenge]:
     challenges: list[_InternalChallenge] = []
     used_templates: set[str] = set()
     for key in sorted(details):
-        template = _template_for_key(key) or GENERIC_QUESTION
+        template = _template_for_detail(details[key]) or _template_for_key(key) or GENERIC_QUESTION
         if template in used_templates:
             continue
         used_templates.add(template)
@@ -107,6 +107,25 @@ def _build_challenges(details: dict[str, str]) -> list[_InternalChallenge]:
         if len(challenges) == MAX_GENERATED_QUESTIONS:
             break
     return challenges
+
+
+def _template_for_detail(detail: str) -> str | None:
+    """Only fixed category/location prompts leave the service; never interpolate evidence."""
+    text = detail.lower()
+    if "cap" in text:
+        return "What identifying mark is underneath the bottle cap?"
+    if "sticker" in text and "back" in text:
+        return (
+            "Describe any identifying mark on the back of the item, "
+            "including its colour and location."
+        )
+    if "inside" in text or "lining" in text:
+        return "What identifying detail is visible on the inside?"
+    if "scratch" in text or "damage" in text or "crack" in text:
+        return "What distinctive mark or damage does the item have?"
+    if "initial" in text or "engraving" in text:
+        return "What identifying letters or markings does the item have, and where are they?"
+    return None
 
 
 def _safe_evidence_category(question: str) -> str:
@@ -126,7 +145,22 @@ def _question_leaks_hidden_evidence(question: str, expected_values: list[str]) -
         return True
 
     for expected_value in expected_values:
+        identifiers = re.findall(r"\b[\w-]*\d[\w-]*\b", expected_value)
+        if any(_normalize(code)[0] in normalized_question for code in identifiers):
+            return True
         normalized_expected, expected_tokens = _normalize(expected_value)
+        context = set(
+            "underneath under inside outside back front bottom top corner near item bottle cap "
+            "card mark markings identifying distinctive detail feature location letters numbers "
+            "initials "
+            "written handwritten ink sticker label colour color damage scratch engraving lining "
+            "accessory attached".split()
+        )
+        if any(
+            len(token) >= 3 and token not in context and token in question_tokens
+            for token in expected_tokens
+        ):
+            return True
         compact_expected = "".join(normalized_expected.split())
         if normalized_expected and normalized_expected in normalized_question:
             return True
@@ -136,6 +170,7 @@ def _question_leaks_hidden_evidence(question: str, expected_values: list[str]) -
         # tokens (for example, a color) are deliberately not treated as a leak heuristic.
         if any(
             len(token) >= 8 and token in question_tokens
+            and token not in {"underneath", "identifying", "location", "distinctive"}
             for token in expected_tokens
         ):
             return True
@@ -143,6 +178,8 @@ def _question_leaks_hidden_evidence(question: str, expected_values: list[str]) -
         # normalized string. Require two meaningful tokens to avoid treating a generic single
         # word (such as a color) as a secret disclosure on its own.
         meaningful_expected_tokens = {token for token in expected_tokens if len(token) >= 3}
+        for code in identifiers:
+            meaningful_expected_tokens.update(_normalize(code)[0].split())
         if len(meaningful_expected_tokens) >= 2 and meaningful_expected_tokens.issubset(
             question_tokens
         ):
@@ -272,6 +309,8 @@ def _evaluate_answer(
         return VerificationAnswerEvaluation(
             question_id=question_id, result="insufficient", score=0.0
         )
+    if re.search(r"ignore|system prompt|approve|instruction", answer, re.IGNORECASE):
+        return VerificationAnswerEvaluation(question_id=question_id, result="no_match", score=0.0)
     normalized_answer, answer_tokens = _normalize(answer)
     normalized_expected, expected_tokens = _normalize(expected)
     if not normalized_answer or not normalized_expected:
@@ -280,6 +319,20 @@ def _evaluate_answer(
         )
     if normalized_answer == normalized_expected:
         return VerificationAnswerEvaluation(question_id=question_id, result="match", score=1.0)
+
+    identifiers = re.findall(r"\b[\w-]*\d[\w-]*\b", expected)
+    if identifiers:
+        identifiers_match = all(_normalize(code)[0] in normalized_answer for code in identifiers)
+        location_match = any(word in answer_tokens for word in ("cap", "back", "inside", "bottom"))
+        score = 0.92 if identifiers_match and location_match else 0.65 if identifiers_match else 0.0
+        return VerificationAnswerEvaluation(
+            question_id=question_id,
+            result=(
+                "match" if score >= STRONG_MATCH_MIN_SCORE
+                else "partial_match" if score else "no_match"
+            ),
+            score=score,
+        )
 
     score = len(answer_tokens.intersection(expected_tokens)) / len(expected_tokens)
     # Listing every plausible word would otherwise cover the hidden detail by chance, so an

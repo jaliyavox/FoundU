@@ -50,8 +50,9 @@ public class MatchSuggestionsController : ControllerBase
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<PagedResult<MatchSuggestionDto>>> Mine(
         [FromQuery] PaginationQuery query,
+        [FromQuery] Guid? foundReportId,
         CancellationToken cancellationToken)
-        => Ok(await _suggestions.GetForStudentAsync(User.GetUserId(), query, cancellationToken));
+        => Ok(await _suggestions.GetForStudentAsync(User.GetUserId(), query, cancellationToken, foundReportId));
 
     /// <summary>Everyone suggested for one item, for the staff working it.</summary>
     [HttpGet("for-item/{foundReportId:guid}")]

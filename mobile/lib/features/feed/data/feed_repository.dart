@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -164,7 +165,7 @@ class FeedRepository {
   }
 }
 
-final feedRepositoryProvider = Provider<FeedRepository>((ref) => FeedRepository(ref.watch(apiClientProvider)));
+final feedRepositoryProvider = Provider<FeedRepository>((ref) { ref.watch(authSessionEpochProvider); return FeedRepository(ref.watch(apiClientProvider)); });
 
 /// Upload URLs are host-relative ("/uploads/..."), served by the API from its own wwwroot.
 String resolvePhotoUrl(String path) => path.startsWith('http') ? path : '${ApiConfig.baseUrl}$path';

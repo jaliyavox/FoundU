@@ -39,7 +39,9 @@ public record FoundPostFeedItemDto(
     string Status,
     string? HandInCode,
     DateTime? HandedToSecurityAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? StorageLocationName = null,
+    bool CanMessageFinder = true);
 
 /// <summary>
 /// The desk turning a post into a real record: where it is now, and the detail that was

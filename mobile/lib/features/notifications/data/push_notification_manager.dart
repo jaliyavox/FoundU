@@ -42,6 +42,10 @@ class PushNotificationManager {
   }
 
   Future<void> unregister() async {
+    await _tokenRefreshSubscription?.cancel();
+    _tokenRefreshSubscription = null;
+    await _tapSubscription?.cancel();
+    _tapSubscription = null;
     final token = _registeredToken;
     _registeredToken = null;
     if (token == null) return;

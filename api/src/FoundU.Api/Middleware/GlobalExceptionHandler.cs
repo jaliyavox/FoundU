@@ -29,6 +29,12 @@ public class GlobalExceptionHandler : IExceptionHandler
 
         // Two people acting on the same record at once lose the race at a unique index or a
         // concurrency check. That is a conflict to retry, not a server fault.
+        if (exception is DbUpdateException { InnerException: PostgresException
+            { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_MatchSuggestions_LostReportId_FoundReportId" } })
+        {
+            exception = new ConflictAppException("This item has already been suggested for that lost report.");
+        }
+
         if (exception is DbUpdateConcurrencyException
             || exception is DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } })
         {

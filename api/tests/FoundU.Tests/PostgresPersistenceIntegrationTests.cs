@@ -163,6 +163,23 @@ public sealed class PostgresPersistenceIntegrationTests
     }
 
     [PostgresFact]
+    public async Task ActiveClaimPairIsUniqueAcrossDatabaseContexts()
+    {
+        await using var first = PostgresTestDatabase.CreateContext();
+        await PostgresTestDatabase.MigrateAsync(first);
+        var seeded = await SeedClaimAsync(first);
+        await using var second = PostgresTestDatabase.CreateContext();
+        second.Claims.Add(new Claim
+        {
+            StudentId = seeded.Claim.StudentId,
+            LostReportId = seeded.Claim.LostReportId,
+            FoundReportId = seeded.Found.Id,
+            Status = ClaimStatus.Pending,
+        });
+        await Assert.ThrowsAsync<DbUpdateException>(() => second.SaveChangesAsync());
+    }
+
+    [PostgresFact]
     public async Task ConflictingClaimApprovalRollsBackDecisionAndNotificationWrites()
     {
         await using var db = PostgresTestDatabase.CreateContext();

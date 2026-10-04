@@ -44,7 +44,7 @@ public class MatchSuggestionService : IMatchSuggestionService
             .FirstOrDefaultAsync(r => r.Id == request.LostReportId, cancellationToken)
             ?? throw new NotFoundAppException($"Lost report '{request.LostReportId}' was not found.");
 
-        if (lostReport.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
+        if (lostReport.Status is not (LostReportStatus.Active or LostReportStatus.Matched))
         {
             throw new ConflictAppException("That report is closed - the student is no longer looking.");
         }
@@ -59,6 +59,8 @@ public class MatchSuggestionService : IMatchSuggestionService
             throw new ConflictAppException("That item has already been handed back.");
         }
 
+        EnsureEligibleForSuggestion(lostReport, foundReport);
+
         var existing = await _db.MatchSuggestions
             .FirstOrDefaultAsync(
                 m => m.LostReportId == request.LostReportId && m.FoundReportId == request.FoundReportId,
@@ -66,8 +68,10 @@ public class MatchSuggestionService : IMatchSuggestionService
 
         if (existing is not null)
         {
-            throw new ConflictAppException("This item is already suggested for that report.");
+            throw new ConflictAppException("This item has already been suggested for that lost report.");
         }
+
+        await EnsureNoApprovedClaimAsync(lostReport.Id, cancellationToken);
 
         var suggestion = new MatchSuggestion
         {
@@ -102,7 +106,7 @@ public class MatchSuggestionService : IMatchSuggestionService
         _notifications.Queue(
             lostReport.StudentId,
             NotificationType.PossibleMatchFound,
-            $"A {itemName.ToLowerInvariant()} has been handed in",
+            foundReport.Status == FoundReportStatus.Posted ? $"A possible match for your {itemName.ToLowerInvariant()}" : $"A {itemName.ToLowerInvariant()} has been handed in",
             "Staff think it might be the one you reported. Have a look and tell them whether it is yours.",
             nameof(MatchSuggestion),
             suggestion.Id);
@@ -134,8 +138,10 @@ public class MatchSuggestionService : IMatchSuggestionService
                     && suggestion.FoundReportId == request.FoundReportId,
                 cancellationToken))
         {
-            throw new ConflictAppException("This item is already suggested for that report.");
+            throw new ConflictAppException("This item has already been suggested for that lost report.");
         }
+
+        await EnsureNoApprovedClaimAsync(lostReport.Id, cancellationToken);
 
         // Only public descriptions and structured location IDs supplement type and colour.
         // Private verification evidence and arbitrary attribute JSON never enter this allowlist.
@@ -195,7 +201,7 @@ public class MatchSuggestionService : IMatchSuggestionService
         _notifications.Queue(
             lostReport.StudentId,
             NotificationType.PossibleMatchFound,
-            $"A {foundReport.ItemType.Name.ToLowerInvariant()} has been handed in",
+            foundReport.Status == FoundReportStatus.Posted ? $"A possible match for your {foundReport.ItemType.Name.ToLowerInvariant()}" : $"A {foundReport.ItemType.Name.ToLowerInvariant()} has been handed in",
             "A possible match was found. Have a look and tell staff whether it is yours.",
             nameof(MatchSuggestion),
             suggestion.Id);
@@ -210,7 +216,8 @@ public class MatchSuggestionService : IMatchSuggestionService
     public async Task<PagedResult<MatchSuggestionDto>> GetForStudentAsync(
         Guid studentId,
         PaginationQuery query,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? foundReportId = null)
     {
         // Dismissed suggestions drop off the student's list - they already said no. So does
         // anything that can no longer lead anywhere: a post the finder took down, an item
@@ -218,9 +225,11 @@ public class MatchSuggestionService : IMatchSuggestionService
         var suggestions = _db.MatchSuggestions
             .AsNoTracking()
             .Where(m => m.LostReport.StudentId == studentId && m.Status != MatchSuggestionStatus.Dismissed)
+            .Where(m => foundReportId == null || m.FoundReportId == foundReportId)
             .Where(m => m.LostReport.Status != LostReportStatus.Withdrawn && m.LostReport.Status != LostReportStatus.Resolved)
             .Where(m => m.FoundReport.Status != FoundReportStatus.Disposed && m.FoundReport.Status != FoundReportStatus.Returned)
             .Where(m => m.Status == MatchSuggestionStatus.Confirmed || m.FoundReport.Status != FoundReportStatus.Claimed)
+            .Where(m => m.Status == MatchSuggestionStatus.Confirmed || !m.LostReport.Claims.Any(c => c.Status == ClaimStatus.Approved))
             .OrderByDescending(m => m.CreatedAt);
 
         var totalCount = await suggestions.CountAsync(cancellationToken);
@@ -284,9 +293,17 @@ public class MatchSuggestionService : IMatchSuggestionService
 
     /* ------------------------------------------------------------------ internals */
 
+    private async Task EnsureNoApprovedClaimAsync(Guid lostReportId, CancellationToken cancellationToken)
+    {
+        if (await _db.Claims.AnyAsync(c => c.LostReportId == lostReportId && c.Status == ClaimStatus.Approved, cancellationToken))
+            throw new ConflictAppException("An item has already been approved for that lost report.");
+    }
+
     private static void EnsureEligibleForSuggestion(LostReport lostReport, FoundReport foundReport)
     {
-        if (lostReport.Status is LostReportStatus.Withdrawn or LostReportStatus.Resolved)
+        if (lostReport.ItemTypeId != foundReport.ItemTypeId || lostReport.CategoryId != foundReport.CategoryId)
+            throw new ConflictAppException("Only reports for the same item type and category are eligible.");
+        if (lostReport.Status is not (LostReportStatus.Active or LostReportStatus.Matched))
             throw new ConflictAppException("That report is closed - the student is no longer looking.");
         if (foundReport.Status is not (FoundReportStatus.Unclaimed or FoundReportStatus.Posted))
             throw new ConflictAppException("That item has already been handed back.");
@@ -349,7 +366,8 @@ public class MatchSuggestionService : IMatchSuggestionService
                 m.FoundReport.GeneralDescription,
                 m.FoundReport.PrimaryColor,
                 m.FoundReport.FoundAt,
-                m.FoundReport.Status.ToString()),
+                m.FoundReport.Status.ToString(),
+                m.FoundReport.StorageLocation == null ? null : m.FoundReport.StorageLocation.Name),
             m.Status.ToString(),
             m.StaffNote,
             m.GeneratedByAgentRunId != null,
@@ -359,5 +377,10 @@ public class MatchSuggestionService : IMatchSuggestionService
                 .OrderByDescending(c => c.CreatedAt)
                 .Select(c => (Guid?)c.Id)
                 .FirstOrDefault(),
-            m.CreatedAt);
+            m.CreatedAt,
+            m.GeneratedByAgentRunId == null ? null :
+                (m.LostReport.ItemTypeId == m.FoundReport.ItemTypeId ? "Same item type. " : "") +
+                (m.LostReport.PrimaryColor != null && m.FoundReport.PrimaryColor != null
+                    && m.LostReport.PrimaryColor.ToLower() == m.FoundReport.PrimaryColor.ToLower() ? "Same reported colour. " : "") +
+                "AI comparison suggests a possible match; staff must verify ownership.");
 }

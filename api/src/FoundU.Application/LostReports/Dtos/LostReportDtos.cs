@@ -63,7 +63,8 @@ public record LostReportListItemDto(
     DateTime? FlaggedAt,
     /// <summary>Display name only, and only on staff-reachable lists. Null when unflagged.</summary>
     string? FlaggedByName,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string ProgressStage = "Reported");
 
 public record LostReportDetailDto(
     Guid Id,
@@ -90,7 +91,8 @@ public record LostReportDetailDto(
     bool IsFlagged,
     string? FlagReason,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string ProgressStage = "Reported");
 
 public record WithdrawLostReportRequest(string? Reason);
 
@@ -125,6 +127,7 @@ public record LostReportFeedItemDto(
 
 public class LostReportQuery : PaginationQuery
 {
+    public Guid? ExcludeSuggestedForFoundReportId { get; set; }
     /// <summary>Filter by LostReportStatus name (Active, Matched, Resolved, Withdrawn).</summary>
     public string? Status { get; set; }
 

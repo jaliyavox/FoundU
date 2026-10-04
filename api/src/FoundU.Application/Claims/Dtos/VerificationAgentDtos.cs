@@ -20,7 +20,12 @@ public record GenerateVerificationQuestionsResult(
 public record EvaluateVerificationAnswersResult(
     Guid ClaimId,
     string Recommendation,
-    string AgentRunId);
+    string AgentRunId,
+    double? Score = null,
+    IReadOnlyList<string>? MatchedEvidence = null,
+    IReadOnlyList<string>? MissingInformation = null,
+    IReadOnlyList<string>? ConflictingInformation = null,
+    string? Rationale = null);
 
 /// <summary>
 /// A deliberately generic failure result. It is safe to persist in audit metadata and never
