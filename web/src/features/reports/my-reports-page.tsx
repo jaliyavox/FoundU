@@ -551,9 +551,12 @@ function FoundPostCard({
   )
 }
 
-/** Knob position per stage. The ends stop short of the edges so they stay dots on a track
- *  rather than caps on it. */
-const STAGE_OFFSET = ['3%', '35%', '67%', '97%']
+/** Knob position per stage. The ends sit one knob-radius (10px) in from each edge, so the
+ *  first and last knobs touch the ends of the track exactly, at any card width. */
+const STAGE_OFFSET = ['10px', '35%', '65%', 'calc(100% - 10px)']
+
+/** How much of the track is filled: all of it once the item is back with its owner. */
+const STAGE_FILL = ['10px', '35%', '65%', '100%']
 
 /** Which end the pill hangs from, so it never runs off a narrow card. */
 const PILL_ALIGN = ['left-0', '-translate-x-1/2', '-translate-x-1/2', 'right-0'] as const
@@ -750,7 +753,7 @@ function ReportCard({
               <>
                 <div
                   className="absolute inset-y-0 left-0 rounded-full bg-brand-green transition-[width] duration-700 ease-out"
-                  style={{ width: STAGE_OFFSET[stage] }}
+                  style={{ width: STAGE_FILL[stage] }}
                 />
 
                 {STAGE_OFFSET.map((offset, index) => (
@@ -805,7 +808,7 @@ function ReportCard({
                 {isWithdrawn ? 'Off the feed' : LIFECYCLE[3]}
               </p>
               <p className="text-xs text-muted-foreground">
-                {isWithdrawn ? 'Not being matched' : 'Next goal'}
+                {isWithdrawn ? 'Not being matched' : stage === 3 ? 'Reached' : 'Next goal'}
               </p>
             </div>
           </div>

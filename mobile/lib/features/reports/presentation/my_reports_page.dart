@@ -8,6 +8,7 @@ import 'providers/report_providers.dart';
 import '../../../core/theme/brand.dart';
 import '../../handover/presentation/handover_notice.dart';
 import '../../../core/widgets/pill_nav.dart';
+import 'report_stage_track.dart';
 
 class MyReportsPage extends ConsumerStatefulWidget {
   const MyReportsPage({super.key});
@@ -417,28 +418,13 @@ class _ReportCard extends StatelessWidget {
     }
   }
 
-  int _getStageIndex(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 0; // Reported
-      case 'matched':
-        return 1; // Matched
-      case 'claimed':
-        return 2; // Claimed
-      case 'resolved':
-        return 3; // Handover / Resolved
-      default:
-        return 0;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MMM d, h:mm a');
     final statusColor = _getStatusColor(item.status);
     final isWithdrawn = item.status.toLowerCase() == 'withdrawn';
     final isActive = item.status.toLowerCase() == 'active';
-    final stageIndex = _getStageIndex(item.status);
+    final stageIndex = reportStageOf(item.status, foundClaimCount: item.foundClaimCount, messageCount: item.messageCount);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -613,7 +599,7 @@ class _ReportCard extends StatelessWidget {
 
               // Visual Lifecycle Progress Track (matching Web UI stage track)
               if (!isWithdrawn) ...[
-                _buildStageTracker(context, stageIndex),
+                ReportStageTrack(stage: stageIndex, compact: true),
                 const SizedBox(height: 12),
               ],
 
@@ -754,71 +740,4 @@ class _ReportCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStageTracker(BuildContext context, int currentStage) {
-    final stages = ['Reported', 'Matched', 'Claimed', 'Resolved'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: List.generate(stages.length, (index) {
-            final isReached = index <= currentStage;
-            final isCurrent = index == currentStage;
-
-            return Expanded(
-              child: Row(
-                children: [
-                  // Dot indicator
-                  Container(
-                    width: isCurrent ? 12 : 8,
-                    height: isCurrent ? 12 : 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isReached
-                          ? const Color(0xFF2E7D32)
-                          : Colors.grey[300],
-                      border: isCurrent
-                          ? Border.all(color: const Color(0xFF1E5631), width: 2)
-                          : null,
-                    ),
-                  ),
-                  // Connecting line
-                  if (index < stages.length - 1)
-                    Expanded(
-                      child: Container(
-                        height: 2,
-                        color: index < currentStage
-                            ? const Color(0xFF2E7D32)
-                            : Colors.grey[300],
-                      ),
-                    ),
-                ],
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 4),
-        // Flexible labels: identical when there is room, and able to give way on a narrow
-        // phone or with a larger system text size instead of running off the card.
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            for (final (index, label) in stages.indexed)
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: currentStage >= index ? const Color(0xFF2E7D32) : Colors.grey,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
 }
