@@ -149,6 +149,7 @@ public static class DependencyInjection
         services.AddScoped<IFoundPostService, FoundPostService>();
         services.AddScoped<ILostReportService, LostReportService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<IAccountDeletionService, AccountDeletionService>();
         services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
         services.AddScoped<IClaimService, ClaimService>();
         services.AddScoped<IIntakeService, IntakeService>();

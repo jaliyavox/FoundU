@@ -158,5 +158,8 @@ export interface SupportQueueStats {
 
 export const getSupportStats = () => api.get<SupportQueueStats>('/api/admin/support/stats')
 
+/** Spam, duplicates, tickets opened by mistake. Admin only - the API refuses staff. */
+export const deleteTicket = (id: string) => api.delete<void>(`/api/admin/support/tickets/${id}`)
+
 export const updateTicket = (id: string, input: { status: TicketStatus; assignedToUserId?: string | null }) =>
   api.put<TicketDetail>(`/api/admin/support/tickets/${id}`, input)

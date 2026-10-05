@@ -41,4 +41,13 @@ public class AdminSupportController : ControllerBase
         [FromBody] UpdateSupportTicketRequest request,
         CancellationToken cancellationToken)
         => Ok(await _support.UpdateAsync(id, User.GetUserId(), request, cancellationToken));
+
+    /// <summary>Deletes a ticket - spam, a duplicate, or one opened by mistake. Admins only.</summary>
+    [HttpDelete("tickets/{id:guid}")]
+    [Authorize(Policy = PolicyNames.Admin)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await _support.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
 }

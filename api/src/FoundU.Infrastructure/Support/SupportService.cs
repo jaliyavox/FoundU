@@ -142,6 +142,17 @@ public class SupportService : ISupportService
         return await LoadDetailAsync(ticket.Id, userId, isStaff, cancellationToken);
     }
 
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _db.SupportTickets
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
+            ?? throw new NotFoundAppException($"Ticket '{id}' was not found.");
+
+        // FoundUDbContext turns this into a soft delete (SupportTicket is ISoftDeletable).
+        _db.SupportTickets.Remove(ticket);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<SupportTicketDetailDto> UpdateAsync(
         Guid id,
         Guid staffId,

@@ -50,6 +50,9 @@ export const suspendUser = (id: string, reason: string) =>
 
 export const reinstateUser = (id: string) => api.post<AdminUser>(`/api/admin/users/${id}/reinstate`)
 
+/** Closes their open work, erases their details and ends every session. Admin only. */
+export const deleteUser = (id: string) => api.delete<void>(`/api/admin/users/${id}`)
+
 /** How staff and admins are made: they register, then an admin changes their role here. */
 export const changeUserRole = (id: string, role: AdminUser['role']) =>
   api.put<AdminUser>(`/api/admin/users/${id}/role`, { role })
