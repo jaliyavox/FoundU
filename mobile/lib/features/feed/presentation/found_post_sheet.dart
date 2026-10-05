@@ -171,6 +171,12 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
   }
 }
 
+/// The student's open lost reports, for linking an item nobody has matched to them yet.
+final _activeReportsProvider = FutureProvider.autoDispose<PagedResult<LostReportListItemModel>>((ref) {
+  ref.watch(authSessionEpochProvider);
+  return ref.watch(reportRepositoryProvider).getMyReports(status: 'Active', pageSize: 50);
+});
+
 class _FoundItemMatchActions extends ConsumerStatefulWidget {
   const _FoundItemMatchActions({super.key, required this.post});
   final FoundPost post;
@@ -183,6 +189,8 @@ class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> 
   bool _busy = false;
   String? _claimId;
   String? _error;
+  String? _linked;
+  String? _reportId;
   final _dismissed = <String>{};
 
   Future<void> _answer(MatchSuggestionModel match, bool yes) async {
@@ -211,6 +219,95 @@ class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> 
     } finally {
       if (mounted && ref.read(authSessionEpochProvider) == epoch) setState(() => _busy = false);
     }
+  }
+
+  /// "This is mine" on one of their reports when no match exists yet: record the match, and if
+  /// the desk already has the item, open the claim on that match in the same step. Without this
+  /// an owner nobody had matched was sent to their reports, where the item never appeared.
+  Future<void> _link(LostReportListItemModel report) async {
+    if (_busy || _claimId != null) return;
+    final epoch = ref.read(authSessionEpochProvider);
+    setState(() { _busy = true; _error = null; _linked = null; });
+    try {
+      await ref.read(feedRepositoryProvider).recogniseFoundPost(widget.post.id, report.id);
+      if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
+      if (widget.post.isAtDesk) {
+        final matches = await ref.read(reportRepositoryProvider).getMatchesForFoundItem(widget.post.id);
+        final match = matches.where((m) => m.lostReportId == report.id).firstOrNull;
+        if (match != null) {
+          final claim = await ref.read(claimControllerProvider.notifier).create(CreateClaimRequest(
+              lostReportId: report.id, foundReportId: widget.post.id, matchSuggestionId: match.id));
+          if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
+          setState(() => _claimId = claim.id);
+          return;
+        }
+      }
+      setState(() => _linked =
+          'Linked to your report. ${widget.post.postedByName.split(' ').first} has been asked to hand it in - you can claim it once it reaches the desk.');
+      ref.invalidate(foundItemMatchesProvider(widget.post.id));
+      ref.invalidate(myReportsProvider);
+    } catch (error) {
+      if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
+      setState(() => _error = error is ApiException ? error.message : 'Unable to link it to your report. Please try again.');
+    } finally {
+      if (mounted && ref.read(authSessionEpochProvider) == epoch) setState(() => _busy = false);
+    }
+  }
+
+  /// The manual way, always offered: automatic matching only assists. The person picks the lost
+  /// report the item belongs to and confirms - as before matching suggestions existed.
+  Widget _manualClaim({required bool hasMatches}) {
+    final text = Theme.of(context).textTheme;
+    final reports = ref.watch(_activeReportsProvider);
+    if (_linked != null) return Text(_linked!);
+    return reports.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (_, stack) => Text('Could not load your reports.', style: text.bodySmall?.copyWith(color: Brand.danger)),
+      data: (page) {
+        final items = page.items;
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(hasMatches ? 'Or choose another of your reports' : 'Is this yours?', style: text.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            widget.post.isAtDesk
+                ? 'Pick the report it matches. This opens a claim - the desk asks something only the owner would know before handing it over.'
+                : 'Pick the report it matches. The finder is asked to hand it in; you can claim it once it reaches the desk.',
+            style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          if (items.isEmpty) ...[
+            Text('You have no open report to match it to.', style: text.bodySmall?.copyWith(color: Brand.muted)),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () {
+                final router = GoRouter.of(context);
+                Navigator.of(context).pop();
+                router.push('/reports/new');
+              },
+              child: const Text('Post one first'),
+            ),
+          ] else ...[
+            DropdownButtonFormField<String>(
+              initialValue: _reportId,
+              decoration: const InputDecoration(labelText: 'Your report'),
+              items: [
+                for (final r in items)
+                  DropdownMenuItem(value: r.id, child: Text('${r.itemTypeName} · ${r.lastSeenLocationName}', overflow: TextOverflow.ellipsis)),
+              ],
+              onChanged: _busy ? null : (id) => setState(() => _reportId = id),
+            ),
+            const SizedBox(height: 14),
+            InkButton(
+              label: 'That is mine',
+              busy: _busy,
+              onPressed: _reportId == null
+                  ? null
+                  : () => _link(items.firstWhere((r) => r.id == _reportId)),
+            ),
+          ],
+        ]);
+      },
+    );
   }
 
   Widget _viewClaim(String id) => InkButton(label: 'View claim', onPressed: () {
@@ -243,23 +340,16 @@ class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> 
         // classified them as strong candidates. Reapplying a client-side numeric threshold would
         // make the app disagree with future server scoring policies.
         final eligible = own.where((m) => m.status == 'Suggested').toList();
-        if (eligible.isEmpty) { return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_dismissed.isEmpty ? 'There is no eligible match to your lost reports for this item.' : 'This match was dismissed. Your lost report remains active.'),
-          const SizedBox(height: 12),
-          InkButton(label: 'View my lost reports', onPressed: () {
-            final router = GoRouter.of(context);
-            Navigator.of(context).pop(); router.push('/reports');
-          }),
-        ]); }
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-          if (!widget.post.isAtDesk) const Text('You can submit a claim after this item is handed to security.'),
+          if (_dismissed.isNotEmpty && eligible.isEmpty)
+            const Text('This match was dismissed. Your lost report remains active.'),
+          if (eligible.isNotEmpty && !widget.post.isAtDesk)
+            const Text('You can submit a claim after this item is handed to security.'),
           for (final match in eligible) ...[
-            if (eligible.length > 1) ...[
-              const SizedBox(height: 12),
-              Text('Your lost report: ${match.lostReportDescription}'),
-            ],
             const SizedBox(height: 12),
+            Text('Your lost report: ${match.lostReportDescription}'),
+            const SizedBox(height: 8),
             Text('Is this your item?', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             FilledButton(onPressed: _busy || !widget.post.isAtDesk ? null : () => _answer(match, true),
@@ -267,6 +357,8 @@ class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> 
             OutlinedButton(onPressed: _busy ? null : () => _answer(match, false),
               child: const Text('No, this is not mine')),
           ],
+          const SizedBox(height: 20),
+          _manualClaim(hasMatches: eligible.isNotEmpty),
         ]);
       },
     );

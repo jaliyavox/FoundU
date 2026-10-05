@@ -9,6 +9,8 @@ import 'package:foundu/features/feed/data/feed_repository.dart';
 import 'package:foundu/features/feed/presentation/found_feed_controller.dart';
 import 'package:foundu/features/feed/presentation/found_post_sheet.dart';
 import 'package:foundu/features/feed/presentation/message_thread.dart';
+import 'package:foundu/features/reports/data/report_models.dart';
+import 'package:foundu/features/reports/data/report_repository.dart';
 import 'package:foundu/features/reports/presentation/providers/report_providers.dart';
 
 void main() {
@@ -24,6 +26,7 @@ void main() {
         foundFeedControllerProvider.overrideWith(_EmptyFeed.new),
         feedRepositoryProvider.overrideWithValue(_Messages()),
         foundItemMatchesProvider('bottle').overrideWith((ref) async => []),
+        reportRepositoryProvider.overrideWithValue(_OneReport()),
       ], child: MaterialApp(home: Scaffold(body: Builder(builder: (context) => TextButton(
         onPressed: () => showFoundPostDetail(context, post), child: const Text('Open')))))));
       await tester.pumpAndSettle();
@@ -35,7 +38,10 @@ void main() {
       await tester.scrollUntilVisible(target, 250, scrollable: find.byType(Scrollable).last);
       expect(target, findsOneWidget);
       expect(find.byType(MessageThread), custody ? findsNothing : findsOneWidget);
-      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+      // Manual claiming is always offered: automatic matching only assists.
+      await tester.scrollUntilVisible(find.text('That is mine'), 250, scrollable: find.byType(Scrollable).last);
+      expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+      expect(find.text('That is mine'), findsOneWidget);
       if (custody) expect(find.textContaining('Ask Student'), findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
@@ -54,4 +60,15 @@ class _Messages extends FeedRepository {
   _Messages() : super(Dio());
   @override
   Future<List<ReportMessage>> getFoundPostMessages(String postId) async => [];
+}
+class _OneReport extends LostReportRepository {
+  _OneReport() : super(dio: Dio());
+  @override
+  Future<PagedResult<LostReportListItemModel>> getMyReports({String? status, int page = 1, int pageSize = 20}) async =>
+      PagedResult(items: [
+        LostReportListItemModel(
+          id: 'r1', categoryName: 'Other', itemTypeName: 'Water Bottle', lastSeenLocationName: 'Library',
+          description: 'Red bottle with a dent', estimatedLostFromAt: DateTime.utc(2026), estimatedLostToAt: DateTime.utc(2026),
+          status: 'Active', photoUrls: const [], messageCount: 0, foundClaimCount: 0, isFlagged: false, createdAt: DateTime.utc(2026)),
+      ], totalCount: 1, page: 1, pageSize: 20, totalPages: 1, hasPreviousPage: false, hasNextPage: false);
 }

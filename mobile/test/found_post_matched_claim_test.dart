@@ -22,7 +22,7 @@ void main() {
     await _open(tester, reports, claims);
     expect(find.text('Is this your item?'), findsOneWidget);
     expect(find.text('Open your matches to submit a claim'), findsNothing);
-    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    // The manual report picker stays available below the matches: matching only assists.
     await tester.tap(find.text('Yes, this is mine'));
     await tester.pump();
     expect(claims.calls, 1);
@@ -73,7 +73,6 @@ void main() {
     expect(find.text('Is this your item?'), findsNWidgets(2));
     expect(find.text('Your lost report: Red water bottle'), findsOneWidget);
     expect(find.text('Your lost report: Bottle with dent'), findsOneWidget);
-    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 

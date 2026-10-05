@@ -118,6 +118,10 @@ export type ClaimStatus =
 export const getMySuggestions = (page = 1, pageSize = 20) =>
   api.get<PagedResult<MatchSuggestion>>(`/api/match-suggestions/mine?page=${page}&pageSize=${pageSize}`)
 
+/** The signed-in student's own matches for one found item - what the item's panel offers to claim. */
+export const getMySuggestionsForItem = (foundReportId: string) =>
+  api.get<PagedResult<MatchSuggestion>>(`/api/match-suggestions/mine?page=1&pageSize=20&foundReportId=${foundReportId}`)
+
 export const getSuggestionsForItem = (foundReportId: string) =>
   api.get<MatchSuggestion[]>(`/api/match-suggestions/for-item/${foundReportId}`)
 

@@ -24,6 +24,7 @@ import { ItemIllustration } from './item-illustration'
 import { MessageThread } from './message-thread'
 import { CardConnector } from './card-connector'
 import { FoundSpotlight } from './found-spotlight'
+import { FoundPostOwnerActions } from './found-post-owner-actions'
 
 const PAGE_SIZE = 12
 
@@ -282,7 +283,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
                     making someone post a lost report before they can ask "does it have a
                     dent in the lid?" is a wall in front of the obvious first step. */}
                 <div>
-                  <p className="text-sm font-medium">{item.status === 'Unclaimed' ? `This item is now held at ${item.storageLocationName ?? 'the security desk'}. Submit a claim to verify ownership.` : 'Think it is yours?'}</p>
+                  <p className="text-sm font-medium">{item.status === 'Unclaimed' ? `This item is now held at ${item.storageLocationName ?? 'the security desk'}.` : 'Think it is yours?'}</p>
                   {item.status === 'Posted' && item.canMessageFinder !== false && <p className="text-xs text-neutral-500">
                     Ask {item.postedByName.split(' ')[0]} about it - a detail only the owner
                     would know is the quickest way to be sure. Nothing is claimed by asking.
@@ -291,9 +292,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
 
                 {item.status === 'Posted' && item.canMessageFinder !== false && <MessageThread reportId={item.id} isAuthor={false} source="found" tone="light" />}
 
-                <Link to="/my-reports" className="font-medium text-brand-forest underline underline-offset-4">
-                  Open your matches to submit a claim
-                </Link>
+                <FoundPostOwnerActions item={displayedItem ?? item} />
               </div>
             ) : (
               <p className="text-sm text-neutral-500">Staff can pull this post up at the desk by the finder's code.</p>
