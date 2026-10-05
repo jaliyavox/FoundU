@@ -16,6 +16,17 @@ public record GenerateMatchSuggestionResultDto(
     decimal Score,
     MatchSuggestionDto? Suggestion);
 
+/// <summary>A bounded, staff-only comparison awaiting a person's decision; not a student suggestion.</summary>
+public record MatchReviewCandidateDto(
+    Guid LostReportId,
+    string LostDescription,
+    string ItemTypeName,
+    string? PrimaryColor,
+    string LastSeenLocationName,
+    DateTime EstimatedLostFromAt,
+    decimal MatchScore,
+    string Explanation);
+
 /// <summary>
 /// A candidate as the student sees it on their own report.
 ///
@@ -38,6 +49,8 @@ public record MatchSuggestionDto(
     decimal? MatchScore,
     /// <summary>Set once the student has opened a claim from this suggestion.</summary>
     Guid? ClaimId,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    /// <summary>Reasons derived only from public comparison fields, never verification evidence.</summary>
+    string? MatchReason = null);
 
 public record DismissMatchSuggestionRequest(string? Reason);

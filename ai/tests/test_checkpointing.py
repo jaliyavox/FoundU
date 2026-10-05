@@ -141,7 +141,17 @@ def test_matching_checkpoint_keeps_plan_and_registry_execution_boundary():
     )
     loaded_state = load_checkpointed_state(graph, state["agent_run_id"], AgentName.MATCHING)
 
-    assert loaded_state["output"] == {"recommendation": "manual_review", "score": 0.6}
+    assert loaded_state["output"] == {
+        "recommendation": "manual_review",
+        "score": 0.2,
+        "matched_factors": ["Reported primary colour matched (20/20)."],
+        "missing_factors": [
+            "Comparable public identifying details are missing (0/35).",
+            "Structured location evidence is incomplete (0/20).",
+            "Reported time evidence is incomplete (0/25).",
+        ],
+        "conflicting_factors": [],
+    }
     assert [step.tool_name for step in loaded_state["plan"].steps if step.tool_name] == [
         "getLostReportDetails",
         "getFoundReportDetails",

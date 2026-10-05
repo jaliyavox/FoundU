@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -228,7 +229,7 @@ class SupportRepository {
 }
 
 final supportRepositoryProvider =
-    Provider<SupportRepository>((ref) => SupportRepository(ref.watch(apiClientProvider)));
+    Provider<SupportRepository>((ref) { ref.watch(authSessionEpochProvider); return SupportRepository(ref.watch(apiClientProvider)); });
 
 final myTicketsProvider = FutureProvider.autoDispose<List<TicketSummary>>(
   (ref) => ref.watch(supportRepositoryProvider).mine(),

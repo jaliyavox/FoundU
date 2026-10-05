@@ -23,12 +23,25 @@ namespace FoundU.Tests;
 public sealed class ClaimLifecycleTests
 {
     [Fact]
+    public async Task IncompatibleReportCannotBeUsedForAClaim()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var bottle = new ItemType { Name = "Water Bottle", CategoryId = fixture.Report.CategoryId };
+        fixture.Db.ItemTypes.Add(bottle);
+        fixture.ItemA.ItemType = bottle;
+        fixture.ItemA.ItemTypeId = bottle.Id;
+        await fixture.Db.SaveChangesAsync();
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Claims.CreateAsync(new(fixture.Report.Id, fixture.ItemA.Id), fixture.Owner.Id));
+        Assert.Empty(fixture.Db.Claims);
+    }
+    [Fact]
     public async Task ApprovingOneItemClosesTheOwnersOtherClaimsAndNoNewOnesCanOpen()
     {
         await using var fixture = await Fixture.CreateAsync();
         var first = await fixture.Claims.CreateAsync(new(fixture.Report.Id, fixture.ItemA.Id), fixture.Owner.Id);
         var second = await fixture.Claims.CreateAsync(new(fixture.Report.Id, fixture.ItemB.Id), fixture.Owner.Id);
 
+        await fixture.AnswerAsync(first.Id);
         await fixture.Claims.DecideAsync(first.Id, fixture.Staff.Id, new ClaimDecisionRequest("Approved", null));
 
         Assert.Equal(ClaimStatus.Cancelled, (await fixture.Db.Claims.SingleAsync(c => c.Id == second.Id)).Status);
@@ -57,6 +70,7 @@ public sealed class ClaimLifecycleTests
     {
         await using var fixture = await Fixture.CreateAsync();
         var claim = await fixture.Claims.CreateAsync(new(fixture.Report.Id, fixture.ItemA.Id), fixture.Owner.Id);
+        await fixture.AnswerAsync(claim.Id);
         await fixture.Claims.DecideAsync(claim.Id, fixture.Staff.Id, new ClaimDecisionRequest("Approved", null));
 
         await Assert.ThrowsAsync<ConflictAppException>(() =>
@@ -93,6 +107,7 @@ public sealed class ClaimLifecycleTests
 
         await using var fixture = await Fixture.CreateAsync();
         var claim = await fixture.Claims.CreateAsync(new(fixture.Report.Id, fixture.ItemA.Id), fixture.Owner.Id);
+        await fixture.AnswerAsync(claim.Id);
         await fixture.Claims.DecideAsync(claim.Id, fixture.Staff.Id, new ClaimDecisionRequest("Approved", null));
         var code = (await fixture.Db.Claims.SingleAsync(c => c.Id == claim.Id)).CollectionCode!;
 
@@ -221,6 +236,13 @@ public sealed class ClaimLifecycleTests
                 ItemB = itemB,
                 ItemC = itemC,
             };
+        }
+
+        public async Task AnswerAsync(Guid claimId)
+        {
+            var generated = await Claims.GenerateQuestionsAsync(claimId, Staff.Id);
+            await Claims.SubmitAnswersAsync(claimId, Owner.Id,
+                new SubmitClaimAnswersRequest(generated.Questions.Select(q => new ClaimAnswerInput(q.Id, "a name tag inside")).ToList()));
         }
 
         public ValueTask DisposeAsync() => Db.DisposeAsync();

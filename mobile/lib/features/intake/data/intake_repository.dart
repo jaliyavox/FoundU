@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -143,4 +144,4 @@ class IntakeRepository {
 }
 
 final intakeRepositoryProvider =
-    Provider<IntakeRepository>((ref) => IntakeRepository(ref.watch(apiClientProvider)));
+    Provider<IntakeRepository>((ref) { ref.watch(authSessionEpochProvider); return IntakeRepository(ref.watch(apiClientProvider)); });

@@ -28,16 +28,17 @@ import '../../features/reports/presentation/possible_matches_page.dart';
 import '../../features/reports/presentation/report_detail_page.dart';
 import '../../features/reports/presentation/report_form_page.dart';
 import '../auth/auth_controller.dart';
-
-final _rootKey = GlobalKey<NavigatorState>();
+import '../auth/auth_session.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  ref.watch(authSessionEpochProvider);
+  final rootKey = GlobalKey<NavigatorState>();
   final refresh = _RouterRefreshNotifier();
   ref.onDispose(refresh.dispose);
   ref.listen(authControllerProvider, (_, __) => refresh.notify());
 
   final router = GoRouter(
-    navigatorKey: _rootKey,
+    navigatorKey: rootKey,
     initialLocation: '/splash',
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -73,11 +74,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 // Ask FoundU hands a finder's draft over as `extra`; anywhere else opens it blank.
                 GoRoute(
                   path: 'found/new',
-                  parentNavigatorKey: _rootKey,
+                  parentNavigatorKey: rootKey,
                   builder: (_, state) => PostFoundPage(draft: state.extra is IntakeDraft ? state.extra as IntakeDraft : null),
                 ),
                 // The board behind the "Fresh finds" strip.
-                GoRoute(path: 'found', parentNavigatorKey: _rootKey, builder: (_, __) => const FoundBoardPage()),
+                GoRoute(path: 'found', parentNavigatorKey: rootKey, builder: (_, __) => const FoundBoardPage()),
               ],
             ),
           ]),
@@ -88,23 +89,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               routes: [
                 GoRoute(
                   path: 'new',
-                  parentNavigatorKey: _rootKey,
+                  parentNavigatorKey: rootKey,
                   // Ask FoundU hands its draft over as `extra`; anywhere else opens it blank.
                   builder: (_, state) => ReportFormPage(draft: state.extra is IntakeDraft ? state.extra as IntakeDraft : null),
                 ),
                 GoRoute(
                   path: ':id',
-                  parentNavigatorKey: _rootKey,
+                  parentNavigatorKey: rootKey,
                   builder: (_, state) => LostReportDetailPage(reportId: state.pathParameters['id']!),
                   routes: [
                     GoRoute(
                       path: 'edit',
-                      parentNavigatorKey: _rootKey,
+                      parentNavigatorKey: rootKey,
                       builder: (_, state) => ReportFormPage(reportId: state.pathParameters['id']!),
                     ),
                     GoRoute(
                       path: 'matches',
-                      parentNavigatorKey: _rootKey,
+                      parentNavigatorKey: rootKey,
                       builder: (_, state) => PossibleMatchesPage(reportId: state.pathParameters['id']!),
                     ),
                   ],
@@ -119,12 +120,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               routes: [
                 GoRoute(
                   path: 'new',
-                  parentNavigatorKey: _rootKey,
+                  parentNavigatorKey: rootKey,
                   builder: (_, state) => claimSubmissionRoutePage(state.uri),
                 ),
                 GoRoute(
                   path: ':id',
-                  parentNavigatorKey: _rootKey,
+                  parentNavigatorKey: rootKey,
                   builder: (_, state) => ClaimDetailPage(claimId: state.pathParameters['id']!),
                 ),
               ],
@@ -135,22 +136,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               path: '/profile',
               builder: (_, __) => const ProfilePage(),
               routes: [
-                GoRoute(path: 'help-to-find', parentNavigatorKey: _rootKey, builder: (_, __) => const HelpToFindPage()),
-                GoRoute(path: 'account', parentNavigatorKey: _rootKey, builder: (_, __) => const AccountPage()),
+                GoRoute(path: 'help-to-find', parentNavigatorKey: rootKey, builder: (_, __) => const HelpToFindPage()),
+                GoRoute(path: 'account', parentNavigatorKey: rootKey, builder: (_, __) => const AccountPage()),
                 GoRoute(
                   path: 'support',
-                  parentNavigatorKey: _rootKey,
+                  parentNavigatorKey: rootKey,
                   builder: (_, __) => const SupportPage(),
                   routes: [
                     // Before ':ticketId', or "assistant" would be read as a ticket id.
                     GoRoute(
                       path: 'assistant',
-                      parentNavigatorKey: _rootKey,
+                      parentNavigatorKey: rootKey,
                       builder: (_, __) => const SupportAssistantPage(),
                     ),
                     GoRoute(
                       path: ':ticketId',
-                      parentNavigatorKey: _rootKey,
+                      parentNavigatorKey: rootKey,
                       builder: (_, state) => TicketPage(ticketId: state.pathParameters['ticketId']!),
                     ),
                   ],
@@ -167,6 +168,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     if (ref.read(authControllerProvider).value != null) router.go(intent.route);
   });
   ref.onDispose(subscription.cancel);
+  ref.onDispose(router.dispose);
   return router;
 });
 

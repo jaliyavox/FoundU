@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundu/features/reports/presentation/report_stage_track.dart';
+import 'package:foundu/features/reports/presentation/report_progress.dart';
 
 void main() {
-  test('stages follow the same data as the web', () {
-    expect(reportStageOf('Active'), 0);
-    expect(reportStageOf('Active', foundClaimCount: 1), 1);
-    expect(reportStageOf('Active', messageCount: 2), 1);
-    expect(reportStageOf('Matched'), 2);
-    expect(reportStageOf('Resolved'), 3);
+  test('stage labels describe suggestion and claim progress', () {
+    expect(reportProgressLabels, ['Reported', 'Possible Match', 'Claim Submitted', 'Back with Owner']);
   });
 
   testWidgets('every dot sits over its own label, the last one at the end of the bar', (tester) async {
@@ -22,7 +19,7 @@ void main() {
         .toList();
     expect(dots, hasLength(4));
 
-    for (final label in reportStages) {
+    for (final label in reportProgressLabels) {
       final labelCentre = tester.getCenter(find.text(label)).dx;
       final dotCentres = find
           .byWidgetPredicate((w) =>
@@ -32,8 +29,8 @@ void main() {
       expect(dotCentres.any((x) => (x - labelCentre).abs() < 1), isTrue, reason: '$label has no dot above it');
     }
 
-    // The Returned dot is in the last quarter, not at 75%.
-    final returned = tester.getCenter(find.text('Returned')).dx;
+    // The final dot is in the last quarter, not at 75%.
+    final returned = tester.getCenter(find.text('Back with Owner')).dx;
     expect(returned, greaterThan(360 * 0.75));
   });
 }

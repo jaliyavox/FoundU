@@ -55,6 +55,7 @@ __pycache__/
 ai/.venv/
 ai/venv/
 .pytest_cache/
+.pytest_cache*/
 .ruff_cache/
 *.egg-info/
 

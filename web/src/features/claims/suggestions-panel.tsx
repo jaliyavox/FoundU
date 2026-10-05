@@ -21,6 +21,7 @@ export function SuggestionsPanel() {
   const { data } = useQuery({
     queryKey: ['my-suggestions'],
     queryFn: () => getMySuggestions(),
+    refetchInterval: 30_000,
   })
 
   const open = data?.items ?? []
@@ -61,7 +62,7 @@ function SuggestionRow({ suggestion }: { suggestion: MatchSuggestion }) {
   const item = suggestion.foundItem
 
   const claim = useMutation({
-    mutationFn: () => createClaim(suggestion.lostReportId, item.id),
+    mutationFn: () => createClaim(suggestion.lostReportId, item.id, suggestion.id),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['my-suggestions'] })
       queryClient.invalidateQueries({ queryKey: ['my-lost-reports'] })
@@ -98,7 +99,8 @@ function SuggestionRow({ suggestion }: { suggestion: MatchSuggestion }) {
           <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <MapPinIcon className="size-3.5 text-brand-green" aria-hidden="true" />
-              {item.status === 'Posted' ? 'Found at' : 'Handed in at'} {item.foundLocationName}
+              Found at {item.foundLocationName}
+              {item.storageLocationName && ` · At security: ${item.storageLocationName}`}
             </span>
             <span className="flex items-center gap-1.5">
               <ClockIcon className="size-3.5 text-brand-green" aria-hidden="true" />
@@ -140,7 +142,7 @@ function SuggestionRow({ suggestion }: { suggestion: MatchSuggestion }) {
         // Offering "This is mine" here only ever ended in an error.
         <div className="flex flex-wrap items-center gap-3">
           <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
-            The finder still has it. Once they hand it in at a desk you can claim it here - we will let you know.
+            The finder still has this item. You can claim it after it is handed to security.
           </p>
           <Button variant="ghost" onClick={() => setConfirmingDismiss(true)} disabled={isBusy}>
             <XIcon aria-hidden="true" />
@@ -155,11 +157,11 @@ function SuggestionRow({ suggestion }: { suggestion: MatchSuggestion }) {
             disabled={isBusy}
           >
             {claim.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
-            This is mine
+            Yes, submit a claim
           </Button>
           <Button variant="ghost" onClick={() => setConfirmingDismiss(true)} disabled={isBusy}>
             <XIcon aria-hidden="true" />
-            Not mine
+            No, this is not mine
           </Button>
         </div>
       )}

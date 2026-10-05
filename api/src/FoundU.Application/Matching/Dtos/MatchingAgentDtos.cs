@@ -6,12 +6,20 @@ namespace FoundU.Application.Matching.Dtos;
 public record MatchingAgentReportSummary(
     [property: JsonPropertyName("report_id")] string ReportId,
     [property: JsonPropertyName("item_type")] string ItemType,
-    [property: JsonPropertyName("primary_color")] string PrimaryColor,
+    [property: JsonPropertyName("primary_color")] string? PrimaryColor,
     [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("location")] string? Location = null);
+    [property: JsonPropertyName("location")] string? Location = null,
+    [property: JsonPropertyName("event_start_at")] DateTime? EventStartAt = null,
+    [property: JsonPropertyName("event_end_at")] DateTime? EventEndAt = null);
 
 /// <summary>Validated, non-authoritative comparison result returned by the Matching Agent.</summary>
-public record MatchingAgentRecommendation(string Recommendation, decimal Score, string AgentRunId);
+public record MatchingAgentRecommendation(
+    string Recommendation,
+    decimal Score,
+    string AgentRunId,
+    IReadOnlyList<string>? MatchedFactors = null,
+    IReadOnlyList<string>? MissingFactors = null,
+    IReadOnlyList<string>? ConflictingFactors = null);
 
 /// <summary>
 /// A generic, safe client failure. It never carries a raw FastAPI response, request payload, or

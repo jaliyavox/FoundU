@@ -21,6 +21,21 @@ namespace FoundU.Tests;
 public sealed class FoundPostBoardTests
 {
     [Fact]
+    public async Task FinderMessagesStopAtSecurityIntakeButHistoryRemainsReadable()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var post = await fixture.Posts.PostAsync(fixture.NewPost(), fixture.Finder.Id);
+        await fixture.Posts.SendMessageAsync(post.Id, fixture.Owner.Id, "Is it a bottle?", null);
+        var before = await fixture.Posts.GetFeedAsync(new FoundPostQuery(), fixture.Owner.Id);
+        Assert.True(before.Items.Single(p => p.Id == post.Id).CanMessageFinder);
+        await fixture.Posts.ConfirmAsync(post.Id, fixture.Staff.Id, new(fixture.Storage.Id, "Private initials underneath cap", null));
+        var after = await fixture.Posts.GetFeedAsync(new FoundPostQuery(), fixture.Owner.Id);
+        Assert.False(after.Items.Single(p => p.Id == post.Id).CanMessageFinder);
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Posts.SendMessageAsync(post.Id, fixture.Owner.Id, "I think it is mine", null));
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Posts.SendMessageAsync(post.Id, fixture.Finder.Id, "Reply", fixture.Owner.Id));
+        Assert.Single(await fixture.Posts.GetMessagesAsync(post.Id, fixture.Owner.Id, false));
+    }
+    [Fact]
     public async Task APostStaysOnTheBoardUntilTheOwnerCollectsIt()
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -75,6 +90,36 @@ public sealed class FoundPostBoardTests
         Assert.Contains("already proved", error.Message);
     }
 
+    [Fact]
+    public async Task StudentFoundPostUsesTheSameAutomaticSuggestionBoundary()
+    {
+        var agent = new CandidateAgent();
+        await using var fixture = await Fixture.CreateAsync(agent);
+
+        var request = fixture.NewPost();
+        var post = await fixture.Posts.PostAsync(request, fixture.Finder.Id);
+
+        var suggestion = await fixture.Db.MatchSuggestions.SingleAsync(m => m.FoundReportId == post.Id);
+        Assert.Equal(0.65m, suggestion.MatchScore);
+        Assert.NotNull(suggestion.GeneratedByAgentRunId);
+        Assert.Equal(fixture.Report.EstimatedLostFromAt, agent.Lost!.EventStartAt);
+        Assert.Equal(DateTime.SpecifyKind(request.FoundAt, DateTimeKind.Utc), agent.Found!.EventStartAt);
+        Assert.DoesNotContain("PrivateVerification", System.Text.Json.JsonSerializer.Serialize(new { agent.Lost, agent.Found }), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StudentFoundPostReviewResultWaitsForStaffWithoutStudentSuggestion()
+    {
+        await using var fixture = await Fixture.CreateAsync(new ReviewAgent());
+        var post = await fixture.Posts.PostAsync(fixture.NewPost(), fixture.Finder.Id);
+        Assert.Empty(fixture.Db.MatchSuggestions);
+        var reviews = new MatchSuggestionService(fixture.Db, new NotificationService(fixture.Db), new NoAgent());
+        var review = Assert.Single(await reviews.GetReviewCandidatesForFoundReportAsync(post.Id));
+        Assert.Equal(fixture.Report.Id, review.LostReportId);
+        Assert.Equal(0.65m, review.MatchScore);
+        Assert.Empty((await reviews.GetForStudentAsync(fixture.Owner.Id, new())).Items);
+    }
+
     private static async Task<string?> StatusOnBoard(Fixture fixture, Guid id)
         => (await fixture.Posts.GetFeedAsync(new FoundPostQuery { PageSize = 50 }, null)).Items.FirstOrDefault(p => p.Id == id)?.Status;
 
@@ -103,7 +148,7 @@ public sealed class FoundPostBoardTests
         public CreateFoundPostRequest NewPost() =>
             new(Category.Id, Bottle.Id, Library.Id, "Blue bottle by the stairs", "Blue", DateTime.UtcNow.AddMinutes(-30), null);
 
-        public static async Task<Fixture> CreateAsync()
+        public static async Task<Fixture> CreateAsync(IMatchingAgentClient? matchingAgent = null)
         {
             var db = new FoundUDbContext(new DbContextOptionsBuilder<FoundUDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
@@ -128,7 +173,7 @@ public sealed class FoundPostBoardTests
             await db.SaveChangesAsync();
 
             var notifications = new NotificationService(db);
-            var suggestions = new MatchSuggestionService(db, notifications, new NoAgent());
+            var suggestions = new MatchSuggestionService(db, notifications, matchingAgent ?? new NoAgent());
             f.Posts = new FoundPostService(db, suggestions, new FoundReportService(db, suggestions), notifications,
                 new HonorService(db), NullLogger<FoundPostService>.Instance);
             return f;
@@ -143,5 +188,34 @@ public sealed class FoundPostBoardTests
             MatchingAgentReportSummary lostReport, MatchingAgentReportSummary foundReport, string correlationId,
             CancellationToken cancellationToken = default)
             => Task.FromResult(MatchingAgentCallResult<MatchingAgentRecommendation>.Failure("Not configured."));
+    }
+
+    private sealed class CandidateAgent : IMatchingAgentClient
+    {
+        public MatchingAgentReportSummary? Lost { get; private set; }
+        public MatchingAgentReportSummary? Found { get; private set; }
+
+        public Task<MatchingAgentCallResult<MatchingAgentRecommendation>> MatchReportsAsync(
+            MatchingAgentReportSummary lostReport, MatchingAgentReportSummary foundReport, string correlationId,
+            CancellationToken cancellationToken = default)
+        {
+            Lost = lostReport;
+            Found = foundReport;
+            return Task.FromResult(MatchingAgentCallResult<MatchingAgentRecommendation>.Success(
+                new("match_candidate", 0.65m, "found-post-match",
+                    ["Public identifying details matched (20/35).", "Reported times are in a strongly plausible sequence (25/25)."],
+                    [], [])));
+        }
+    }
+
+    private sealed class ReviewAgent : IMatchingAgentClient
+    {
+        public Task<MatchingAgentCallResult<MatchingAgentRecommendation>> MatchReportsAsync(
+            MatchingAgentReportSummary lostReport, MatchingAgentReportSummary foundReport, string correlationId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(MatchingAgentCallResult<MatchingAgentRecommendation>.Success(
+                new("manual_review", 0.65m, "found-post-review",
+                    ["Reported primary colour matched (20/20)."],
+                    ["Public descriptions share no identifying detail (0/35)."], [])));
     }
 }
