@@ -15,18 +15,20 @@ public sealed class MatchingAgentClientTests
     public async Task MatchReports_SendsOnlySafeContextAndAuthenticatedHeader()
     {
         var handler = new CapturingHandler(JsonResponse("""
-            {"agent_run_id":"match-run-1","agent":"matching","status":"completed","output":{"recommendation":"match_candidate","score":1.0}}
+            {"agent_run_id":"match-run-1","agent":"matching","status":"completed","output":{"recommendation":"match_candidate","score":1.0,"matched_factors":["Public identifying details matched (35/35)."],"missing_factors":[],"conflicting_factors":[]}}
             """));
         var client = CreateClient(handler);
 
         var result = await client.MatchReportsAsync(
-            new("lost-1", "Backpack", "Blue", "Blue backpack", "library-id"),
-            new("found-1", "Laptop Bag", "Red", "Red laptop bag", "canteen-id"),
+            new("lost-1", "Backpack", "Blue", "Blue backpack", "library-id", new DateTime(2026, 10, 5, 10, 0, 0, DateTimeKind.Utc), new DateTime(2026, 10, 5, 11, 0, 0, DateTimeKind.Utc)),
+            new("found-1", "Laptop Bag", "Red", "Red laptop bag", "canteen-id", new DateTime(2026, 10, 5, 12, 0, 0, DateTimeKind.Utc), new DateTime(2026, 10, 5, 12, 0, 0, DateTimeKind.Utc)),
             "correlation-1");
 
         Assert.True(result.IsSuccess);
         Assert.Contains("\"description\":\"Blue backpack\"", handler.RequestBody);
         Assert.Contains("\"location\":\"library-id\"", handler.RequestBody);
+        Assert.Contains("\"event_start_at\":\"2026-10-05T10:00:00Z\"", handler.RequestBody);
+        Assert.Contains("\"event_end_at\":\"2026-10-05T11:00:00Z\"", handler.RequestBody);
         Assert.Equal(ServiceKey, handler.Request!.Headers.GetValues(AiServiceOptions.ServiceKeyHeaderName).Single());
         Assert.Contains("\"agent\":\"matching\"", handler.RequestBody);
         Assert.Contains("\"operation\":\"match_reports\"", handler.RequestBody);
@@ -41,6 +43,7 @@ public sealed class MatchingAgentClientTests
         Assert.DoesNotContain("\"primaryColor\"", handler.RequestBody);
         Assert.DoesNotContain("PrivateVerificationDetails", handler.RequestBody, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SECRET-OWNERSHIP-DETAIL-DO-NOT-LEAK", handler.RequestBody);
+        Assert.Equal("Public identifying details matched (35/35).", result.Value!.MatchedFactors!.Single());
     }
 
     [Theory]
@@ -76,7 +79,7 @@ public sealed class MatchingAgentClientTests
     {
         var handler = new SequenceHandler(
             new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
-            JsonResponse("{\"agent_run_id\":\"run\",\"agent\":\"matching\",\"status\":\"completed\",\"output\":{\"recommendation\":\"match_candidate\",\"score\":1}}"));
+            JsonResponse("{\"agent_run_id\":\"run\",\"agent\":\"matching\",\"status\":\"completed\",\"output\":{\"recommendation\":\"match_candidate\",\"score\":1,\"matched_factors\":[\"details matched\"],\"missing_factors\":[],\"conflicting_factors\":[]}}"));
 
         var result = await CreateClient(handler).MatchReportsAsync(
             new("lost-1", "Backpack", "Blue"), new("found-1", "Backpack", "Blue"), "correlation-stable");

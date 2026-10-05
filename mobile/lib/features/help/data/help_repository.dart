@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,7 +21,7 @@ class HelpRepository {
   }
 }
 
-final helpRepositoryProvider = Provider<HelpRepository>((ref) => HelpRepository(ref.watch(apiClientProvider)));
+final helpRepositoryProvider = Provider<HelpRepository>((ref) { ref.watch(authSessionEpochProvider); return HelpRepository(ref.watch(apiClientProvider)); });
 
 /// Refetched whenever the screen is opened - points change when other people act.
 final helpToFindProvider = FutureProvider.autoDispose<HelpToFind>(

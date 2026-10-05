@@ -12,7 +12,7 @@ public class MatchSuggestion : BaseEntity
     public Guid FoundReportId { get; set; }
     public FoundReport FoundReport { get; set; } = default!;
 
-    /// <summary>0.00 - 1.00 confidence score produced by the Matching Agent.</summary>
+    /// <summary>0.00 - 1.00 public-field similarity score; it is not an ownership probability.</summary>
     public decimal MatchScore { get; set; }
 
     /// <summary>

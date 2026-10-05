@@ -29,6 +29,8 @@ import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import {
   addQuestions,
+  requestFollowUp,
+  draftFollowUp,
   cancelClaim,
   claimView,
   decideClaim,
@@ -60,6 +62,7 @@ export function ClaimDetailPage() {
   const { data: claim, isPending, isError, error, refetch } = useQuery({
     queryKey: ['claim', id],
     queryFn: () => getClaim(id),
+    refetchInterval: 5000,
   })
 
   if (isPending) {
@@ -158,6 +161,11 @@ export function ClaimDetailPage() {
       )}
 
       <ItemPanel claim={claim} />
+
+      {isStaff && (claim.additionalEvidenceForStaff?.length ?? 0) > 0 && <DashboardPanel>
+        <h2>Additional physical evidence — staff only</h2>
+        {claim.additionalEvidenceForStaff?.map(e => <div key={e.id}><p>{e.detail}</p><p className="text-xs text-muted-foreground">Recorded by {e.recordedByUserId} at {formatDateTime(e.recordedAt)}</p></div>)}
+      </DashboardPanel>}
 
       {/* What the answers are judged against. Staff only - the API never sends it to the owner. */}
       {isStaff && (
@@ -344,7 +352,7 @@ function QuestionsPanel({ claim, isStaff }: { claim: ClaimDetail; isStaff: boole
     mutationFn: () =>
       submitAnswers(
         claim.id,
-        claim.questions.map((q) => ({ questionId: q.id, answerText: drafts[q.id]?.trim() ?? '' })),
+        claim.questions.filter((q) => q.answerText === null).map((q) => ({ questionId: q.id, answerText: drafts[q.id]?.trim() ?? '' })),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claim', claim.id] })
@@ -393,7 +401,10 @@ function QuestionsPanel({ claim, isStaff }: { claim: ClaimDetail; isStaff: boole
 
       {canAnswer ? (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          {claim.questions.map((question, index) => (
+          {claim.questions.filter(q => q.answerText !== null).map(question => (
+            <div key={question.id}><p>{question.questionText}</p><p>Your answer: {question.answerText}</p></div>
+          ))}
+          {claim.questions.filter(q => q.answerText === null).map((question, index) => (
             <div key={question.id} className="flex flex-col gap-2">
               <Label htmlFor={`answer-${question.id}`}>
                 {index + 1}. {question.questionText}
@@ -416,7 +427,7 @@ function QuestionsPanel({ claim, isStaff }: { claim: ClaimDetail; isStaff: boole
 
           <Button
             type="submit"
-            disabled={answer.isPending}
+            disabled={answer.isPending || claim.questions.filter(q => q.answerText === null).some(q => (drafts[q.id]?.trim().length ?? 0) < 3)}
             className="self-start bg-brand-forest text-white hover:bg-brand-forest/90"
           >
             {answer.isPending ? (
@@ -506,9 +517,14 @@ function StudentControls({ claim }: { claim: ClaimDetail }) {
 
 /* -------------------------------------------------------------------- staff */
 
-function StaffControls({ claim }: { claim: ClaimDetail }) {
+export function StaffControls({ claim }: { claim: ClaimDetail }) {
   const queryClient = useQueryClient()
   const [questions, setQuestions] = useState<string[]>([''])
+  const [followUpQuestion, setFollowUpQuestion] = useState('')
+  const [additionalDetail, setAdditionalDetail] = useState('')
+  const initial = claim.questions.length === 0 && claim.foundItem.status === 'Unclaimed' && ['Pending', 'ManualReviewRequired'].includes(claim.status)
+  const evaluated = ['UnderReview', 'ManualReviewRequired'].includes(claim.status) && claim.questions.some(q => q.answerText !== null) && claim.questions.every(q => q.answerText !== null) && Boolean(claim.verificationForStaff)
+  const waiting = claim.status === 'WaitingForAnswer' || claim.status === 'RevisionRequested'
   const [reason, setReason] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
 
@@ -572,13 +588,35 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
     },
   })
 
+  const followUp = useMutation({
+    mutationFn: () => requestFollowUp(claim.id, followUpQuestion.trim(), additionalDetail.trim()),
+    onSuccess: () => { setFollowUpQuestion(''); setAdditionalDetail(''); refresh(); toast.success('Follow-up sent to claimant.') },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Could not send follow-up.'),
+  })
+
+  const draft = useMutation({
+    mutationFn: () => draftFollowUp(claim.id, additionalDetail.trim()),
+    onSuccess: (result) => { setFollowUpQuestion(result.question); refresh() },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Could not draft a follow-up.'),
+  })
+
   if (!isOpen) return null
 
-  const isBusy = ask.isPending || generateQuestions.isPending || decide.isPending
+  const isBusy = ask.isPending || generateQuestions.isPending || decide.isPending || followUp.isPending || draft.isPending
 
   return (
     <>
-      <DashboardPanel className="flex flex-col gap-4">
+      {waiting && <p>{claim.status === 'RevisionRequested' ? 'Waiting for additional answer.' : "Waiting for claimant’s answer."}</p>}
+      {claim.verificationForStaff && <DashboardPanel>
+        <p>Verification score: {claim.verificationForStaff.score}%</p>
+        <p>{claim.verificationForStaff.rationale}</p>
+        <p>{claim.verificationForStaff.recommendation}</p>
+        {claim.verificationForStaff.matchedEvidence?.map((text, i) => <p key={`matched-${i}`}>Matched evidence: {text}</p>)}
+        {claim.verificationForStaff.missingInformation?.map((text, i) => <p key={`missing-${i}`}>Missing information: {text}</p>)}
+        {claim.verificationForStaff.conflictingInformation?.map((text, i) => <p key={`conflicting-${i}`}>Conflicting information: {text}</p>)}
+        <p>Advisory only. Staff makes the final decision.</p>
+      </DashboardPanel>}
+      {initial && <DashboardPanel className="flex flex-col gap-4">
         <div>
           <h2 className="font-heading text-base font-medium">Ask a verification question</h2>
           <p className="pt-1 text-sm text-muted-foreground">
@@ -645,14 +683,13 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
         <p id="ai-verification-help" className="text-xs text-muted-foreground">
           AI drafts safe questions only. Staff still decide ownership.
         </p>
-      </DashboardPanel>
+      </DashboardPanel>}
 
       <DashboardPanel className="flex flex-col gap-4">
         <div>
           <h2 className="font-heading text-base font-medium">Decide</h2>
           <p className="pt-1 text-sm text-muted-foreground">
-            Approving hands the item over: it is marked returned and the student's report is
-            resolved. Any other open claim on this item is closed with a reason.
+            Approval reserves the item until authorized collection. AI recommendations are advisory.
           </p>
         </div>
 
@@ -673,11 +710,19 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
           )}
         </div>
 
+        {evaluated && <div className="flex flex-col gap-2">
+          <Label htmlFor="additional-evidence">Additional observable hidden detail (staff only)</Label>
+          <Textarea id="additional-evidence" value={additionalDetail} onChange={e => setAdditionalDetail(e.target.value)} />
+          {claim.canUseUnusedEvidenceForFollowUp && <p>Unused private evidence is available. You may draft from it without recording a new observation.</p>}
+          <Button variant="outline" onClick={() => draft.mutate()} disabled={isBusy || (!additionalDetail.trim() && !claim.canUseUnusedEvidenceForFollowUp)}>Draft follow-up from unused evidence</Button>
+          <Label htmlFor="follow-up-question">Confirm a distinct, non-leading follow-up question</Label>
+          <Textarea id="follow-up-question" value={followUpQuestion} onChange={e => setFollowUpQuestion(e.target.value)} />
+        </div>}
         <div className="flex flex-wrap gap-2">
           <Button
             className="bg-brand-forest text-white hover:bg-brand-forest/90"
             onClick={() => decide.mutate('Approved')}
-            disabled={isBusy}
+            disabled={isBusy || !evaluated || waiting}
           >
             {decide.isPending && decide.variables === 'Approved' && (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
@@ -685,14 +730,14 @@ function StaffControls({ claim }: { claim: ClaimDetail }) {
             <CheckIcon aria-hidden="true" />
             Approve
           </Button>
-          <Button variant="outline" onClick={() => decide.mutate('RevisionRequested')} disabled={isBusy}>
+          <Button variant="outline" onClick={() => followUp.mutate()} disabled={isBusy || !evaluated || waiting || !followUpQuestion.trim() || (!additionalDetail.trim() && !claim.canUseUnusedEvidenceForFollowUp)}>
             {decide.isPending && decide.variables === 'RevisionRequested' && (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             )}
             <UndoIcon aria-hidden="true" />
             Ask for more detail
           </Button>
-          <Button variant="destructive" onClick={() => decide.mutate('Rejected')} disabled={isBusy}>
+          <Button variant="destructive" onClick={() => decide.mutate('Rejected')} disabled={isBusy || !reason.trim()}>
             {decide.isPending && decide.variables === 'Rejected' && (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             )}

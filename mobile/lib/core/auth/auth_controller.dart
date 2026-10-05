@@ -66,6 +66,7 @@ class AuthController extends AsyncNotifier<AuthUser?> {
       }
       return user;
     });
+    ref.read(authSessionEpochProvider.notifier).advance();
     if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
   }
 
@@ -86,6 +87,7 @@ class AuthController extends AsyncNotifier<AuthUser?> {
       }
       return user;
     });
+    ref.read(authSessionEpochProvider.notifier).advance();
     if (state.value != null) unawaited(ref.read(pushNotificationManagerProvider).start());
   }
 
@@ -105,6 +107,8 @@ class AuthController extends AsyncNotifier<AuthUser?> {
         studentNumber: studentNumber,
       );
       state = AsyncData(user);
+      ref.read(authSessionEpochProvider.notifier).advance();
+      unawaited(ref.read(pushNotificationManagerProvider).start());
       return null;
     } on ApiException catch (error) {
       return error;
@@ -126,7 +130,12 @@ class AuthController extends AsyncNotifier<AuthUser?> {
 
   Future<void> logout() async {
     state = const AsyncLoading();
-    await ref.read(pushNotificationManagerProvider).unregister();
+    ref.read(authSessionEpochProvider.notifier).advance();
+    try {
+      await ref.read(pushNotificationManagerProvider).unregister();
+    } on Object {
+      // Push availability must never prevent clearing local credentials.
+    }
     try {
       await _repository.logout();
     } on Object {

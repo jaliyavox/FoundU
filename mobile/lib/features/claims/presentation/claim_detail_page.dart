@@ -27,7 +27,7 @@ class _ClaimDetailPageState extends ConsumerState<ClaimDetailPage> {
   Future<void> _submit(ClaimDetail claim) async {
     final unanswered = claim.questions
         .where((question) =>
-            question.answerText == null || claim.status == 'RevisionRequested')
+            question.answerText == null)
         .toList();
     if (unanswered.any((question) =>
         (_answerControllers[question.id]?.text.trim().isEmpty ?? true))) {
@@ -108,7 +108,7 @@ class _ClaimDetailPageState extends ConsumerState<ClaimDetailPage> {
                 claimCanAnswer(claim.status) && claim.questions.isNotEmpty;
             final outstanding = claim.questions
                 .where((q) =>
-                    q.answerText == null || claim.status == 'RevisionRequested')
+                    q.answerText == null)
                 .toList();
             for (final question in outstanding) {
               _answerControllers.putIfAbsent(question.id,
@@ -156,6 +156,8 @@ class _ClaimDetailPageState extends ConsumerState<ClaimDetailPage> {
                   Text('Your lost report',
                       style: Theme.of(context).textTheme.titleMedium),
                   Text(claim.lostReportDescription),
+                  if (claim.status == 'Pending') const _Notice('Claim submitted — waiting for verification questions.'),
+                  if (claim.status == 'RevisionRequested') const _Notice('More Information Requested — answer the follow-up below.'),
                   if (claim.status == 'ManualReviewRequired')
                     const Padding(
                       padding: EdgeInsets.only(top: 16),
@@ -180,13 +182,25 @@ class _ClaimDetailPageState extends ConsumerState<ClaimDetailPage> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: editable
-                            ? TextField(
-                                controller: _answerControllers[question.id],
-                                enabled: !busy,
-                                maxLines: 2,
-                                decoration: InputDecoration(
-                                    labelText: question.questionText,
-                                    border: const OutlineInputBorder()),
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(question.questionText,
+                                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                          fontWeight: FontWeight.w600, height: 1.4)),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    controller: _answerControllers[question.id],
+                                    enabled: !busy,
+                                    keyboardType: TextInputType.multiline,
+                                    minLines: 3,
+                                    maxLines: 5,
+                                    decoration: const InputDecoration(
+                                        labelText: 'Your answer',
+                                        alignLabelWithHint: true,
+                                        border: OutlineInputBorder()),
+                                  ),
+                                ],
                               )
                             : ListTile(
                                 contentPadding: EdgeInsets.zero,

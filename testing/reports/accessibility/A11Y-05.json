@@ -2,6 +2,6 @@
   "id": "A11Y-05",
   "path": "/my-reports",
   "as": "student",
-  "passes": 25,
+  "passes": 24,
   "violations": []
 }

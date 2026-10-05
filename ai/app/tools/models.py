@@ -55,12 +55,20 @@ class SuppliedReportContext(StrictToolModel):
 
     report_id: ToolIdentifier
     item_type: ReportText
-    primary_color: ReportText
+    primary_color: Annotated[
+        str | None, StringConstraints(strip_whitespace=True, max_length=80)
+    ] = None
     description: Annotated[
         str | None,
         StringConstraints(strip_whitespace=True, max_length=1000),
     ] = None
     location: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=160)] = None
+    event_start_at: Annotated[
+        str | None, StringConstraints(strip_whitespace=True, max_length=64)
+    ] = None
+    event_end_at: Annotated[
+        str | None, StringConstraints(strip_whitespace=True, max_length=64)
+    ] = None
 
 
 class ReportSummary(StrictToolModel):
@@ -68,12 +76,20 @@ class ReportSummary(StrictToolModel):
 
     report_id: ToolIdentifier
     item_type: ReportText
-    primary_color: ReportText
+    primary_color: Annotated[
+        str | None, StringConstraints(strip_whitespace=True, max_length=80)
+    ] = None
     description: Annotated[
         str | None,
         StringConstraints(strip_whitespace=True, max_length=1000),
     ] = None
     location: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=160)] = None
+    event_start_at: Annotated[
+        str | None, StringConstraints(strip_whitespace=True, max_length=64)
+    ] = None
+    event_end_at: Annotated[
+        str | None, StringConstraints(strip_whitespace=True, max_length=64)
+    ] = None
 
 
 class ReportLookupOutput(StrictToolModel):
