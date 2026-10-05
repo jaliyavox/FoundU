@@ -34,7 +34,6 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
       retryDio: retryDio,
       tokenStorage: tokenStorage,
       refreshSession: repository.refreshSession,
-      sessionVersion: () => repository.sessionVersion,
       onSessionInvalidated: repository.notifySessionInvalidated,
     ),
   );

@@ -18,9 +18,6 @@ class AuthRepository {
   final Dio _authDio;
   final Dio _authenticatedDio;
   final TokenStorage _tokenStorage;
-  int _sessionVersion = 0;
-  int get sessionVersion => _sessionVersion;
-
   final _sessionInvalidated = StreamController<void>.broadcast();
 
   Dio get authenticatedDio => _authenticatedDio;
@@ -34,7 +31,7 @@ class AuthRepository {
       {required String email, required String password}) async {
     // A successful login replaces both tokens. Clearing first also ensures an in-flight
     // role switch cannot keep attaching the previous account's bearer token.
-    await clearSession();
+    await _tokenStorage.clear();
     try {
       final response = await _authDio.post<Map<String, dynamic>>(
         '/api/auth/login',
@@ -76,7 +73,7 @@ class AuthRepository {
   /// address becomes a Student account, an existing one is linked only if Google has
   /// verified the email.
   Future<AuthUser> signInWithGoogle(String idToken) async {
-    await clearSession();
+    await _tokenStorage.clear();
     try {
       final response = await _authDio.post<Map<String, dynamic>>(
         '/api/auth/google',
@@ -128,7 +125,6 @@ class AuthRepository {
   }
 
   Future<bool> refreshSession() async {
-    final version = _sessionVersion;
     final refreshToken = await _tokenStorage.readRefreshToken();
     if (refreshToken == null || refreshToken.trim().isEmpty) {
       await _tokenStorage.clear();
@@ -141,40 +137,37 @@ class AuthRepository {
         data: {'refreshToken': refreshToken},
       );
       final auth = AuthResponse.fromJson(response.data!);
-      if (version != _sessionVersion) return false;
       await _saveTokens(auth);
       return true;
     } on DioException catch (error) {
       // Only the server saying no ends the session. A timeout on weak Wi-Fi keeps the tokens,
       // so the next request can try again instead of sending the student back to login.
       final status = error.response?.statusCode;
-      if (version != _sessionVersion) return false;
       if (status == 400 || status == 401 || status == 403) {
         await _tokenStorage.clear();
       }
       return false;
     } on Object {
-      if (version != _sessionVersion) return false;
       await _tokenStorage.clear();
       return false;
     }
   }
 
   Future<void> logout() async {
-    final refreshToken = await _tokenStorage.readRefreshToken();
-    await clearSession();
-    if (refreshToken != null && refreshToken.isNotEmpty) {
-      await _authDio.post<void>(
-        '/api/auth/logout',
-        data: {'refreshToken': refreshToken},
-      );
+    try {
+      final refreshToken = await _tokenStorage.readRefreshToken();
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _authDio.post<void>(
+          '/api/auth/logout',
+          data: {'refreshToken': refreshToken},
+        );
+      }
+    } finally {
+      await _tokenStorage.clear();
     }
   }
 
-  Future<void> clearSession() {
-    _sessionVersion++;
-    return _tokenStorage.clear();
-  }
+  Future<void> clearSession() => _tokenStorage.clear();
 
   Future<bool> hasStoredSession() async {
     final accessToken = await _tokenStorage.readAccessToken();

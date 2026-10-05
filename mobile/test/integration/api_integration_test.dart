@@ -175,7 +175,7 @@ void main() {
         'foundLocationId': locationId,
         'storageLocationId': storageId,
         'generalDescription': 'Teal item $tag handed in from the bus',
-        'privateVerificationDetails': 'A red sticker on the back',
+        'privateVerificationDetails': 'A sticker of a red kite on the back',
         'foundAt': DateTime.now()
             .toUtc()
             .subtract(const Duration(hours: 1))
@@ -198,16 +198,16 @@ void main() {
 
       // 4. Desk: a verification question.
       await staff.post('/api/claims/${claim.id}/questions', data: {
-        'questions': ['What color is the sticker?']
+        'questions': ['What is the sticker of?']
       });
 
       // 5. Mobile: the question arrives, without the hidden detail; the owner answers.
       claim = await claims.getClaim(claim.id);
-      expect(claim.questions.single.questionText, 'What color is the sticker?');
-      expect(claim.toString(), isNot(contains('A red sticker on the back')));
+      expect(claim.questions.single.questionText, 'What is the sticker of?');
+      expect(claim.toString(), isNot(contains('red kite')));
       claim = await claims.submitAnswers(claim.id, [
         ClaimAnswerInput(
-            questionId: claim.questions.single.id, answerText: 'Red')
+            questionId: claim.questions.single.id, answerText: 'A red kite')
       ]);
       // A desk-written question has no drafted evidence to score against, so it goes to a person.
       expect(claim.status, anyOf('UnderReview', 'ManualReviewRequired'));

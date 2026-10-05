@@ -95,17 +95,14 @@ public sealed class MatchingAgentClient : IMatchingAgentClient
         }
 
         var properties = response.Output.EnumerateObject().ToList();
-        if (properties.Count != 5
-            || properties.Any(property => property.Name is not ("recommendation" or "score" or "matched_factors" or "missing_factors" or "conflicting_factors"))
+        if (properties.Count != 2
+            || properties.Any(property => property.Name is not ("recommendation" or "score"))
             || !response.Output.TryGetProperty("recommendation", out var recommendationElement)
             || recommendationElement.ValueKind != JsonValueKind.String
             || !response.Output.TryGetProperty("score", out var scoreElement)
             || !scoreElement.TryGetDouble(out var score)
             || !double.IsFinite(score)
-            || score is < 0 or > 1
-            || !TryReadFactors(response.Output, "matched_factors", out var matched)
-            || !TryReadFactors(response.Output, "missing_factors", out var missing)
-            || !TryReadFactors(response.Output, "conflicting_factors", out var conflicting))
+            || score is < 0 or > 1)
         {
             return InvalidResponse();
         }
@@ -115,27 +112,7 @@ public sealed class MatchingAgentClient : IMatchingAgentClient
             return InvalidResponse();
 
         return MatchingAgentCallResult<MatchingAgentRecommendation>.Success(
-            new MatchingAgentRecommendation(recommendation, (decimal)score, response.AgentRunId,
-                matched, missing, conflicting));
-    }
-
-    private static bool TryReadFactors(JsonElement output, string propertyName, out IReadOnlyList<string> factors)
-    {
-        factors = [];
-        if (!output.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Array)
-            return false;
-        var values = new List<string>();
-        foreach (var item in element.EnumerateArray())
-        {
-            if (item.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(item.GetString())
-                || item.GetString()!.Length > 240)
-                return false;
-            values.Add(item.GetString()!);
-        }
-        if (values.Count > 4 || values.Distinct(StringComparer.Ordinal).Count() != values.Count)
-            return false;
-        factors = values;
-        return true;
+            new MatchingAgentRecommendation(recommendation, (decimal)score, response.AgentRunId));
     }
 
     private static MatchingAgentCallResult<MatchingAgentRecommendation> InvalidResponse()

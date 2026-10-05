@@ -2,7 +2,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FoundU.Application.Abstractions;
-using FoundU.Infrastructure.Claims;
 using FoundU.Application.Claims.Dtos;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
@@ -45,7 +44,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
                 new GenerateQuestionsPayload(
                     "generate_questions", claimId.ToString(), privateVerificationDetails),
                 correlationId),
-            response => ValidateGenerateOutput(response, claimId, privateVerificationDetails.Values),
+            response => ValidateGenerateOutput(response, claimId),
             cancellationToken);
 
     public Task<VerificationAgentCallResult<EvaluateVerificationAnswersResult>> EvaluateAnswersAsync(
@@ -68,8 +67,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
             response => ValidateEvaluateOutput(
                 response,
                 claimId,
-                questions.Select(question => question.QuestionId).ToHashSet(StringComparer.Ordinal),
-                questions, privateVerificationDetails, answers),
+                questions.Select(question => question.QuestionId).ToHashSet(StringComparer.Ordinal)),
             cancellationToken);
 
     private async Task<VerificationAgentCallResult<T>> SendAsync<T>(
@@ -134,7 +132,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
 
     private static VerificationAgentCallResult<GenerateVerificationQuestionsResult> ValidateGenerateOutput(
         AiAgentResponse response,
-        Guid expectedClaimId, IEnumerable<string> evidence)
+        Guid expectedClaimId)
     {
         if (!IsValidEnvelope(response) || HasDecisionField(response.Output))
             return VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Failure("Verification agent returned an invalid response.");
@@ -150,8 +148,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
             || output.Recommendation != "manual_review"
             || output.Questions is null
             || output.Questions.Count is < 1 or > 3
-            || !AreValidQuestions(output.Questions)
-            || output.Questions.Any(q => !SafeVerificationFallback.IsSafe(q.Question, evidence)))
+            || !AreValidQuestions(output.Questions))
         {
             return VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Failure("Verification agent returned an invalid response.");
         }
@@ -163,10 +160,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
     private static VerificationAgentCallResult<EvaluateVerificationAnswersResult> ValidateEvaluateOutput(
         AiAgentResponse response,
         Guid expectedClaimId,
-        IReadOnlySet<string> expectedQuestionIds,
-        IReadOnlyList<VerificationAgentQuestion> questions,
-        IReadOnlyDictionary<string, string> evidence,
-        IReadOnlyList<VerificationAgentAnswer> answers)
+        IReadOnlySet<string> expectedQuestionIds)
     {
         if (!IsValidEnvelope(response) || HasDecisionField(response.Output))
             return VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Failure("Verification agent returned an invalid response.");
@@ -186,19 +180,8 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
             return VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Failure("Verification agent returned an invalid response.");
         }
 
-        var local = SafeVerificationFallback.Evaluate(expectedClaimId, evidence, questions, answers);
-        foreach (var question in questions)
-        {
-            var fact = SafeVerificationFallback.ResolveFact(question.Question, evidence.Values);
-            if (fact?.Kind == "description") continue;
-            var deterministic = local.Evaluations!.Single(e => e.QuestionId == question.QuestionId);
-            var remote = output.Evaluations!.Single(e => e.QuestionId == question.QuestionId);
-            if (remote.Result != deterministic.Result || Math.Abs(remote.Score - deterministic.Score) > .001)
-                return VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Failure("Verification agent returned an inconsistent evaluation.");
-        }
         return VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Success(
-            SafeVerificationFallback.FromEvaluations(expectedClaimId, response.AgentRunId!,
-                output.Evaluations!.Select(e => new VerificationAgentEvaluation(e.QuestionId!, e.Result!, e.Score)).ToList()));
+            new(expectedClaimId, output.Recommendation!, response.AgentRunId!));
     }
 
     private static bool IsValidEnvelope(AiAgentResponse response)
@@ -236,11 +219,7 @@ public sealed class VerificationAgentClient : IVerificationAgentClient
                 || !expectedQuestionIds.Contains(evaluation.QuestionId)
                 || evaluation.Result is not ("match" or "partial_match" or "no_match" or "insufficient")
                 || !double.IsFinite(evaluation.Score)
-                || evaluation.Score is < 0.0 or > 1.0
-                || evaluation.Result == "match" && evaluation.Score < .8
-                || evaluation.Result == "partial_match" && evaluation.Score is <= 0 or >= .8
-                || evaluation.Result == "no_match" && evaluation.Score >= .4
-                || evaluation.Result == "insufficient" && evaluation.Score != 0)
+                || evaluation.Score is < 0.0 or > 1.0)
             {
                 return false;
             }

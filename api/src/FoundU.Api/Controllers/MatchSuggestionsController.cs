@@ -50,9 +50,8 @@ public class MatchSuggestionsController : ControllerBase
     [Authorize(Policy = PolicyNames.Student)]
     public async Task<ActionResult<PagedResult<MatchSuggestionDto>>> Mine(
         [FromQuery] PaginationQuery query,
-        [FromQuery] Guid? foundReportId,
         CancellationToken cancellationToken)
-        => Ok(await _suggestions.GetForStudentAsync(User.GetUserId(), query, cancellationToken, foundReportId));
+        => Ok(await _suggestions.GetForStudentAsync(User.GetUserId(), query, cancellationToken));
 
     /// <summary>Everyone suggested for one item, for the staff working it.</summary>
     [HttpGet("for-item/{foundReportId:guid}")]
@@ -61,14 +60,6 @@ public class MatchSuggestionsController : ControllerBase
         Guid foundReportId,
         CancellationToken cancellationToken)
         => Ok(await _suggestions.GetForFoundReportAsync(foundReportId, cancellationToken));
-
-    /// <summary>Scored pairs requiring a staff decision, never visible as student suggestions.</summary>
-    [HttpGet("review-for-item/{foundReportId:guid}")]
-    [Authorize(Policy = PolicyNames.Staff)]
-    public async Task<ActionResult<IReadOnlyList<MatchReviewCandidateDto>>> ReviewForItem(
-        Guid foundReportId,
-        CancellationToken cancellationToken)
-        => Ok(await _suggestions.GetReviewCandidatesForFoundReportAsync(foundReportId, cancellationToken));
 
     /// <summary>"That is not mine." Takes it off the student's list without opening a claim.</summary>
     [HttpPost("{id:guid}/dismiss")]

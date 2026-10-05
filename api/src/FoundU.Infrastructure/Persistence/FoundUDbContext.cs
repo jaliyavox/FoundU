@@ -39,8 +39,6 @@ public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<MatchSuggestion> MatchSuggestions => Set<MatchSuggestion>();
     public DbSet<MatchStatusHistory> MatchStatusHistories => Set<MatchStatusHistory>();
 
-    public DbSet<FoundVerificationEvidence> FoundVerificationEvidence => Set<FoundVerificationEvidence>();
-
     public DbSet<Claim> Claims => Set<Claim>();
     public DbSet<VerificationQuestion> VerificationQuestions => Set<VerificationQuestion>();
     public DbSet<ClaimAnswer> ClaimAnswers => Set<ClaimAnswer>();

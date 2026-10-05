@@ -1,6 +1,24 @@
 import 'package:flutter/material.dart';
 
-import 'report_progress.dart';
+/// Where a lost report sits in its life - the same four stages, read off the same data, as the
+/// web's `report-stage.ts`. Withdrawn is off this path, so callers hide the track for it.
+///
+///  - Reported           the report exists and is Active
+///  - Someone found it   a finder pressed "I found this" or wrote to the owner
+///  - At the guard desk  the report is Matched: the item is in storage
+///  - Returned           the report is Resolved
+const reportStages = ['Reported', 'Someone found it', 'At the guard desk', 'Returned'];
+
+int reportStageOf(String status, {int foundClaimCount = 0, int messageCount = 0}) {
+  switch (status.toLowerCase()) {
+    case 'resolved':
+      return 3;
+    case 'matched':
+      return 2;
+    default:
+      return foundClaimCount > 0 || messageCount > 0 ? 1 : 0;
+  }
+}
 
 /// Four dots joined by a line, each dot centred over its own label, so the last stage sits at
 /// the end of the bar like the first sits at its start.
@@ -22,7 +40,7 @@ class ReportStageTrack extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var index = 0; index < reportProgressLabels.length; index++)
+        for (var index = 0; index < reportStages.length; index++)
           Expanded(
             child: Column(
               children: [
@@ -50,7 +68,7 @@ class ReportStageTrack extends StatelessWidget {
                       Expanded(
                         child: Container(
                           height: 2,
-                          color: index == reportProgressLabels.length - 1
+                          color: index == reportStages.length - 1
                               ? Colors.transparent
                               : (index < stage ? _reached : pending),
                         ),
@@ -60,7 +78,7 @@ class ReportStageTrack extends StatelessWidget {
                 ),
                 SizedBox(height: compact ? 4 : 6),
                 Text(
-                  reportProgressLabels[index],
+                  reportStages[index],
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

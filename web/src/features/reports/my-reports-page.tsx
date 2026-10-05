@@ -46,7 +46,7 @@ import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
 import { MessageThread } from '@/features/feed/message-thread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { elapsedSince, finderContacted, LIFECYCLE, progressDetail, stageOf } from './report-stage'
+import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
 import { HandoverNotice } from './handover-notice'
 import { GotItBackDialog } from './got-it-back-dialog'
@@ -585,7 +585,6 @@ function ReportCard({
 }) {
   const isWithdrawn = report.status === 'Withdrawn'
   const stage = stageOf(report)
-  const detail = progressDetail(report)
   const { value, unit } = elapsedSince(report.createdAt)
 
   return (
@@ -626,7 +625,7 @@ function ReportCard({
             <div className="flex items-center gap-2">
               <h2 className="truncate font-medium hover:underline">{report.itemTypeName}</h2>
               <Badge variant="outline" className="text-[10px] uppercase">
-                {report.status === 'Matched' ? 'In progress' : report.status}
+                {report.status}
               </Badge>
             </div>
             <p className="truncate text-sm text-muted-foreground">
@@ -703,7 +702,7 @@ function ReportCard({
         {!isWithdrawn && <HandoverNotice reportId={report.id} />}
 
         {/* Found notice */}
-        {!isWithdrawn && finderContacted(report) && (
+        {!isWithdrawn && report.foundClaimCount > 0 && (
           <p className="fu-appear flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
             <BellRingIcon
               className="mt-0.5 size-4 shrink-0 text-brand-forest dark:text-brand-sage"
@@ -711,7 +710,7 @@ function ReportCard({
             />
             <span>
               <span className="font-medium">
-                {report.foundClaimCount <= 1
+                {report.foundClaimCount === 1
                   ? 'Someone says they found this'
                   : `${report.foundClaimCount} people say they found this`}
               </span>
@@ -747,7 +746,6 @@ function ReportCard({
 
         {/* Track */}
         <div className="flex flex-col gap-3">
-          {!isWithdrawn && <p className="text-xs text-muted-foreground">Suggestion and claim progress</p>}
           <div className={cn('relative h-2', !isWithdrawn && 'mt-8')}>
             <div className="absolute inset-0 rounded-full bg-foreground/10" />
 
@@ -814,7 +812,6 @@ function ReportCard({
               </p>
             </div>
           </div>
-          {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
         </div>
       </div>
     </article>

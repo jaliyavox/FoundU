@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { createSuggestion, generateAiSuggestion, getReviewCandidatesForItem, getSuggestionsForItem } from '@/features/claims/claims-api'
+import { createSuggestion, generateAiSuggestion } from '@/features/claims/claims-api'
 import { formatDateTime } from '@/features/reports/reports-api'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
@@ -50,29 +50,15 @@ export function LinkReportDialog({
   const [aiStatus, setAiStatus] = useState('')
 
   const { data, isPending } = useQuery({
-    queryKey: ['lost-reports-for-linking', item.id, { search }],
-    queryFn: () => searchLostReports(1, 8, search, item),
+    queryKey: ['lost-reports-for-linking', { search }],
+    queryFn: () => searchLostReports(1, 8, search),
     enabled: open,
   })
-
-  const existing = useQuery({
-    queryKey: ['item-suggestions', item.id],
-    queryFn: () => getSuggestionsForItem(item.id),
-    enabled: open,
-  })
-  const reviews = useQuery({
-    queryKey: ['item-match-reviews', item.id],
-    queryFn: () => getReviewCandidatesForItem(item.id),
-    enabled: open,
-  })
-  const suggestedIds = new Set(existing.data?.map((suggestion) => suggestion.lostReportId))
-  const selectable = selected && !suggestedIds.has(selected) && existing.isSuccess ? selected : null
 
   const link = useMutation({
-    mutationFn: () => createSuggestion(selectable!, item.id, note.trim() || undefined),
+    mutationFn: () => createSuggestion(selected!, item.id, note.trim() || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
-      queryClient.invalidateQueries({ queryKey: ['item-match-reviews', item.id] })
       toast.success('The student will see it on their reports.')
       handleOpenChange(false)
       setSelected(null)
@@ -83,10 +69,9 @@ export function LinkReportDialog({
   })
 
   const generateAi = useMutation({
-    mutationFn: () => generateAiSuggestion(selectable!, item.id, note.trim() || undefined),
+    mutationFn: () => generateAiSuggestion(selected!, item.id, note.trim() || undefined),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
-      queryClient.invalidateQueries({ queryKey: ['item-match-reviews', item.id] })
       if (result.suggestion) {
         // The dialog closes immediately, so put the safe score in the visible toast instead of
         // transient dialog state that staff would never have a chance to read.
@@ -101,7 +86,7 @@ export function LinkReportDialog({
       }
     },
     onError: (error) => {
-      const message = error instanceof ApiError && error.status === 409 ? error.message : aiMatchFailureMessage(error instanceof ApiError ? error.status : undefined)
+      const message = aiMatchFailureMessage(error instanceof ApiError ? error.status : undefined)
       setAiStatus(message)
       toast.error(message)
     },
@@ -114,7 +99,6 @@ export function LinkReportDialog({
   }
 
   function handleOpenChange(nextOpen: boolean) {
-    setSelected(null)
     setAiStatus((current) => aiStatusAfterDialogChange(nextOpen, current))
     onOpenChange(nextOpen)
   }
@@ -129,27 +113,6 @@ export function LinkReportDialog({
             they still have to answer the verification questions.
           </DialogDescription>
         </DialogHeader>
-
-        {(reviews.data?.length ?? 0) > 0 && (
-          <section aria-label="Pairs needing staff review" className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium">Needs staff review</h3>
-            <p className="text-xs text-muted-foreground">These comparisons have not been shown to students. Select a report, inspect the public details, then choose whether to suggest it.</p>
-            <div className="flex max-h-48 flex-col gap-2 overflow-y-auto">
-              {reviews.data!.filter((review) => !suggestedIds.has(review.lostReportId)).map((review) => (
-                <button key={review.lostReportId} type="button"
-                  aria-pressed={selected === review.lostReportId}
-                  disabled={!existing.isSuccess}
-                  onClick={() => { setSelected(review.lostReportId); setAiStatus('') }}
-                  className={cn('rounded-xl border p-3 text-left text-xs', selected === review.lostReportId ? 'border-brand-green bg-brand-green/10' : 'border-foreground/10')}>
-                  <span className="block font-medium">{review.itemTypeName} · {Math.round(review.matchScore * 100)}% match score</span>
-                  <span className="block">{review.lostDescription}</span>
-                  <span className="block text-muted-foreground">{review.primaryColor ?? 'Colour unreported'} · Last seen {review.lastSeenLocationName} · {formatDateTime(review.estimatedLostFromAt)}</span>
-                  <span className="block text-muted-foreground">{review.explanation}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         <form onSubmit={handleSearch} className="flex gap-2">
           <div className="relative flex-1">
@@ -182,7 +145,6 @@ export function LinkReportDialog({
               <button
                 key={report.id}
                 type="button"
-                disabled={!existing.isSuccess || suggestedIds.has(report.id)}
                 onClick={() => {
                   setSelected(report.id)
                   setAiStatus('')
@@ -197,7 +159,6 @@ export function LinkReportDialog({
               >
                 <span className="text-sm font-medium">
                   {report.itemTypeName}
-                  {suggestedIds.has(report.id) && <span className="pl-2 text-xs">Already suggested</span>}
                   {report.primaryColor && (
                     <span className="pl-2 text-xs font-normal text-muted-foreground">
                       {report.primaryColor}
@@ -215,9 +176,6 @@ export function LinkReportDialog({
           )}
         </div>
 
-        {existing.isSuccess && data && data.items.length > 0 && data.items.every((report) => suggestedIds.has(report.id)) && (
-          <p className="text-sm text-muted-foreground">All reports in this search are already suggested. Search for another eligible report.</p>
-        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="link-note">
             Note <span className="text-muted-foreground">- the student reads this</span>
@@ -248,7 +206,7 @@ export function LinkReportDialog({
             type="button"
             className="bg-brand-forest text-white hover:bg-brand-forest/90"
             onClick={() => link.mutate()}
-            disabled={!selectable || link.isPending || generateAi.isPending}
+            disabled={!selected || link.isPending || generateAi.isPending}
           >
             {link.isPending ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
@@ -261,7 +219,7 @@ export function LinkReportDialog({
             type="button"
             variant="outline"
             onClick={() => generateAi.mutate()}
-            disabled={!canGenerateAiSuggestion(selectable, generateAi.isPending, link.isPending)}
+            disabled={!canGenerateAiSuggestion(selected, generateAi.isPending, link.isPending)}
             aria-describedby="ai-matching-help"
           >
             {generateAi.isPending ? (
@@ -273,7 +231,7 @@ export function LinkReportDialog({
           </Button>
         </DialogFooter>
         <p id="ai-matching-help" className="text-xs text-muted-foreground">
-          The match score compares public colour, identifying details, structured location and reported times after item type and category checks. Staff verify ownership.
+          AI compares reports and can only suggest a possible match. It never decides ownership.
         </p>
       </DialogContent>
     </Dialog>

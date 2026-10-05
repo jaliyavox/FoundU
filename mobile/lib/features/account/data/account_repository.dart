@@ -1,4 +1,3 @@
-import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -89,7 +88,7 @@ class AccountRepository {
 }
 
 final accountRepositoryProvider =
-    Provider<AccountRepository>((ref) { ref.watch(authSessionEpochProvider); return AccountRepository(ref.watch(apiClientProvider)); });
+    Provider<AccountRepository>((ref) => AccountRepository(ref.watch(apiClientProvider)));
 
 final profileProvider = FutureProvider.autoDispose<Profile>(
   (ref) => ref.watch(accountRepositoryProvider).getProfile(),

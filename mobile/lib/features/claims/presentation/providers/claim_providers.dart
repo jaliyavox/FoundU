@@ -1,7 +1,4 @@
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../reports/presentation/providers/report_providers.dart';
-import '../../../notifications/presentation/notification_providers.dart';
 
 import '../../../../core/auth/auth_session.dart';
 import '../../data/claim_models.dart';
@@ -55,11 +52,6 @@ class ClaimsPager extends Notifier<ClaimsPageState> {
     // account's 403/error or data. The next session gets a fresh page-one request.
     ref.watch(authSessionEpochProvider);
     _sessionVersion++;
-    _generation++;
-    final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!state.isInitialLoading && !state.isLoadingMore) refresh();
-    });
-    ref.onDispose(timer.cancel);
     Future.microtask(_loadFirst);
     return const ClaimsPageState.initial();
   }
@@ -145,30 +137,21 @@ class ClaimsPager extends Notifier<ClaimsPageState> {
   }
 }
 
-final claimDetailProvider = FutureProvider.autoDispose.family<ClaimDetail, String>((ref, id) {
-  final timer = Timer(const Duration(seconds: 30), ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
-  return ref.watch(claimRepositoryProvider).getClaim(id);
-});
+final claimDetailProvider = FutureProvider.family<ClaimDetail, String>(
+    (ref, id) => ref.watch(claimRepositoryProvider).getClaim(id));
 
 final claimControllerProvider =
     AsyncNotifierProvider<ClaimController, void>(ClaimController.new);
 
 class ClaimController extends AsyncNotifier<void> {
   @override
-  Future<void> build() async { ref.watch(authSessionEpochProvider); }
+  Future<void> build() async {}
 
   Future<ClaimDetail> create(CreateClaimRequest request) async {
     state = const AsyncLoading();
     try {
       final claim =
           await ref.read(claimRepositoryProvider).createClaim(request);
-      ref.invalidate(myReportsProvider);
-      ref.invalidate(notificationsProvider);
-      ref.invalidate(unreadNotificationsProvider);
-      ref.invalidate(reportDetailProvider);
-      ref.invalidate(possibleMatchesProvider);
-      ref.invalidate(foundItemMatchesProvider);
       ref.invalidate(myClaimsProvider);
       ref.invalidate(claimDetailProvider(claim.id));
       state = const AsyncData(null);
@@ -186,11 +169,7 @@ class ClaimController extends AsyncNotifier<void> {
       final claim = await ref
           .read(claimRepositoryProvider)
           .submitAnswers(claimId, answers);
-      ref.invalidate(myReportsProvider);
-      ref.invalidate(reportDetailProvider);
-      ref.invalidate(possibleMatchesProvider);
       ref.invalidate(myClaimsProvider);
-      ref.invalidate(foundItemMatchesProvider);
       ref.invalidate(claimDetailProvider(claimId));
       state = const AsyncData(null);
       return claim;
@@ -205,11 +184,7 @@ class ClaimController extends AsyncNotifier<void> {
     try {
       final claim =
           await ref.read(claimRepositoryProvider).cancelClaim(claimId, reason);
-      ref.invalidate(myReportsProvider);
-      ref.invalidate(reportDetailProvider);
-      ref.invalidate(possibleMatchesProvider);
       ref.invalidate(myClaimsProvider);
-      ref.invalidate(foundItemMatchesProvider);
       ref.invalidate(claimDetailProvider(claimId));
       state = const AsyncData(null);
       return claim;

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -20,10 +19,7 @@ final campusLocationsProvider = FutureProvider<List<CampusLocationModel>>((ref) 
 
 class StatusFilterNotifier extends Notifier<String> {
   @override
-  String build() {
-    ref.watch(authSessionEpochProvider);
-    return 'All';
-  }
+  String build() => 'All';
 
   void setStatus(String status) => state = status;
 }
@@ -32,34 +28,21 @@ final selectedStatusFilterProvider = NotifierProvider<StatusFilterNotifier, Stri
   StatusFilterNotifier.new,
 );
 
-final myReportsProvider = FutureProvider.autoDispose<PagedResult<LostReportListItemModel>>((ref) async {
+final myReportsProvider = FutureProvider<PagedResult<LostReportListItemModel>>((ref) async {
   ref.watch(authSessionEpochProvider);
-  final timer = Timer(const Duration(seconds: 30), ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
   final status = ref.watch(selectedStatusFilterProvider);
   final repo = ref.watch(reportRepositoryProvider);
   return repo.getMyReports(status: status);
 });
 
-final reportDetailProvider = FutureProvider.autoDispose.family<LostReportDetailModel, String>((ref, id) async {
-  final timer = Timer(const Duration(seconds: 30), ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
+final reportDetailProvider = FutureProvider.family<LostReportDetailModel, String>((ref, id) async {
   final repo = ref.watch(reportRepositoryProvider);
   return repo.getReportById(id);
 });
 
-final possibleMatchesProvider = FutureProvider.autoDispose.family<List<MatchSuggestionModel>, String>((ref, reportId) async {
-  final timer = Timer(const Duration(seconds: 30), ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
+final possibleMatchesProvider = FutureProvider.family<List<MatchSuggestionModel>, String>((ref, reportId) async {
   final repo = ref.watch(reportRepositoryProvider);
   return repo.getPossibleMatches(reportId);
-});
-
-final foundItemMatchesProvider = FutureProvider.autoDispose.family<List<MatchSuggestionModel>, String>((ref, foundItemId) async {
-  ref.watch(authSessionEpochProvider);
-  final timer = Timer(const Duration(seconds: 30), ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
-  return ref.watch(reportRepositoryProvider).getMatchesForFoundItem(foundItemId);
 });
 
 final reportControllerProvider = AsyncNotifierProvider<ReportControllerNotifier, void>(
@@ -68,7 +51,7 @@ final reportControllerProvider = AsyncNotifierProvider<ReportControllerNotifier,
 
 class ReportControllerNotifier extends AsyncNotifier<void> {
   @override
-  Future<void> build() async { ref.watch(authSessionEpochProvider); }
+  Future<void> build() async {}
 
   /// Set when the last [createReport] saved the report but not its photos. The report exists,
   /// so the form must not offer to submit it again - that is how duplicates were made.

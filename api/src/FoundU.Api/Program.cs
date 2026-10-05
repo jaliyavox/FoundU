@@ -134,7 +134,6 @@ app.Use(NullCharacterGuard.RejectInQueryOrPath);
 app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;
-    headers.CacheControl = "no-store";
     headers.XContentTypeOptions = "nosniff";
     headers.XFrameOptions = "DENY";
     headers["Referrer-Policy"] = "no-referrer";

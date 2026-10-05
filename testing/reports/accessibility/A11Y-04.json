@@ -2,6 +2,6 @@
   "id": "A11Y-04",
   "path": "/feed",
   "as": "anonymous",
-  "passes": 25,
+  "passes": 26,
   "violations": []
 }
