@@ -39,6 +39,13 @@ public class LostReport : BaseEntity, ISoftDeletable
     public LostReportStatus Status { get; set; } = LostReportStatus.Active;
 
     /// <summary>
+    /// Made for the owner when they claimed an item without having reported it lost (from the
+    /// item itself, or in person at the desk). Never a public notice: if the claim fails it is
+    /// withdrawn rather than put on the feed.
+    /// </summary>
+    public bool CreatedForClaim { get; set; }
+
+    /// <summary>
     /// Six digits a finder quotes at the desk so staff can link the item to this report
     /// without searching. Unique across reports; visible on the public feed because it
     /// routes an item, it does not prove ownership.

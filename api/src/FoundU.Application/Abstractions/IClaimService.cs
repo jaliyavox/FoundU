@@ -71,4 +71,13 @@ public interface IClaimService
 
     /// <summary>The student giving up on their own claim. Nothing is deleted - it is recorded.</summary>
     Task<ClaimDetailDto> CancelAsync(Guid claimId, Guid studentId, string? reason, CancellationToken cancellationToken = default);
+
+    /// <summary>A student claims an item at a desk without a lost report of their own.</summary>
+    Task<ClaimDetailDto> ClaimWithoutReportAsync(ClaimWithoutReportRequest request, Guid studentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Staff verified the owner face to face: claim, approve and hand over in one step.</summary>
+    Task<ClaimDetailDto> HandOverInPersonAsync(InPersonHandoverRequest request, Guid staffId, CancellationToken cancellationToken = default);
+
+    /// <summary>Student accounts matching a name, email or student number, for the desk.</summary>
+    Task<IReadOnlyList<DeskStudentDto>> FindStudentsAsync(string search, CancellationToken cancellationToken = default);
 }

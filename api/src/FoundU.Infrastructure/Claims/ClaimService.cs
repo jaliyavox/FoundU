@@ -182,6 +182,163 @@ public class ClaimService : IClaimService
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
 
+    public async Task<ClaimDetailDto> ClaimWithoutReportAsync(
+        ClaimWithoutReportRequest request,
+        Guid studentId,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await ClaimableItemAsync(request.FoundReportId, cancellationToken);
+
+        var existing = await _db.Claims.FirstOrDefaultAsync(
+            c => c.StudentId == studentId && c.FoundReportId == item.Id
+                && (OpenStatuses.Contains(c.Status) || c.Status == ClaimStatus.Approved),
+            cancellationToken);
+        if (existing is not null) return await LoadDetailAsync(existing.Id, cancellationToken);
+
+        var report = await ReportForClaimAsync(item, studentId, request.Description.Trim(), studentId, cancellationToken);
+        return await CreateAsync(new CreateClaimRequest(report.Id, item.Id), studentId, cancellationToken);
+    }
+
+    public async Task<ClaimDetailDto> HandOverInPersonAsync(
+        InPersonHandoverRequest request,
+        Guid staffId,
+        CancellationToken cancellationToken = default)
+    {
+        // Same rule as collecting with a code: a person at the counter proves who they are.
+        if (!request.OwnerIdChecked)
+            throw new ValidationAppException(nameof(InPersonHandoverRequest.OwnerIdChecked),
+                "Check the owner's student ID against the account before handing anything over.");
+
+        var item = await ClaimableItemAsync(request.FoundReportId, cancellationToken);
+        var student = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.StudentId, cancellationToken)
+            ?? throw new NotFoundAppException("That student account was not found.");
+        if (student.Role != UserRole.Student)
+            throw new ValidationAppException(nameof(InPersonHandoverRequest.StudentId), "Items are handed over to student accounts.");
+        if (student.IsSuspended)
+            throw new ConflictAppException("This account is suspended. Resolve that before handing anything over.");
+
+        var notes = request.VerificationNotes.Trim();
+
+        // Their open claim on this item if they have one, else one on their chosen report,
+        // else one on a report made for this hand-over.
+        var claim = await _db.Claims.FirstOrDefaultAsync(
+            c => c.StudentId == student.Id && c.FoundReportId == item.Id && OpenStatuses.Contains(c.Status),
+            cancellationToken);
+        if (claim is null)
+        {
+            Guid reportId;
+            if (request.LostReportId is { } chosen)
+            {
+                var own = await _db.LostReports.FirstOrDefaultAsync(r => r.Id == chosen, cancellationToken)
+                    ?? throw new NotFoundAppException("That lost report was not found.");
+                if (own.StudentId != student.Id)
+                    throw new ValidationAppException(nameof(InPersonHandoverRequest.LostReportId), "That report belongs to someone else.");
+                reportId = own.Id;
+            }
+            else
+            {
+                reportId = (await ReportForClaimAsync(item, student.Id,
+                    $"Claimed in person at the security desk: {item.GeneralDescription}", staffId, cancellationToken)).Id;
+            }
+
+            var created = await CreateAsync(new CreateClaimRequest(reportId, item.Id), student.Id, cancellationToken);
+            claim = await _db.Claims.SingleAsync(c => c.Id == created.Id, cancellationToken);
+        }
+
+        await EnsureApprovableAsync(claim, staffId, "Verified in person at the security desk.", cancellationToken);
+
+        // The notes may well name the hidden detail, so they live on the claim's history (staff
+        // only) - the decision the owner reads says only how it was verified.
+        _db.ClaimStatusHistories.Add(new ClaimStatusHistory
+        {
+            ClaimId = claim.Id,
+            FromStatus = claim.Status,
+            ToStatus = claim.Status,
+            ChangedByUserId = staffId,
+            Reason = $"Verified in person. {notes}",
+        });
+        _db.ApprovalDecisions.Add(new ApprovalDecision
+        {
+            ClaimId = claim.Id,
+            DecidedByUserId = staffId,
+            Decision = ApprovalDecisionType.Approved,
+            Reason = "Verified in person at the security desk.",
+        });
+        await ApproveAsync(claim, staffId, "Verified in person at the security desk.", cancellationToken, tellOwnerWhereToCollect: false);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        // Handed over on the spot: the same collection step as a code at the desk, so the item,
+        // the report, the finder's thanks and the owner's receipt all follow as usual.
+        return ForStaff(await CollectAsync(claim.CollectionCode!, staffId, cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<DeskStudentDto>> FindStudentsAsync(string search, CancellationToken cancellationToken = default)
+    {
+        var term = search.Trim();
+        if (term.Length < 2) return [];
+        var lowered = term.ToLowerInvariant();
+        return await _db.Users.AsNoTracking()
+            .Where(u => u.Role == UserRole.Student && !u.IsSuspended
+                && ((u.Email != null && u.Email.ToLower().Contains(lowered))
+                    || (u.StudentNumber != null && u.StudentNumber.ToLower() == lowered)
+                    || u.FullName.ToLower().Contains(lowered)))
+            .OrderBy(u => u.FullName)
+            .Take(10)
+            .Select(u => new DeskStudentDto(u.Id, u.FullName, u.Email, u.StudentNumber))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>An item a claim can be made on: at a desk, not yet promised to anyone.</summary>
+    private async Task<FoundReport> ClaimableItemAsync(Guid foundReportId, CancellationToken cancellationToken)
+    {
+        var item = await _db.FoundReports.FirstOrDefaultAsync(f => f.Id == foundReportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Found item '{foundReportId}' was not found.");
+        if (item.Status == FoundReportStatus.Posted)
+            throw new ConflictAppException("This item has not reached a desk yet. Once the finder hands it in, you can claim it.");
+        if (item.Status != FoundReportStatus.Unclaimed)
+            throw new ConflictAppException("This item is no longer available to claim.");
+        return item;
+    }
+
+    /// <summary>
+    /// The lost report a claim needs, for an owner who never made one: the item's own type,
+    /// colour and place, with their words as the description. Saved straight away so the
+    /// claim can stand on it; marked so it never reaches the public feed.
+    /// </summary>
+    private async Task<LostReport> ReportForClaimAsync(
+        FoundReport item, Guid studentId, string description, Guid actorId, CancellationToken cancellationToken)
+    {
+        string code;
+        do code = HandoverCodes.Generate();
+        while (await _db.LostReports.AnyAsync(r => r.HandInCode == code, cancellationToken));
+
+        var report = new LostReport
+        {
+            StudentId = studentId,
+            HandInCode = code,
+            CategoryId = item.CategoryId,
+            ItemTypeId = item.ItemTypeId,
+            LastSeenLocationId = item.FoundLocationId,
+            Description = description.Length <= 1000 ? description : description[..1000],
+            PrimaryColor = item.PrimaryColor,
+            EstimatedLostFromAt = item.FoundAt.AddDays(-1),
+            EstimatedLostToAt = item.FoundAt,
+            Status = LostReportStatus.Active,
+            CreatedForClaim = true,
+        };
+        _db.LostReports.Add(report);
+        _db.LostReportStatusHistories.Add(new LostReportStatusHistory
+        {
+            LostReport = report,
+            FromStatus = LostReportStatus.Active,
+            ToStatus = LostReportStatus.Active,
+            ChangedByUserId = actorId,
+            Reason = "Made for a claim on a found item - the owner had not reported it lost.",
+        });
+        await _db.SaveChangesAsync(cancellationToken);
+        return report;
+    }
+
     private async Task StartCoordinatorWorkflowAsync(Claim claim, string recommendation, CancellationToken cancellationToken)
     {
         if (_workflows is null) return;
@@ -337,7 +494,10 @@ public class ClaimService : IClaimService
         var item = await _db.FoundReports.SingleAsync(f => f.Id == claim.FoundReportId, cancellationToken);
         if (item.Status != FoundReportStatus.Unclaimed)
             throw new ConflictAppException("Verification requires security custody.");
-        if (request.Questions.Any(q => !IsSafeQuestion(q, BuildPrivateVerificationDetails(item).Values)))
+        // Staff write their own questionnaire, as they always could. The one rule is that a
+        // question never gives the hidden detail away; the template grammar is for questions
+        // the agent drafts, not for a person at the desk.
+        if (request.Questions.Any(q => !IsStaffQuestionSafe(q, BuildPrivateVerificationDetails(item).Values)))
             throw new ValidationAppException("Questions", "Ask a non-leading question without revealing hidden evidence.");
         foreach (var text in request.Questions)
         {
@@ -442,6 +602,10 @@ public class ClaimService : IClaimService
 
     private static bool IsSafeQuestion(string question, IEnumerable<string> details)
         => SafeVerificationFallback.IsSafe(question, details);
+
+    /// <summary>A question a staff member wrote: any wording, as long as it reveals no hidden value.</summary>
+    private static bool IsStaffQuestionSafe(string question, IEnumerable<string> details)
+        => question.Trim().Length is >= 10 and <= 240 && SafeVerificationFallback.IsPrivateSafe(question, details);
 
     private async Task<Dictionary<string, string>> UnusedOriginalEvidenceAsync(Guid claimId, FoundReport item, CancellationToken ct)
     {
@@ -1279,7 +1443,8 @@ public class ClaimService : IClaimService
     /// Approval is the only path that closes anything: the item is handed over, the search is
     /// over, and every other open claim on that item is now moot.
     /// </summary>
-    private async Task ApproveAsync(Claim claim, Guid staffId, string? reason, CancellationToken cancellationToken)
+    private async Task ApproveAsync(Claim claim, Guid staffId, string? reason, CancellationToken cancellationToken,
+        bool tellOwnerWhereToCollect = true)
     {
         MoveClaim(claim, ClaimStatus.Approved, staffId, reason);
 
@@ -1297,6 +1462,7 @@ public class ClaimService : IClaimService
             foundReport.UpdatedAt = DateTime.UtcNow;
         }
 
+        if (tellOwnerWhereToCollect)
         _notifications.Queue(
             claim.StudentId,
             NotificationType.ClaimApproved,
@@ -1319,6 +1485,7 @@ public class ClaimService : IClaimService
             ? "the desk"
             : storage.Building is null ? storage.Name : $"{storage.Name}, {storage.Building}";
 
+        if (tellOwnerWhereToCollect)
         _notifications.Queue(
             claim.StudentId,
             NotificationType.CollectionInstructions,
@@ -1393,6 +1560,14 @@ public class ClaimService : IClaimService
 
         if (!stillOpen)
         {
+            // A report made only to carry a claim was never a public notice - it closes with
+            // the claim rather than appearing on the feed in the owner's name.
+            if (lostReport.CreatedForClaim)
+            {
+                MoveLostReport(lostReport, LostReportStatus.Withdrawn, actorId, "The claim it was made for did not succeed.");
+                lostReport.WithdrawnAt = DateTime.UtcNow;
+                return;
+            }
             MoveLostReport(lostReport, LostReportStatus.Active, actorId, "No claim is open on this report any more.");
         }
     }

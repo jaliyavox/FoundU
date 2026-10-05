@@ -143,6 +143,29 @@ export const dismissSuggestion = (id: string, reason?: string) =>
 export const createClaim = (lostReportId: string, foundReportId: string, matchSuggestionId?: string) =>
   api.post<ClaimDetail>('/api/claims', { lostReportId, foundReportId, matchSuggestionId })
 
+/** A claim by someone who never reported it lost: their own words stand in for the report. */
+export const claimWithoutReport = (foundReportId: string, description: string) =>
+  api.post<ClaimDetail>('/api/claims/without-report', { foundReportId, description })
+
+export interface DeskStudent {
+  id: string
+  fullName: string
+  email: string | null
+  studentNumber: string | null
+}
+
+/** Staff: student accounts by name, email or student number. */
+export const findStudents = (search: string) =>
+  api.get<DeskStudent[]>(`/api/claims/students?search=${encodeURIComponent(search)}`)
+
+/** Staff: the owner is here, verified face to face - claim, approve and hand over in one step. */
+export const handOverInPerson = (input: {
+  foundReportId: string
+  studentId: string
+  verificationNotes: string
+  ownerIdChecked: boolean
+}) => api.post<ClaimDetail>('/api/claims/in-person', input)
+
 export const getMyClaims = (page = 1, pageSize = 20) =>
   api.get<PagedResult<ClaimListItem>>(`/api/claims/mine?page=${page}&pageSize=${pageSize}`)
 

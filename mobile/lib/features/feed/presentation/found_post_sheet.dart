@@ -15,6 +15,7 @@ import 'feed_controller.dart';
 import 'found_feed_controller.dart';
 import 'message_thread.dart';
 import '../../claims/data/claim_models.dart';
+import '../../claims/data/claim_repository.dart';
 import '../../claims/presentation/providers/claim_providers.dart';
 import '../../reports/data/report_models.dart';
 import '../../reports/data/report_repository.dart';
@@ -191,7 +192,58 @@ class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> 
   String? _error;
   String? _linked;
   String? _reportId;
+  final _ownWords = TextEditingController();
   final _dismissed = <String>{};
+
+  @override
+  void dispose() {
+    _ownWords.dispose();
+    super.dispose();
+  }
+
+  /// No report at all: claim it in their own words. The desk asks its question on the claim.
+  Future<void> _claimWithoutReport() async {
+    if (_busy || _claimId != null) return;
+    final epoch = ref.read(authSessionEpochProvider);
+    setState(() { _busy = true; _error = null; });
+    try {
+      final claim = await ref.read(claimRepositoryProvider).claimWithoutReport(widget.post.id, _ownWords.text.trim());
+      if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
+      ref.invalidate(myReportsProvider);
+      ref.invalidate(foundItemMatchesProvider(widget.post.id));
+      setState(() => _claimId = claim.id);
+    } catch (error) {
+      if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
+      setState(() => _error = error is ApiException ? error.message : 'Unable to submit the claim. Please try again.');
+    } finally {
+      if (mounted && ref.read(authSessionEpochProvider) == epoch) setState(() => _busy = false);
+    }
+  }
+
+  Widget _withoutReport() {
+    final text = Theme.of(context).textTheme;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('Never reported it lost? Claim it anyway', style: text.titleMedium),
+      const SizedBox(height: 4),
+      Text('Describe it in your own words. The desk sends you a question only the owner could answer - '
+          'you reply in My claims. You can also go to the desk and prove it in person.',
+          style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4)),
+      const SizedBox(height: 10),
+      TextField(
+        controller: _ownWords,
+        maxLines: 3,
+        maxLength: 1000,
+        onChanged: (_) => setState(() {}),
+        decoration: const InputDecoration(labelText: 'What is it like?'),
+      ),
+      const SizedBox(height: 8),
+      InkButton(
+        label: 'Claim this item',
+        busy: _busy,
+        onPressed: _ownWords.text.trim().length < 10 ? null : _claimWithoutReport,
+      ),
+    ]);
+  }
 
   Future<void> _answer(MatchSuggestionModel match, bool yes) async {
     if (_busy || _claimId != null) return;
@@ -359,6 +411,10 @@ class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> 
           ],
           const SizedBox(height: 20),
           _manualClaim(hasMatches: eligible.isNotEmpty),
+          if (widget.post.isAtDesk) ...[
+            const SizedBox(height: 24),
+            _withoutReport(),
+          ],
         ]);
       },
     );

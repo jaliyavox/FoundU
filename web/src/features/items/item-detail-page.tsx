@@ -28,6 +28,7 @@ import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { type FoundReportDetail, confirmFoundPost, searchLostReports, getItem, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
 import { LinkReportDialog } from './link-report-dialog'
+import { InPersonHandoverDialog } from './in-person-handover-dialog'
 
 /**
  * One item, as the desk sees it - including the hidden detail that verification rests on.
@@ -39,6 +40,7 @@ import { LinkReportDialog } from './link-report-dialog'
 export function ItemDetailPage() {
   const { id = '' } = useParams()
   const [linking, setLinking] = useState(false)
+  const [inPerson, setInPerson] = useState(false)
 
   const { data: item, isPending, isError, error, refetch } = useQuery({
     queryKey: ['found-item', id],
@@ -177,6 +179,21 @@ export function ItemDetailPage() {
         )}
       </DashboardPanel>
 
+      {item.status === 'Unclaimed' && (
+        <DashboardPanel className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-base font-medium">Owner at the desk?</h2>
+            <p className="pt-1 text-sm text-muted-foreground">
+              No lost report needed. Ask them about it face to face, check their student ID, and hand it over.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setInPerson(true)}>
+            <UserIcon aria-hidden="true" />
+            Owner here in person
+          </Button>
+        </DashboardPanel>
+      )}
+
       <DashboardPanel className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -244,6 +261,7 @@ export function ItemDetailPage() {
       </DashboardPanel>
 
       <LinkReportDialog item={item} open={linking} onOpenChange={setLinking} />
+      <InPersonHandoverDialog item={item} open={inPerson} onOpenChange={setInPerson} />
     </section>
   )
 }

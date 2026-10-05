@@ -101,6 +101,28 @@ public record StaffQuestionEvaluation(Guid QuestionId, string Result, double Sco
 /// </summary>
 public record CollectClaimRequest(string Code, bool OwnerIdChecked = false);
 
+/// <summary>
+/// A student claiming an item they never reported lost. Their own words stand in for a report;
+/// staff then ask the questions on the claim as usual.
+/// </summary>
+public record ClaimWithoutReportRequest(Guid FoundReportId, string Description);
+
+/// <summary>
+/// The owner is at the desk in person. Staff asked the questions face to face, noted the
+/// answers, and checked the student ID - the item is handed over in one step.
+/// </summary>
+public record InPersonHandoverRequest(
+    Guid FoundReportId,
+    Guid StudentId,
+    /// <summary>What staff asked and what the owner answered. Kept on the claim's history for staff.</summary>
+    string VerificationNotes,
+    bool OwnerIdChecked = false,
+    /// <summary>The student's own lost report, when they have one for it.</summary>
+    Guid? LostReportId = null);
+
+/// <summary>A student account as the desk looks one up for an in-person hand-over.</summary>
+public record DeskStudentDto(Guid Id, string FullName, string? Email, string? StudentNumber);
+
 /// <summary>Staff writing the questions a claimant must answer.</summary>
 public record AddVerificationQuestionsRequest(IReadOnlyList<string> Questions);
 

@@ -82,3 +82,25 @@ test('E2E-CLAIM-03 with no open lost report, the owner is told to report it lost
   await openOnBoard(page, tag)
   await expect(page.getByRole('link', { name: 'Report it lost' })).toBeVisible()
 })
+
+test('E2E-CLAIM-04 an owner who never reported it lost claims it in their own words, then answers on the dashboard', async ({ page }) => {
+  const tag = run()
+  const staff = await login(STAFF.email, STAFF.password)
+  const ref = await referenceData(staff.accessToken)
+  const owner = await registerStudent('Owner')
+  await postedAndConfirmed(tag, ref, staff.accessToken)
+
+  await signInAs(page, owner, '/found')
+  await openOnBoard(page, tag)
+  await page.getByLabel('What is it like?').fill('Yellow leather wallet, worn corners, my library card is inside')
+  await page.getByRole('button', { name: 'Claim this item' }).click()
+  await expect(page).toHaveURL(/\/claims\/[0-9a-f-]{36}$/)
+  const claimId = page.url().split('/').pop()!
+
+  // The desk sees it like any other claim, and asks its question there.
+  const queue = await call('GET', '/api/claims?pageSize=50', staff.accessToken)
+  expect(queue.items.map((c: { id: string }) => c.id)).toContain(claimId)
+  // The report made for it never appears on the public lost feed.
+  const feed = await call('GET', '/api/lost-reports/feed?pageSize=100')
+  expect(JSON.stringify(feed)).not.toContain('worn corners')
+})

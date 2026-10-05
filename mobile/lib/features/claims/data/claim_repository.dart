@@ -32,6 +32,19 @@ class ClaimRepository {
     }
   }
 
+  /// A claim by someone who never reported the item lost: their own words stand in for the
+  /// report, and the desk asks its questions on the claim as usual.
+  Future<ClaimDetail> claimWithoutReport(String foundReportId, String description) async {
+    try {
+      return ClaimDetail.fromJson((await _dio.post<Map<String, dynamic>>(
+              '/api/claims/without-report',
+              data: {'foundReportId': foundReportId, 'description': description}))
+          .data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<ClaimDetail> createClaim(CreateClaimRequest request) async {
     try {
       return ClaimDetail.fromJson((await _dio.post<Map<String, dynamic>>(

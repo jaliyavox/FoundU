@@ -33,7 +33,7 @@ test('E2E-WF-01 lost item to collected: match, claim, verify, approve and collec
   await test.step('the owner sees the item as "might be yours" and claims it', async () => {
     await signInAs(ownerPage, owner, '/my-reports')
     await expect(ownerPage.getByText(`Purple wallet ${tag} handed in at the library`)).toBeVisible()
-    await ownerPage.getByRole('button', { name: 'This is mine', exact: true }).click()
+    await ownerPage.getByRole('button', { name: 'Yes, submit a claim' }).click()
     await expect(ownerPage).toHaveURL(/\/claims\/[0-9a-f-]{36}$/)
     claimId = ownerPage.url().split('/').pop()!
     // The hidden detail is the whole basis of verification: the claimant must never see it.

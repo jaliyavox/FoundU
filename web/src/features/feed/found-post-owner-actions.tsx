@@ -6,7 +6,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { createClaim, dismissSuggestion, getMySuggestionsForItem, type MatchSuggestion } from '@/features/claims/claims-api'
+import { claimWithoutReport, createClaim, dismissSuggestion, getMySuggestionsForItem, type MatchSuggestion } from '@/features/claims/claims-api'
+import { Textarea } from '@/components/ui/textarea'
 import { getMyLostReports, type LostReportListItem } from '@/features/reports/reports-api'
 import { ApiError } from '@/lib/api/client'
 import { recogniseFoundPost, type FoundPostItem } from './feed-api'
@@ -21,7 +22,9 @@ const errorText = (error: unknown) => (error instanceof ApiError ? error.message
  *  - Always, the manual way            pick the lost report it belongs to, "That is mine" - which
  *                                      records the match (recognise) and, once the item is at a
  *                                      desk, opens the claim in the same step
- *  - No open report                    report it lost first
+ *  - No report at all                  claim it anyway, in their own words (item at a desk) -
+ *                                      staff ask their questions on the claim as usual; or go to
+ *                                      the desk, where staff can verify them in person
  *
  * Automatic matching only assists: the manual way is offered whether or not anything matched,
  * as it was before matches existed. Without it, an owner nobody had matched to the item was sent
@@ -32,6 +35,7 @@ export function FoundPostOwnerActions({ item }: { item: FoundPostItem }) {
   const navigate = useNavigate()
   const [hidden, setHidden] = useState<string[]>([])
   const [reportId, setReportId] = useState('')
+  const [ownWords, setOwnWords] = useState('')
   const atDesk = item.status === 'Unclaimed'
 
   const matches = useQuery({
@@ -97,7 +101,17 @@ export function FoundPostOwnerActions({ item }: { item: FoundPostItem }) {
     onError: (error) => toast.error(errorText(error)),
   })
 
-  const busy = claim.isPending || notMine.isPending || link.isPending
+  const withoutReport = useMutation({
+    mutationFn: () => claimWithoutReport(item.id, ownWords.trim()),
+    onSuccess: (created) => {
+      refresh()
+      toast.success('Claim submitted - the desk will ask you a question only the owner could answer.')
+      navigate(`/claims/${created.id}`)
+    },
+    onError: (error) => toast.error(errorText(error)),
+  })
+
+  const busy = claim.isPending || notMine.isPending || link.isPending || withoutReport.isPending
 
   if (matches.isPending) {
     return <p className="text-sm text-neutral-500">Checking your reports…</p>
@@ -156,8 +170,8 @@ export function FoundPostOwnerActions({ item }: { item: FoundPostItem }) {
             You have no open lost report to link it to.{' '}
             <Link to="/my-reports/new" className="font-medium text-brand-forest underline underline-offset-4">
               Report it lost
-            </Link>{' '}
-            first, then come back to this item.
+            </Link>
+            {atDesk ? ', or claim it without one below.' : ' first, then come back to this item.'}
           </p>
         ) : (
           <>
@@ -182,6 +196,39 @@ export function FoundPostOwnerActions({ item }: { item: FoundPostItem }) {
           </>
         )}
       </div>
+
+      {/* No report needed: a claim in their own words, answered on the dashboard as usual. */}
+      {atDesk && (
+        <details
+          className="rounded-xl border border-neutral-900/8 bg-white/70 p-4"
+          open={!reports.isPending && openReports.length === 0}
+        >
+          <summary className="cursor-pointer text-sm font-medium">Never reported it lost? Claim it anyway</summary>
+          <div className="flex flex-col gap-3 pt-3">
+            <p className="text-xs text-neutral-500">
+              Describe your item in your own words. The desk sends you a question only the owner could
+              answer - you reply here, on your claims. You can also go to the desk and prove it in person.
+            </p>
+            <Label htmlFor="own-words" className="text-sm text-neutral-900">What is it like?</Label>
+            <Textarea
+              id="own-words"
+              rows={3}
+              maxLength={1000}
+              value={ownWords}
+              onChange={(event) => setOwnWords(event.target.value)}
+              placeholder="Yellow leather wallet, a bit worn at the corners. My student card is inside."
+            />
+            <Button
+              className="self-start bg-brand-forest text-white hover:bg-brand-forest/90"
+              disabled={ownWords.trim().length < 10 || busy}
+              onClick={() => withoutReport.mutate()}
+            >
+              {withoutReport.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+              Claim this item
+            </Button>
+          </div>
+        </details>
+      )}
     </div>
   )
 }
