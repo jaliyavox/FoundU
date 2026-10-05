@@ -46,7 +46,7 @@ import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
 import { MessageThread } from '@/features/feed/message-thread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
+import { elapsedSince, finderContacted, LIFECYCLE, progressDetail, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
 import { HandoverNotice } from './handover-notice'
 import { GotItBackDialog } from './got-it-back-dialog'
@@ -551,9 +551,12 @@ function FoundPostCard({
   )
 }
 
-/** Knob position per stage. The ends stop short of the edges so they stay dots on a track
- *  rather than caps on it. */
-const STAGE_OFFSET = ['3%', '35%', '67%', '97%']
+/** Knob position per stage. The ends sit one knob-radius (10px) in from each edge, so the
+ *  first and last knobs touch the ends of the track exactly, at any card width. */
+const STAGE_OFFSET = ['10px', '35%', '65%', 'calc(100% - 10px)']
+
+/** How much of the track is filled: all of it once the item is back with its owner. */
+const STAGE_FILL = ['10px', '35%', '65%', '100%']
 
 /** Which end the pill hangs from, so it never runs off a narrow card. */
 const PILL_ALIGN = ['left-0', '-translate-x-1/2', '-translate-x-1/2', 'right-0'] as const
@@ -582,6 +585,7 @@ function ReportCard({
 }) {
   const isWithdrawn = report.status === 'Withdrawn'
   const stage = stageOf(report)
+  const detail = progressDetail(report)
   const { value, unit } = elapsedSince(report.createdAt)
 
   return (
@@ -622,7 +626,7 @@ function ReportCard({
             <div className="flex items-center gap-2">
               <h2 className="truncate font-medium hover:underline">{report.itemTypeName}</h2>
               <Badge variant="outline" className="text-[10px] uppercase">
-                {report.status}
+                {report.status === 'Matched' ? 'In progress' : report.status}
               </Badge>
             </div>
             <p className="truncate text-sm text-muted-foreground">
@@ -699,7 +703,7 @@ function ReportCard({
         {!isWithdrawn && <HandoverNotice reportId={report.id} />}
 
         {/* Found notice */}
-        {!isWithdrawn && report.foundClaimCount > 0 && (
+        {!isWithdrawn && finderContacted(report) && (
           <p className="fu-appear flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
             <BellRingIcon
               className="mt-0.5 size-4 shrink-0 text-brand-forest dark:text-brand-sage"
@@ -707,7 +711,7 @@ function ReportCard({
             />
             <span>
               <span className="font-medium">
-                {report.foundClaimCount === 1
+                {report.foundClaimCount <= 1
                   ? 'Someone says they found this'
                   : `${report.foundClaimCount} people say they found this`}
               </span>
@@ -743,6 +747,7 @@ function ReportCard({
 
         {/* Track */}
         <div className="flex flex-col gap-3">
+          {!isWithdrawn && <p className="text-xs text-muted-foreground">Suggestion and claim progress</p>}
           <div className={cn('relative h-2', !isWithdrawn && 'mt-8')}>
             <div className="absolute inset-0 rounded-full bg-foreground/10" />
 
@@ -750,7 +755,7 @@ function ReportCard({
               <>
                 <div
                   className="absolute inset-y-0 left-0 rounded-full bg-brand-green transition-[width] duration-700 ease-out"
-                  style={{ width: STAGE_OFFSET[stage] }}
+                  style={{ width: STAGE_FILL[stage] }}
                 />
 
                 {STAGE_OFFSET.map((offset, index) => (
@@ -805,10 +810,11 @@ function ReportCard({
                 {isWithdrawn ? 'Off the feed' : LIFECYCLE[3]}
               </p>
               <p className="text-xs text-muted-foreground">
-                {isWithdrawn ? 'Not being matched' : 'Next goal'}
+                {isWithdrawn ? 'Not being matched' : stage === 3 ? 'Reached' : 'Next goal'}
               </p>
             </div>
           </div>
+          {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
         </div>
       </div>
     </article>

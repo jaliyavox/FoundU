@@ -8,13 +8,7 @@ internal static class SafeVerificationFallback
 {
     public static string Question(string detail)
     {
-        var text = detail.ToLowerInvariant();
-        if (text.Contains("cap")) return "What identifying mark is underneath the bottle cap?";
-        if (text.Contains("sticker") && text.Contains("back")) return "Describe any identifying mark on the back of the item, including its colour and location.";
-        if (text.Contains("inside") || text.Contains("lining")) return "Describe an identifying detail on the inside of the item.";
-        if (text.Contains("scratch") || text.Contains("damage")) return "Describe any distinctive damage and its location on the item.";
-        if (text.Contains("initial") || text.Contains("engraving")) return "What identifying letters or markings does the item have, and where are they?";
-        return "Describe a private identifying feature of the item and its location.";
+        return VerificationGrounding.Candidates(detail).FirstOrDefault() ?? VerificationGrounding.GenericQuestion;
     }
 
     public static GenerateVerificationQuestionsResult Generate(Guid claimId, IReadOnlyDictionary<string, string> details)
@@ -23,6 +17,15 @@ internal static class SafeVerificationFallback
             .DistinctBy(q => q.Question).ToList(), "manual_review", "local-safe-fallback");
 
     public static bool IsSafe(string question, IEnumerable<string> details)
+    {
+        if (string.IsNullOrWhiteSpace(question) || question.Length > 240) return false;
+        var observations = details.ToList();
+        if (!observations.Any(d => VerificationGrounding.IsGrounded(question, d))) return false;
+        return IsPrivateSafe(question, observations);
+    }
+
+    // Decision reasons share the privacy check, but are not verification questions.
+    public static bool IsPrivateSafe(string question, IEnumerable<string> details)
     {
         if (string.IsNullOrWhiteSpace(question) || question.Length > 1000) return false;
         var normalized = Normalize(question);
@@ -55,17 +58,38 @@ internal static class SafeVerificationFallback
     }
 
     public static EvaluateVerificationAnswersResult Evaluate(Guid claimId, IReadOnlyDictionary<string, string> details,
-        IReadOnlyList<VerificationAgentAnswer> answers)
+        IReadOnlyList<VerificationAgentQuestion> questions, IReadOnlyList<VerificationAgentAnswer> answers)
     {
-        var values = details.OrderBy(d => d.Key, StringComparer.Ordinal).Take(3).Select(d => d.Value).ToList();
-        var scores = answers.Select((a, i) => i >= values.Count ? 0 : Score(a.Answer, values[i])).ToList();
-        var score = scores.Count == 0 ? 0 : Math.Round(scores.Average() * 100, 1);
-        return new(claimId, "manual_review", "local-safe-fallback", score,
-            scores.Where(s => s >= .8).Select(_ => "Identifying evidence matched.").ToList(),
-            scores.Where(s => s > 0 && s < .8).Select(_ => "Some identifying evidence is missing.").ToList(),
-            scores.Where(s => s == 0).Select(_ => "The submitted evidence did not match.").ToList(),
-            "Deterministic comparison; staff review required.");
+        var byId = answers.ToDictionary(a => a.QuestionId, a => a.Answer);
+        var evaluations = questions.Select(q =>
+        {
+            var fact = ResolveFact(q.Question, details.Values);
+            var answer = byId.GetValueOrDefault(q.QuestionId, "");
+            if (fact?.Kind != "description" || VerificationAnswerScoring.Uncertain(answer))
+                return VerificationAnswerScoring.Evaluate(q.QuestionId, answer, fact);
+            var score = Score(answer, fact.Value);
+            return new VerificationAgentEvaluation(q.QuestionId,
+                score >= .8 ? "match" : score > 0 ? "partial_match" : "insufficient", score);
+        }).ToList();
+        return FromEvaluations(claimId, "local-safe-fallback", evaluations);
     }
+
+    internal static VerificationGrounding.AnswerFact? ResolveFact(string question, IEnumerable<string> details)
+    {
+        var facts = details.Select(d => VerificationGrounding.ResolveAnswerFact(question, d))
+            .Where(f => f is not null).Distinct().ToList();
+        return facts.Count == 1 ? facts[0] : null;
+    }
+
+    internal static EvaluateVerificationAnswersResult FromEvaluations(Guid claimId, string source,
+        IReadOnlyList<VerificationAgentEvaluation> evaluations)
+        => new(claimId, evaluations.Count > 0 && evaluations.All(e => e.Result == "match") ? "likely_match"
+                : evaluations.Count > 0 && evaluations.All(e => e.Result == "no_match") ? "unlikely_match" : "manual_review",
+            source, evaluations.Count == 0 ? 0 : Math.Round(evaluations.Average(e => e.Score) * 100, 1),
+            evaluations.Where(e => e.Result == "match").Select(e => $"Question {e.QuestionId}: identifying evidence matched.").ToList(),
+            evaluations.Where(e => e.Result is "partial_match" or "insufficient").Select(e => $"Question {e.QuestionId}: insufficient information for a complete match.").ToList(),
+            evaluations.Where(e => e.Result == "no_match").Select(e => $"Question {e.QuestionId}: the requested fact contradicts the recorded observation.").ToList(),
+            "Question-specific comparison with staff-held evidence; staff must decide ownership.", evaluations);
 
     private static double Score(string answer, string expected)
     {

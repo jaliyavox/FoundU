@@ -52,7 +52,7 @@ class LostReportListItemModel {
       estimatedLostFromAt: DateTime.parse(json['estimatedLostFromAt'] as String),
       estimatedLostToAt: DateTime.parse(json['estimatedLostToAt'] as String),
       status: json['status'] as String? ?? 'Active',
-      progressStage: json['progressStage'] as String? ?? (json['status'] == 'Resolved' ? 'Resolved' : json['status'] == 'Matched' ? 'ClaimSubmitted' : 'Reported'),
+      progressStage: json['progressStage'] as String? ?? (json['status'] == 'Resolved' ? 'Resolved' : 'Reported'),
       photoUrls: (json['photoUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       messageCount: json['messageCount'] as int? ?? 0,
       foundClaimCount: json['foundClaimCount'] as int? ?? 0,
@@ -153,7 +153,7 @@ class LostReportDetailModel {
       estimatedLostFromAt: DateTime.parse(json['estimatedLostFromAt'] as String),
       estimatedLostToAt: DateTime.parse(json['estimatedLostToAt'] as String),
       status: json['status'] as String? ?? 'Active',
-      progressStage: json['progressStage'] as String? ?? (json['status'] == 'Resolved' ? 'Resolved' : json['status'] == 'Matched' ? 'ClaimSubmitted' : 'Reported'),
+      progressStage: json['progressStage'] as String? ?? (json['status'] == 'Resolved' ? 'Resolved' : 'Reported'),
       withdrawReason: json['withdrawReason'] as String?,
       withdrawnAt: json['withdrawnAt'] != null
           ? DateTime.parse(json['withdrawnAt'] as String)

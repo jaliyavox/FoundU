@@ -29,6 +29,44 @@ public sealed class ClaimsEndpointIntegrationTests
     private const string Secret = "SECRET-OWNERSHIP-DETAIL-DO-NOT-LEAK";
 
     [Fact]
+    public async Task BlackAnswerStronglyMatchesWhileScoringAndGroundingStayStaffOnly()
+    {
+        await using var app = await ClaimsHttpApp.CreateAsync("likely_match");
+        app.Agent.GeneratedQuestion = VerificationAnswerScoringTests.Cap;
+        await using (var scope = app.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FoundUDbContext>();
+            var found = await db.FoundReports.SingleAsync(f => f.Id == app.FoundReport.Id);
+            found.PrivateVerificationAttributesJson = null;
+            found.PrivateVerificationDetails = VerificationAnswerScoringTests.Evidence;
+            await db.SaveChangesAsync();
+        }
+        var generated = await app.CreateAndGenerateAsync();
+        using var student = app.ClientFor(app.Student);
+        using var staff = app.ClientFor(app.Staff);
+        var response = await student.PostAsJsonAsync($"/api/claims/{generated.Id}/answers",
+            new SubmitClaimAnswersRequest([new(generated.Questions.Single().Id, "Black")]));
+        response.EnsureSuccessStatusCode();
+        var studentBody = await response.Content.ReadAsStringAsync();
+        var studentDetail = await response.Content.ReadFromJsonAsync<ClaimDetailDto>();
+        Assert.Equal("UnderReview", studentDetail!.Status);
+        Assert.Null(studentDetail.VerificationForStaff);
+        Assert.Null(studentDetail.HiddenDetailForStaff);
+        Assert.Null(studentDetail.AdditionalEvidenceForStaff);
+        Assert.DoesNotContain(VerificationAnswerScoringTests.Evidence, studentBody);
+        Assert.DoesNotContain("black screw cap", studentBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("EvidenceHashes", studentBody);
+        Assert.DoesNotContain("expected", studentBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync($"/api/claims/{generated.Id}/agent-runs")).StatusCode);
+        var staffDetail = await staff.GetFromJsonAsync<ClaimDetailDto>($"/api/claims/{generated.Id}");
+        Assert.Equal(100, staffDetail!.VerificationForStaff!.Score);
+        Assert.Empty(staffDetail.VerificationForStaff.ConflictingInformation);
+        Assert.Single(staffDetail.VerificationForStaff.MatchedEvidence);
+        Assert.Equal("match", staffDetail.VerificationForStaff.QuestionResults!.Single().Result);
+        Assert.Equal(0, await app.DecisionCountAsync(generated.Id));
+    }
+
+    [Fact]
     public async Task FoundSheetLookupFiltersBeforePagingAndNeverReturnsAnotherStudentsMatches()
     {
         await using var app = await ClaimsHttpApp.CreateAsync("likely_match");
@@ -152,6 +190,7 @@ public sealed class ClaimsEndpointIntegrationTests
         var generatedClaim = JsonSerializer.Deserialize<ClaimDetailDto>(generatedBody,
             new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.Equal(nameof(ClaimStatus.WaitingForAnswer), generatedClaim!.Status);
+        Assert.Equal("VerificationQuestions", (await student.GetFromJsonAsync<LostReportDetailDto>($"/api/lost-reports/{app.LostReport.Id}"))!.ProgressStage);
         AssertTrustedEvidence(app.Agent.LastGeneratedPrivateDetails);
         var question = generatedClaim.Questions.Single();
 
@@ -171,6 +210,9 @@ public sealed class ClaimsEndpointIntegrationTests
         var evaluated = JsonSerializer.Deserialize<ClaimDetailDto>(answeredBody,
             new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.Equal(nameof(ClaimStatus.UnderReview), evaluated!.Status);
+        Assert.Equal("ClaimUnderReview", (await student.GetFromJsonAsync<LostReportDetailDto>($"/api/lost-reports/{app.LostReport.Id}"))!.ProgressStage);
+        var reviewList = await student.GetFromJsonAsync<PagedResult<LostReportListItemDto>>("/api/lost-reports/mine?page=1&pageSize=20");
+        Assert.Equal("ClaimUnderReview", Assert.Single(reviewList!.Items.Where(r => r.Id == app.LostReport.Id)).ProgressStage);
         AssertTrustedEvidence(app.Agent.LastEvaluatedPrivateDetails);
         Assert.Null(evaluated.Decision);
         Assert.Equal(0, await app.DecisionCountAsync(claim.Id));
@@ -191,6 +233,9 @@ public sealed class ClaimsEndpointIntegrationTests
         // their code. Until then the item is Claimed and the search is still Matched.
         Assert.Equal(FoundReportStatus.Claimed, await app.FoundStatusAsync());
         Assert.Equal(LostReportStatus.Matched, await app.LostStatusAsync());
+        Assert.Equal("ClaimApproved", (await student.GetFromJsonAsync<LostReportDetailDto>($"/api/lost-reports/{app.LostReport.Id}"))!.ProgressStage);
+        var approvedList = await student.GetFromJsonAsync<PagedResult<LostReportListItemDto>>("/api/lost-reports/mine?page=1&pageSize=20");
+        Assert.Equal("ClaimApproved", Assert.Single(approvedList!.Items.Where(r => r.Id == app.LostReport.Id)).ProgressStage);
 
         // The code reaches the owner and nobody else. Staff type what the owner quotes.
         Assert.Null(final.CollectionCode);
@@ -338,6 +383,7 @@ public sealed class ClaimsEndpointIntegrationTests
         var detail = await answer.Content.ReadFromJsonAsync<ClaimDetailDto>();
 
         Assert.Equal(nameof(ClaimStatus.ManualReviewRequired), detail!.Status);
+        Assert.Equal("ClaimUnderReview", (await student.GetFromJsonAsync<LostReportDetailDto>($"/api/lost-reports/{app.LostReport.Id}"))!.ProgressStage);
         Assert.Null(detail.Decision);
         Assert.Equal(0, await app.DecisionCountAsync(claim.Id));
         Assert.Equal(FoundReportStatus.Unclaimed, await app.FoundStatusAsync());
@@ -367,6 +413,7 @@ public sealed class ClaimsEndpointIntegrationTests
         Assert.Equal(1, await app.DecisionCountAsync(claim.Id));
         Assert.Equal(FoundReportStatus.Unclaimed, await app.FoundStatusAsync());
         Assert.Equal(LostReportStatus.Active, await app.LostStatusAsync());
+        Assert.Equal("Reported", (await student.GetFromJsonAsync<LostReportDetailDto>($"/api/lost-reports/{app.LostReport.Id}"))!.ProgressStage);
     }
 
     [Fact]
@@ -498,8 +545,8 @@ public sealed class ClaimsEndpointIntegrationTests
                 Assert.Equal(HttpStatusCode.Conflict, (await owner.PostAsJsonAsync("/api/claims", new CreateClaimRequest(LostReport.Id, foundId))).StatusCode);
                 var possible = (await owner.GetFromJsonAsync<List<MatchSuggestionDto>>($"/api/lost-reports/{LostReport.Id}/possible-matches"))!.Single();
                 Assert.Equal(0.96m, possible.MatchScore);
-                Assert.Contains("Same item type", possible.MatchReason);
-                Assert.Contains("Same reported colour", possible.MatchReason);
+                Assert.Contains("primary colour matched", possible.MatchReason, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("identifying details matched", possible.MatchReason, StringComparison.OrdinalIgnoreCase);
                 Assert.DoesNotContain(Secret, possible.MatchReason);
                 Assert.Equal("Posted", possible.FoundItem.Status);
                 await WithDb(async db => {
@@ -622,11 +669,15 @@ public sealed class ClaimsEndpointIntegrationTests
         public Task<MatchingAgentCallResult<MatchingAgentRecommendation>> MatchReportsAsync(
             MatchingAgentReportSummary lostReport, MatchingAgentReportSummary foundReport, string correlationId,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(MatchingAgentCallResult<MatchingAgentRecommendation>.Success(new("match_candidate", 0.96m, "test-match")));
+            => Task.FromResult(MatchingAgentCallResult<MatchingAgentRecommendation>.Success(
+                new("match_candidate", 0.96m, "test-match",
+                    ["Reported primary colour matched (20/20).", "Public identifying details matched (31/35)."],
+                    [], [])));
     }
 
     private sealed class TestVerificationAgent : IVerificationAgentClient
     {
+        public string GeneratedQuestion { get; set; } = "What identifying detail can you provide about the item?";
         public string Recommendation { get; set; } = "likely_match";
         public bool FailGeneration { get; set; }
         public bool FailEvaluation { get; set; }
@@ -639,7 +690,7 @@ public sealed class ClaimsEndpointIntegrationTests
             LastGeneratedPrivateDetails = new Dictionary<string, string>(privateVerificationDetails);
             return Task.FromResult(FailGeneration
                 ? VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Failure("Verification agent is unavailable.")
-                : VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Success(new(claimId, [new("verification-1", "What identifying detail can you provide about the item?")], "manual_review", "test-generate")));
+                : VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Success(new(claimId, [new("verification-1", GeneratedQuestion)], "manual_review", "test-generate")));
         }
 
         public Task<VerificationAgentCallResult<EvaluateVerificationAnswersResult>> EvaluateAnswersAsync(Guid claimId, IReadOnlyList<VerificationAgentQuestion> questions, IReadOnlyDictionary<string, string> privateVerificationDetails, IReadOnlyList<VerificationAgentAnswer> answers, string correlationId, CancellationToken cancellationToken = default)
@@ -647,7 +698,9 @@ public sealed class ClaimsEndpointIntegrationTests
             LastEvaluatedPrivateDetails = new Dictionary<string, string>(privateVerificationDetails);
             return Task.FromResult(FailEvaluation
                 ? VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Failure("Verification agent timed out.")
-                : VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Success(new(claimId, Recommendation, "test-evaluate", Recommendation == "likely_match" ? 92 : 35)));
+                : VerificationAgentCallResult<EvaluateVerificationAnswersResult>.Success(new(claimId, Recommendation, "test-evaluate", Recommendation == "likely_match" ? 92 : 35,
+                    Evaluations: questions.Select(q => new VerificationAgentEvaluation(q.QuestionId,
+                        Recommendation == "likely_match" ? "match" : "partial_match", Recommendation == "likely_match" ? .92 : .35)).ToList())));
         }
     }
 }

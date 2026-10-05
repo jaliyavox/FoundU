@@ -64,6 +64,7 @@ public record LostReportListItemDto(
     /// <summary>Display name only, and only on staff-reachable lists. Null when unflagged.</summary>
     string? FlaggedByName,
     DateTime CreatedAt,
+    /// <summary>Suggestion and ownership-claim progress; finder contact and custody are separate signals.</summary>
     string ProgressStage = "Reported");
 
 public record LostReportDetailDto(
@@ -92,6 +93,7 @@ public record LostReportDetailDto(
     string? FlagReason,
     DateTime CreatedAt,
     DateTime UpdatedAt,
+    /// <summary>Suggestion and ownership-claim progress; Matched status alone does not imply a claim.</summary>
     string ProgressStage = "Reported");
 
 public record WithdrawLostReportRequest(string? Reason);

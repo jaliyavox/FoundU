@@ -171,8 +171,6 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
   }
 }
 
-const foundMatchConfirmationThreshold = 0.75;
-
 class _FoundItemMatchActions extends ConsumerStatefulWidget {
   const _FoundItemMatchActions({super.key, required this.post});
   final FoundPost post;
@@ -241,8 +239,10 @@ class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> 
           const Text('You have already submitted a claim for this item.'),
           const SizedBox(height: 12), _viewClaim(claimed.first.claimId!),
         ]); }
-        final eligible = own.where((m) => m.status == 'Suggested' &&
-          (!m.isAgentGenerated || (m.matchScore ?? 0) >= foundMatchConfirmationThreshold)).toList();
+        // ASP.NET only persists agent-generated suggestions after the deterministic matcher has
+        // classified them as strong candidates. Reapplying a client-side numeric threshold would
+        // make the app disagree with future server scoring policies.
+        final eligible = own.where((m) => m.status == 'Suggested').toList();
         if (eligible.isEmpty) { return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_dismissed.isEmpty ? 'There is no eligible match to your lost reports for this item.' : 'This match was dismissed. Your lost report remains active.'),
           const SizedBox(height: 12),

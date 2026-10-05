@@ -9,6 +9,7 @@ import 'providers/report_providers.dart';
 import '../../../core/theme/brand.dart';
 import '../../handover/presentation/handover_notice.dart';
 import '../../../core/widgets/pill_nav.dart';
+import 'report_stage_track.dart';
 
 class MyReportsPage extends ConsumerStatefulWidget {
   const MyReportsPage({super.key});
@@ -418,7 +419,6 @@ class _ReportCard extends StatelessWidget {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MMM d, h:mm a');
@@ -426,6 +426,7 @@ class _ReportCard extends StatelessWidget {
     final isWithdrawn = item.status.toLowerCase() == 'withdrawn';
     final isActive = item.status.toLowerCase() == 'active';
     final stageIndex = reportProgressIndex(item.status, item.progressStage);
+    final progressDetail = reportProgressDetail(item.status, item.progressStage);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -506,7 +507,7 @@ class _ReportCard extends StatelessWidget {
                                 border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                               ),
                               child: Text(
-                                item.status.toUpperCase(),
+                                item.status == 'Matched' ? 'IN PROGRESS' : item.status.toUpperCase(),
                                 style: TextStyle(
                                   color: statusColor,
                                   fontSize: 10,
@@ -536,7 +537,7 @@ class _ReportCard extends StatelessWidget {
               if (!isWithdrawn) HandoverNotice(reportId: item.id, bottomGap: 10),
 
               // Found notice banner (matching Web UI)
-              if (!isWithdrawn && item.foundClaimCount > 0) ...[
+              if (!isWithdrawn && finderContacted(item.foundClaimCount, item.messageCount)) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -551,7 +552,7 @@ class _ReportCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          item.foundClaimCount == 1
+                          item.foundClaimCount <= 1
                               ? 'Someone reported finding this item!'
                               : '${item.foundClaimCount} people reported finding this item!',
                           style: const TextStyle(
@@ -600,7 +601,13 @@ class _ReportCard extends StatelessWidget {
 
               // Visual Lifecycle Progress Track (matching Web UI stage track)
               if (!isWithdrawn) ...[
-                _buildStageTracker(context, stageIndex),
+                Text('Suggestion and claim progress', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                const SizedBox(height: 6),
+                ReportStageTrack(stage: stageIndex, compact: true),
+                if (progressDetail != null) ...[
+                  const SizedBox(height: 6),
+                  Text(progressDetail, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                ],
                 const SizedBox(height: 12),
               ],
 
@@ -741,71 +748,4 @@ class _ReportCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStageTracker(BuildContext context, int currentStage) {
-    const stages = reportProgressLabels;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: List.generate(stages.length, (index) {
-            final isReached = index <= currentStage;
-            final isCurrent = index == currentStage;
-
-            return Expanded(
-              child: Row(
-                children: [
-                  // Dot indicator
-                  Container(
-                    width: isCurrent ? 12 : 8,
-                    height: isCurrent ? 12 : 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isReached
-                          ? const Color(0xFF2E7D32)
-                          : Colors.grey[300],
-                      border: isCurrent
-                          ? Border.all(color: const Color(0xFF1E5631), width: 2)
-                          : null,
-                    ),
-                  ),
-                  // Connecting line
-                  if (index < stages.length - 1)
-                    Expanded(
-                      child: Container(
-                        height: 2,
-                        color: index < currentStage
-                            ? const Color(0xFF2E7D32)
-                            : Colors.grey[300],
-                      ),
-                    ),
-                ],
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 4),
-        // Flexible labels: identical when there is room, and able to give way on a narrow
-        // phone or with a larger system text size instead of running off the card.
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            for (final (index, label) in stages.indexed)
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: currentStage >= index ? const Color(0xFF2E7D32) : Colors.grey,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
 }

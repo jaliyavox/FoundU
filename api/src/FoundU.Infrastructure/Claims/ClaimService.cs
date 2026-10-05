@@ -397,13 +397,14 @@ public class ClaimService : IClaimService
 
         var agentResult = await _verificationAgent.GenerateQuestionsAsync(
             claim.Id, privateDetails, correlationId, cancellationToken);
-        if (!agentResult.IsSuccess || agentResult.Value is null)
+        if (!agentResult.IsSuccess || agentResult.Value is null
+            || agentResult.Value.Questions.Any(q => !IsSafeQuestion(q.Question, privateDetails.Values)))
             agentResult = VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Success(
                 SafeVerificationFallback.Generate(claim.Id, privateDetails));
 
         var result = agentResult.Value!;
         if (result.Questions.Any(q => !IsSafeQuestion(q.Question, privateDetails.Values)))
-            throw new ConflictAppException("Verification question failed the privacy check.");
+            throw new ConflictAppException("Verification question failed the grounding or privacy check.");
         var audit = CreateVerificationAgentRun(
             claim.Id,
             "generate_questions",
@@ -412,7 +413,8 @@ public class ClaimService : IClaimService
             result.Recommendation,
             success: true,
             result.Questions,
-            retryCount: agentResult.RetryCount, evidenceKeys: privateDetails.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList());
+            retryCount: agentResult.RetryCount, evidenceKeys: privateDetails.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList(),
+            sourceEvidence: privateDetails);
         _db.AgentRuns.Add(audit);
 
         foreach (var question in result.Questions)
@@ -488,8 +490,9 @@ public class ClaimService : IClaimService
         var correlation = Guid.NewGuid().ToString("N");
         var result = await _verificationAgent.GenerateQuestionsAsync(claimId, details, correlation, cancellationToken);
         var draft = result.IsSuccess ? result.Value?.Questions.FirstOrDefault()?.Question : null;
-        draft ??= SafeVerificationFallback.Question(detail);
-        if (!IsSafeQuestion(draft, previous.Append(detail))
+        if (draft is null || !IsSafeQuestion(draft, [detail]))
+            draft = SafeVerificationFallback.Question(detail);
+        if (!IsSafeQuestion(draft, [detail]) || !SafeVerificationFallback.IsPrivateSafe(draft, previous.Append(detail))
             || claim.VerificationQuestions.Any(q => q.QuestionText.Equals(draft, StringComparison.OrdinalIgnoreCase)))
             throw new ConflictAppException("No distinct safe question is available. Staff must write and confirm one from the new observation.");
         _db.AgentRuns.Add(CreateVerificationAgentRun(claimId, "draft_follow_up", correlation,
@@ -523,14 +526,15 @@ public class ClaimService : IClaimService
         var question = request.Question?.Trim();
         if (string.IsNullOrWhiteSpace(question))
             throw new ValidationAppException("Question", "Confirm a distinct follow-up question before sending it.");
-        if (!IsSafeQuestion(question, previous.Append(detail))
+        if (!IsSafeQuestion(question, [detail]) || !SafeVerificationFallback.IsPrivateSafe(question, previous.Append(detail))
             || claim.VerificationQuestions.Any(q => q.QuestionText.Equals(question, StringComparison.OrdinalIgnoreCase)))
             throw new ValidationAppException("Question", "Ask a distinct non-leading question without revealing hidden evidence.");
         var evidence = new FoundVerificationEvidence { FoundReportId = claim.FoundReportId, RecordedByUserId = staffId, Detail = detail };
         if (!useUnused) _db.FoundVerificationEvidence.Add(evidence);
         var audit = CreateVerificationAgentRun(claim.Id, "generate_questions", Guid.NewGuid().ToString("N"), null,
             "manual_review", true, [new VerificationAgentQuestion("verification-1", question)],
-            evidenceKeys: useUnused ? unused.Keys.ToList() : [$"additional_{evidence.Id:N}"]);
+            evidenceKeys: useUnused ? unused.Keys.ToList() : [$"additional_{evidence.Id:N}"],
+            sourceEvidence: useUnused ? unused : new Dictionary<string, string> { [$"additional_{evidence.Id:N}"] = detail });
         _db.AgentRuns.Add(audit);
         _db.VerificationQuestions.Add(new VerificationQuestion { ClaimId = claim.Id, QuestionText = question, GeneratedByAgentRunId = audit.Id });
         MoveClaim(claim, ClaimStatus.RevisionRequested, staffId,
@@ -633,6 +637,7 @@ public class ClaimService : IClaimService
         var matched = new List<string>();
         var missing = new List<string>();
         var conflicting = new List<string>();
+        var individualResults = new List<StaffQuestionEvaluation>();
         foreach (var group in claim.VerificationQuestions.GroupBy(q => q.GeneratedByAgentRunId))
         {
             if (!TryBuildCanonicalAgentQuestions(group.ToList(), out var canonical))
@@ -644,22 +649,39 @@ public class ClaimService : IClaimService
             var auditData = JsonSerializer.Deserialize<VerificationAuditOutcome>(group.First().GeneratedByAgentRun!.FinalOutcomeJson!);
             var keys = auditData?.EvidenceKeys ?? BuildPrivateVerificationDetails(claim.FoundReport).Keys.ToList();
             var evidence = allDetails.Where(d => keys.Contains(d.Key)).ToDictionary(d => d.Key, d => d.Value);
+            if (auditData?.EvidenceHashes is { } hashes && (hashes.Count != evidence.Count
+                || hashes.Any(h => !evidence.TryGetValue(h.Key, out var value) || EvidenceHash(value) != h.Value)))
+                evidence.Clear(); // The stored question's original observation changed; require staff review.
             var answers = canonical.Select(q => new VerificationAgentAnswer(q.AgentQuestion.QuestionId,
                 questionsById[q.DatabaseQuestionId].Answer!.AnswerText)).ToList();
+            var agentQuestions = canonical.Select(q => q.AgentQuestion).ToList();
+            var local = SafeVerificationFallback.Evaluate(claim.Id, evidence, agentQuestions, answers);
             var evaluated = await _verificationAgent.EvaluateAnswersAsync(claim.Id,
-                canonical.Select(q => q.AgentQuestion).ToList(), evidence, answers, correlationId, cancellationToken);
-            var result = evaluated.IsSuccess && evaluated.Value?.Score is not null
-                ? evaluated.Value : SafeVerificationFallback.Evaluate(claim.Id, evidence, answers);
+                agentQuestions, evidence, answers, correlationId, cancellationToken);
+            // Obvious atomic answers are deterministic even if a fake/stale provider reports
+            // an inflated score or inconsistent messages. Open descriptive questions retain
+            // advisory provider scoring when its result is usable.
+            var useLocal = agentQuestions.Any(q => SafeVerificationFallback.ResolveFact(q.Question, evidence.Values)?.Kind != "description");
+            var result = !useLocal && evaluated.IsSuccess && evaluated.Value is not null
+                && VerificationAnswerScoring.IsUsableResult(evaluated.Value, agentQuestions)
+                ? evaluated.Value : local;
             evaluationSources.Add(result.AgentRunId);
             scores.AddRange(Enumerable.Repeat(Math.Clamp(result.Score!.Value, 0, 100), canonical.Count));
             matched.AddRange(result.MatchedEvidence ?? []);
             missing.AddRange(result.MissingInformation ?? []);
             conflicting.AddRange(result.ConflictingInformation ?? []);
+            if (result.Evaluations is { } results)
+                individualResults.AddRange(canonical.Select(q =>
+                {
+                    var individual = results.Single(e => e.QuestionId == q.AgentQuestion.QuestionId);
+                    return new StaffQuestionEvaluation(q.DatabaseQuestionId, individual.Result, Math.Round(individual.Score * 100, 1));
+                }));
         }
         var score = scores.Count == 0 ? 0 : Math.Round(scores.Average(), 1);
         var recommendation = score >= _reviewThreshold ? "Likely valid — staff review." : "More information required — manual review.";
         var assessment = new StaffVerificationAssessment(score, matched, missing, conflicting,
-            scores.Count == 0 ? "Manual questions require staff assessment." : "Comparison of all answers with staff-held evidence; staff decides ownership.", recommendation);
+            scores.Count == 0 ? "Manual questions require staff assessment." : "Comparison of each answer with its question-specific staff-held evidence; staff decides ownership.", recommendation,
+            individualResults);
         var evaluationRun = CreateVerificationAgentRun(claim.Id, "evaluate_answers", correlationId, string.Join("|", evaluationSources),
             score >= _reviewThreshold ? "likely_match" : "manual_review", true, null, assessment: assessment);
         _db.AgentRuns.Add(evaluationRun);
@@ -698,7 +720,7 @@ public class ClaimService : IClaimService
             var itemEvidence = await _db.FoundReports.SingleAsync(f => f.Id == claim.FoundReportId, cancellationToken);
             var privateValues = BuildPrivateVerificationDetails(itemEvidence).Values.Concat(
                 await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == claim.FoundReportId).Select(e => e.Detail).ToListAsync(cancellationToken));
-            if (!IsSafeQuestion(reason, privateValues))
+            if (!SafeVerificationFallback.IsPrivateSafe(reason, privateValues))
                 throw new ValidationAppException("Reason", "Use a student-safe reason without hidden evidence or answer hints.");
         }
         if (decision != ApprovalDecisionType.Approved && reason is null)
@@ -790,7 +812,7 @@ public class ClaimService : IClaimService
         var originalItem = await _db.FoundReports.SingleAsync(f => f.Id == claim.FoundReportId, cancellationToken);
         var privateValues = BuildPrivateVerificationDetails(originalItem).Values.Concat(
             await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == claim.FoundReportId).Select(e => e.Detail).ToListAsync(cancellationToken));
-        if (!IsSafeQuestion(reason, privateValues))
+        if (!SafeVerificationFallback.IsPrivateSafe(reason, privateValues))
             throw new ValidationAppException("Reason", "Use a student-safe reason without hidden evidence or answer hints.");
 
         // Both rows stay: the rejection and the override. The audit is the pair of them.
@@ -1171,7 +1193,8 @@ public class ClaimService : IClaimService
         string? failureReason = null,
         int retryCount = 0,
         IReadOnlyList<string>? evidenceKeys = null,
-        StaffVerificationAssessment? assessment = null)
+        StaffVerificationAssessment? assessment = null,
+        IReadOnlyDictionary<string, string>? sourceEvidence = null)
         => new()
         {
             ClaimId = claimId,
@@ -1187,11 +1210,15 @@ public class ClaimService : IClaimService
                 remoteAgentRunId,
                 recommendation,
                 success,
-                questions, evidenceKeys, assessment)),
+                questions, evidenceKeys, assessment,
+                sourceEvidence?.ToDictionary(e => e.Key, e => EvidenceHash(e.Value)))),
             CompletedAt = DateTime.UtcNow,
         };
 
     private sealed record CanonicalAgentQuestion(Guid DatabaseQuestionId, VerificationAgentQuestion AgentQuestion);
+
+    private static string EvidenceHash(string value)
+        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
 
     // Safe audit only: this intentionally excludes hidden evidence, submitted answers, and AI trace.
     private sealed record VerificationAuditOutcome(
@@ -1202,7 +1229,8 @@ public class ClaimService : IClaimService
         bool Success,
         IReadOnlyList<VerificationAgentQuestion>? Questions,
         IReadOnlyList<string>? EvidenceKeys = null,
-        StaffVerificationAssessment? Assessment = null);
+        StaffVerificationAssessment? Assessment = null,
+        IReadOnlyDictionary<string, string>? EvidenceHashes = null);
 
     /* ------------------------------------------------------------------ internals */
 

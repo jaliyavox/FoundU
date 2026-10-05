@@ -9,6 +9,7 @@ using FoundU.Domain.Common;
 using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Infrastructure.Persistence;
+using FoundU.Infrastructure.Matching;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -216,7 +217,7 @@ public class LostReportService : ILostReportService
             throw new ForbiddenAppException("You can only view matches for your own lost reports.");
         }
 
-        return await _db.MatchSuggestions
+        var matches = await _db.MatchSuggestions
             .AsNoTracking()
             .Where(m => m.LostReportId == reportId && m.Status != MatchSuggestionStatus.Dismissed)
             .Where(m => m.LostReport.Status != LostReportStatus.Withdrawn && m.LostReport.Status != LostReportStatus.Resolved)
@@ -248,12 +249,9 @@ public class LostReportService : ILostReportService
                     .Select(c => (Guid?)c.Id)
                     .FirstOrDefault(),
                 m.CreatedAt,
-            m.GeneratedByAgentRunId == null ? null :
-                (m.LostReport.ItemTypeId == m.FoundReport.ItemTypeId ? "Same item type. " : "") +
-                (m.LostReport.PrimaryColor != null && m.FoundReport.PrimaryColor != null
-                    && m.LostReport.PrimaryColor.ToLower() == m.FoundReport.PrimaryColor.ToLower() ? "Same reported colour. " : "") +
-                "AI comparison suggests a possible match; staff must verify ownership."))
+                m.GeneratedByAgentRunId == null ? null : m.MatchingFactorsJson))
             .ToListAsync(cancellationToken);
+        return matches.Select(MatchSuggestionService.WithSafeExplanation).ToList();
     }
 
     public Task<PagedResult<LostReportListItemDto>> SearchAsync(
@@ -857,6 +855,10 @@ public class LostReportService : ILostReportService
                 r.CreatedAt,
                 r.Status == LostReportStatus.Resolved ? "Resolved" :
                 r.Status == LostReportStatus.Withdrawn ? "Reported" :
+                r.Claims.Any(c => c.Status == ClaimStatus.Approved) ? "ClaimApproved" :
+                r.Claims.Any(c => c.Status == ClaimStatus.UnderReview || c.Status == ClaimStatus.ManualReviewRequired) ? "ClaimUnderReview" :
+                r.Claims.Any(c => c.Status == ClaimStatus.RevisionRequested) ? "RevisionRequested" :
+                r.Claims.Any(c => c.Status == ClaimStatus.WaitingForAnswer) ? "VerificationQuestions" :
                 r.Claims.Any(c => c.Status != ClaimStatus.Rejected && c.Status != ClaimStatus.Cancelled) ? "ClaimSubmitted" :
                 r.MatchSuggestions.Any(m => m.Status == MatchSuggestionStatus.Suggested
                     && (m.FoundReport.Status == FoundReportStatus.Posted || m.FoundReport.Status == FoundReportStatus.Unclaimed)) ? "PossibleMatch" : "Reported"))
@@ -897,6 +899,10 @@ public class LostReportService : ILostReportService
                 r.UpdatedAt,
                 r.Status == LostReportStatus.Resolved ? "Resolved" :
                 r.Status == LostReportStatus.Withdrawn ? "Reported" :
+                r.Claims.Any(c => c.Status == ClaimStatus.Approved) ? "ClaimApproved" :
+                r.Claims.Any(c => c.Status == ClaimStatus.UnderReview || c.Status == ClaimStatus.ManualReviewRequired) ? "ClaimUnderReview" :
+                r.Claims.Any(c => c.Status == ClaimStatus.RevisionRequested) ? "RevisionRequested" :
+                r.Claims.Any(c => c.Status == ClaimStatus.WaitingForAnswer) ? "VerificationQuestions" :
                 r.Claims.Any(c => c.Status != ClaimStatus.Rejected && c.Status != ClaimStatus.Cancelled) ? "ClaimSubmitted" :
                 r.MatchSuggestions.Any(m => m.Status == MatchSuggestionStatus.Suggested
                     && (m.FoundReport.Status == FoundReportStatus.Posted || m.FoundReport.Status == FoundReportStatus.Unclaimed)) ? "PossibleMatch" : "Reported"))

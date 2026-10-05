@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-panel'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getSuggestionsForItem } from '@/features/claims/claims-api'
+import { getReviewCandidatesForItem, getSuggestionsForItem } from '@/features/claims/claims-api'
 import { formatDateTime, getStorageLocations } from '@/features/reports/reports-api'
 import { FormSelect } from '@/features/reports/form-select'
 import { Label } from '@/components/ui/label'
@@ -48,6 +48,11 @@ export function ItemDetailPage() {
   const { data: suggestions } = useQuery({
     queryKey: ['item-suggestions', id],
     queryFn: () => getSuggestionsForItem(id),
+    enabled: Boolean(item),
+  })
+  const { data: reviewCandidates } = useQuery({
+    queryKey: ['item-match-reviews', id],
+    queryFn: () => getReviewCandidatesForItem(id),
     enabled: Boolean(item),
   })
 
@@ -181,10 +186,12 @@ export function ItemDetailPage() {
             </p>
           </div>
 
-          {(item.status === 'Unclaimed' || item.status === 'Posted') && (!item.finderName || (eligible.data?.totalCount ?? 0) > 0) && (
+          {(item.status === 'Unclaimed' || item.status === 'Posted') && (!item.finderName || (eligible.data?.totalCount ?? 0) > 0 || (reviewCandidates?.length ?? 0) > 0) && (
             <Button variant="outline" onClick={() => setLinking(true)}>
               <LinkIcon aria-hidden="true" />
-              {item.finderName && (suggestions?.length ?? 0) > 0 ? 'Suggest to another report' : 'Suggest to a report'}
+              {(reviewCandidates?.length ?? 0) > 0
+                ? `Review ${reviewCandidates!.length} possible ${reviewCandidates!.length === 1 ? 'pair' : 'pairs'}`
+                : item.finderName && (suggestions?.length ?? 0) > 0 ? 'Suggest to another report' : 'Suggest to a report'}
             </Button>
           )}
         </div>

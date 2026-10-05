@@ -62,6 +62,14 @@ public class MatchSuggestionsController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _suggestions.GetForFoundReportAsync(foundReportId, cancellationToken));
 
+    /// <summary>Scored pairs requiring a staff decision, never visible as student suggestions.</summary>
+    [HttpGet("review-for-item/{foundReportId:guid}")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<IReadOnlyList<MatchReviewCandidateDto>>> ReviewForItem(
+        Guid foundReportId,
+        CancellationToken cancellationToken)
+        => Ok(await _suggestions.GetReviewCandidatesForFoundReportAsync(foundReportId, cancellationToken));
+
     /// <summary>"That is not mine." Takes it off the student's list without opening a claim.</summary>
     [HttpPost("{id:guid}/dismiss")]
     [Authorize(Policy = PolicyNames.Student)]

@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { createSuggestion, generateAiSuggestion, getSuggestionsForItem } from '@/features/claims/claims-api'
+import { createSuggestion, generateAiSuggestion, getReviewCandidatesForItem, getSuggestionsForItem } from '@/features/claims/claims-api'
 import { formatDateTime } from '@/features/reports/reports-api'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
@@ -60,6 +60,11 @@ export function LinkReportDialog({
     queryFn: () => getSuggestionsForItem(item.id),
     enabled: open,
   })
+  const reviews = useQuery({
+    queryKey: ['item-match-reviews', item.id],
+    queryFn: () => getReviewCandidatesForItem(item.id),
+    enabled: open,
+  })
   const suggestedIds = new Set(existing.data?.map((suggestion) => suggestion.lostReportId))
   const selectable = selected && !suggestedIds.has(selected) && existing.isSuccess ? selected : null
 
@@ -67,6 +72,7 @@ export function LinkReportDialog({
     mutationFn: () => createSuggestion(selectable!, item.id, note.trim() || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
+      queryClient.invalidateQueries({ queryKey: ['item-match-reviews', item.id] })
       toast.success('The student will see it on their reports.')
       handleOpenChange(false)
       setSelected(null)
@@ -80,6 +86,7 @@ export function LinkReportDialog({
     mutationFn: () => generateAiSuggestion(selectable!, item.id, note.trim() || undefined),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
+      queryClient.invalidateQueries({ queryKey: ['item-match-reviews', item.id] })
       if (result.suggestion) {
         // The dialog closes immediately, so put the safe score in the visible toast instead of
         // transient dialog state that staff would never have a chance to read.
@@ -122,6 +129,27 @@ export function LinkReportDialog({
             they still have to answer the verification questions.
           </DialogDescription>
         </DialogHeader>
+
+        {(reviews.data?.length ?? 0) > 0 && (
+          <section aria-label="Pairs needing staff review" className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium">Needs staff review</h3>
+            <p className="text-xs text-muted-foreground">These comparisons have not been shown to students. Select a report, inspect the public details, then choose whether to suggest it.</p>
+            <div className="flex max-h-48 flex-col gap-2 overflow-y-auto">
+              {reviews.data!.filter((review) => !suggestedIds.has(review.lostReportId)).map((review) => (
+                <button key={review.lostReportId} type="button"
+                  aria-pressed={selected === review.lostReportId}
+                  disabled={!existing.isSuccess}
+                  onClick={() => { setSelected(review.lostReportId); setAiStatus('') }}
+                  className={cn('rounded-xl border p-3 text-left text-xs', selected === review.lostReportId ? 'border-brand-green bg-brand-green/10' : 'border-foreground/10')}>
+                  <span className="block font-medium">{review.itemTypeName} · {Math.round(review.matchScore * 100)}% match score</span>
+                  <span className="block">{review.lostDescription}</span>
+                  <span className="block text-muted-foreground">{review.primaryColor ?? 'Colour unreported'} · Last seen {review.lastSeenLocationName} · {formatDateTime(review.estimatedLostFromAt)}</span>
+                  <span className="block text-muted-foreground">{review.explanation}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <form onSubmit={handleSearch} className="flex gap-2">
           <div className="relative flex-1">
@@ -245,7 +273,7 @@ export function LinkReportDialog({
           </Button>
         </DialogFooter>
         <p id="ai-matching-help" className="text-xs text-muted-foreground">
-          AI compares item type, colour, public descriptions and locations. A score is a possible match; staff verify ownership.
+          The match score compares public colour, identifying details, structured location and reported times after item type and category checks. Staff verify ownership.
         </p>
       </DialogContent>
     </Dialog>

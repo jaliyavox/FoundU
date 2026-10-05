@@ -54,11 +54,10 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  for (final score in [0.74, 0.75, 0.85]) {
-    testWidgets('sheet uses the 75 percent candidate cutoff: $score', (tester) async {
+  for (final score in [0.64, 0.65, 0.74, 0.85]) {
+    testWidgets('sheet trusts persisted suggestion at match score $score', (tester) async {
       await _open(tester, _Matches([_match(score: score)]), _Claims());
-      expect(find.text('Is this your item?'), score >= .75 ? findsOneWidget : findsNothing);
-      if (score < .75) expect(find.textContaining('no eligible match'), findsOneWidget);
+      expect(find.text('Is this your item?'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     });
   }

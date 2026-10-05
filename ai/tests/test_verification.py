@@ -34,7 +34,7 @@ def test_free_text_detail_generates_item_specific_safe_questions():
         "What identifying mark is underneath the bottle cap?"
     )
     assert "NB-27" not in str(bottle)
-    assert "back" in card["questions"][0]["question"]
+    assert "sticker" in card["questions"][0]["question"]
     assert "white" not in str(card)
     assert "bottom-right" not in str(card)
     assert bottle["questions"] != card["questions"]
@@ -96,10 +96,10 @@ def test_question_generation_is_limited_to_configured_maximum():
     output = generate_questions(
         generation_request(
             {
-                "distinctive_mark": "a",
-                "accessory": "b",
-                "inside_detail": "c",
-                "case": "d",
+                "distinctive_mark": "small scratch",
+                "accessory": "blue keychain",
+                "inside_detail": "red lining inside the bag",
+                "case": "white sticker",
             }
         )
     )
@@ -182,7 +182,7 @@ def test_multiple_questions_can_return_likely_match():
         questions=[
             {
                 "question_id": "verification-1",
-                "question": "What accessory was attached to the item?",
+                "question": "What accessory does the item have?",
             },
             {
                 "question_id": "verification-2",
@@ -354,47 +354,20 @@ class CapturingFakeLlmClient(FakeLlmClient):
 
 
 def test_llm_drafts_only_safe_wording_and_preserves_canonical_order_and_ids():
-    secret = "SECRET-OWNERSHIP-DETAIL-DO-NOT-LEAK"
     fake = CapturingFakeLlmClient()
-    fake.queue_response(
-        {
-            "questions": [
-                    {
-                        "question_id": "verification-1",
-                        "question_text": "What accessory was attached?",
-                    },
-                    {
-                        "question_id": "verification-2",
-                        "question_text": "What distinctive mark was present?",
-                    },
-            ]
-        }
-    )
-    output = generate_questions(
-        generation_request({"distinctive_mark": secret, "accessory": "SERIAL-ABC-987654"}),
-        llm_client=fake,
-    )
-
-    assert output["questions"] == [
-        {"question_id": "verification-1", "question": "What accessory was attached?"},
-        {"question_id": "verification-2", "question": "What distinctive mark was present?"},
-    ]
+    evidence = {"accessory": "blue keychain", "distinctive_mark": "small crack"}
+    expected = generate_questions(generation_request(evidence))["questions"]
+    fake.queue_response({"questions": [
+        {"question_id": q["question_id"], "question_text": q["question"]} for q in expected
+    ]})
+    output = generate_questions(generation_request(evidence), llm_client=fake)
+    assert output["questions"] == expected
     request = fake.requests[0]
     assert request.operation == "verification_question_drafting"
-    assert request.input == {
-        "challenges": [
-            {
-                "question_id": "verification-1",
-                "evidence_category": "accessory was attached to the item",
-            },
-            {
-                "question_id": "verification-2",
-                "evidence_category": "distinctive mark or damage does the item have",
-            },
-        ]
-    }
-    assert secret not in str(request)
-    assert "SERIAL-ABC-987654" not in str(request)
+    assert [c["canonical_question"] for c in request.input["challenges"]] == [
+        q["question"] for q in expected
+    ]
+    assert all(value not in str(request) for value in evidence.values())
 
 
 def test_llm_question_wording_remains_compatible_with_deterministic_evaluation():
@@ -432,7 +405,7 @@ def test_missing_llm_question_falls_back_to_all_deterministic_challenges():
         llm_client=fake,
     )
     assert output["questions"] == [
-        {"question_id": "verification-1", "question": "What accessory was attached to the item?"},
+        {"question_id": "verification-1", "question": "What accessory does the item have?"},
         {
             "question_id": "verification-2",
             "question": "What distinctive mark or damage does the item have?",
@@ -492,7 +465,7 @@ def test_cross_evidence_reordered_leak_in_any_draft_falls_back_safely():
     )
 
     assert [question["question"] for question in result["output"]["questions"]] == [
-        "What accessory was attached to the item?",
+        "What sticker or label does the item have?",
         "What distinctive mark or damage does the item have?",
     ]
     assert "verification:fallback" in result["trace"]
@@ -502,7 +475,7 @@ def test_cross_evidence_reordered_leak_in_any_draft_falls_back_safely():
 @pytest.mark.parametrize(
     ("hidden_value", "safe_question"),
     [
-        ("red sticker", "What identifying marking was on the item?"),
+        ("red sticker", "What sticker or label does the item have?"),
         ("small crack", "What distinctive damage did the item have?"),
     ],
 )
@@ -575,7 +548,7 @@ def test_invalid_or_leaking_llm_drafts_fall_back_to_deterministic_templates(resp
 
 @pytest.mark.parametrize("failure", ["timeout", "provider", "malformed"])
 def test_llm_failures_fall_back_without_exposing_private_evidence(failure: str):
-    secret = "HIDDEN-RED-STICKER"
+    secret = "PRIVATE-OPAQUE-VALUE"
     fake = FakeLlmClient()
     if failure == "timeout":
         fake.queue_timeout()

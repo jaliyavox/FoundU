@@ -153,16 +153,28 @@ contracts. Tool failures yield a bounded `manual_review` result; Matching never 
 context or adapter calls after a registry failure. Public descriptions are scored as token data, never
 returned in the result, used for tool selection, or able to affect workflow authority. ASP.NET invokes
 this agent through its authenticated service client when staff use **Generate AI Match Suggestion**
-from a found item's matching dialog and for automatic found-post comparisons. Only a validated `match_candidate` creates a suggestion;
-`no_match`, `manual_review`, and service failure leave staff free to use the existing manual link.
+from a found item's matching dialog and for automatic found-post comparisons. Only a validated `match_candidate` creates a suggestion.
+ASP.NET records scored `manual_review` results in its existing agent-run audit. Staff can open an
+item's **Review possible pairs** dialog to inspect the latest eligible pairs scoring at least
+0.45, limited to eight per item, and use the existing manual **Suggest it** action. This is a
+staff-only queue; no student sees a review pair until staff creates a suggestion. Duplicate
+agent runs collapse to the latest result for the pair. `no_match` and service failure create no
+review entry. Staff can still use the existing manual link.
 Matching cannot create claims or decide ownership.
 
-The deterministic score is 40% matching type + 20% matching colour + 25% public-description
-Jaccard token similarity + 15% matching location. Different normalized types force zero.
-Casefolding, punctuation removal and whitespace normalization precede comparison; description
-boilerplate is removed using a fixed stop-word list. Missing evidence earns zero without weight
-redistribution. Scores >=0.75 are candidates, >=0.50 and <0.75 require manual review, and lower
-scores are no_match. UI percentages are labelled "Match score", not ownership confidence.
+Category and item type are ASP.NET eligibility checks; matching type earns no points. The
+deterministic public-field score is 20 points for equivalent primary colour, up to 35 for Dice
+overlap of identifying description tokens, 20 for identical structured location IDs, and up to
+25 for a plausible lost/found time sequence. Description tokens exclude item type, colour,
+place/reporting boilerplate and a small explicit synonym list. Known attribute contradictions
+prevent an automatic candidate. The model has no location adjacency metadata, so different IDs
+receive zero location points. Lost time is an approximate window; a find up to two hours before
+its start is tolerated. A find through one day after the window earns 25 points, through 30 days
+earns 15, and later earns 8. Missing components earn zero without weight redistribution.
+Scores are rounded to six decimals. `match_candidate` requires score >=0.65, at least 0.10
+description score, and no conflicts; uncertain pairs receive `manual_review`. Incompatible item
+types, or a score below 0.35 with at least two clear public-field conflicts, receive `no_match`.
+UI percentages are labelled "match score", never ownership probability.
 
 ## Structured execution plans (Phase 6)
 

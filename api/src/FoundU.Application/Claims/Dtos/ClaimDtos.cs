@@ -88,7 +88,10 @@ public record ClaimDetailDto(
 public record StaffVerificationEvidenceDto(Guid Id, string Detail, Guid RecordedByUserId, DateTime RecordedAt);
 public record StaffVerificationAssessment(double Score, IReadOnlyList<string> MatchedEvidence,
     IReadOnlyList<string> MissingInformation, IReadOnlyList<string> ConflictingInformation,
-    string Rationale, string Recommendation);
+    string Rationale, string Recommendation,
+    IReadOnlyList<StaffQuestionEvaluation>? QuestionResults = null);
+
+public record StaffQuestionEvaluation(Guid QuestionId, string Result, double Score);
 
 /// <summary>The desk marking an item collected. The code is the whole request.</summary>
 /// <summary>

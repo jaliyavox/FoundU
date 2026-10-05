@@ -21,6 +21,10 @@ public interface IMatchSuggestionService
         Guid staffId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Bounded staff-only review results for one found item; these are not suggestions.</summary>
+    Task<IReadOnlyList<MatchReviewCandidateDto>> GetReviewCandidatesForFoundReportAsync(
+        Guid foundReportId, CancellationToken cancellationToken = default);
+
     /// <summary>Open suggestions across the student's own reports.</summary>
     Task<PagedResult<MatchSuggestionDto>> GetForStudentAsync(Guid studentId, PaginationQuery query, CancellationToken cancellationToken = default, Guid? foundReportId = null);
 

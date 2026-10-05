@@ -39,6 +39,18 @@ export interface GenerateMatchSuggestionResult {
   suggestion: MatchSuggestion | null
 }
 
+/** Staff-only scored pair awaiting a decision; it has not been suggested to a student. */
+export interface MatchReviewCandidate {
+  lostReportId: string
+  lostDescription: string
+  itemTypeName: string
+  primaryColor: string | null
+  lastSeenLocationName: string
+  estimatedLostFromAt: string
+  matchScore: number
+  explanation: string
+}
+
 export interface ClaimQuestion {
   id: string
   questionText: string
@@ -108,6 +120,9 @@ export const getMySuggestions = (page = 1, pageSize = 20) =>
 
 export const getSuggestionsForItem = (foundReportId: string) =>
   api.get<MatchSuggestion[]>(`/api/match-suggestions/for-item/${foundReportId}`)
+
+export const getReviewCandidatesForItem = (foundReportId: string) =>
+  api.get<MatchReviewCandidate[]>(`/api/match-suggestions/review-for-item/${foundReportId}`)
 
 export const createSuggestion = (lostReportId: string, foundReportId: string, note?: string) =>
   api.post<MatchSuggestion>('/api/match-suggestions', { lostReportId, foundReportId, note })

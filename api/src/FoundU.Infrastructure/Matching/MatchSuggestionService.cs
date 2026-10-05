@@ -143,12 +143,10 @@ public class MatchSuggestionService : IMatchSuggestionService
 
         await EnsureNoApprovedClaimAsync(lostReport.Id, cancellationToken);
 
-        // Only public descriptions and structured location IDs supplement type and colour.
-        // Private verification evidence and arbitrary attribute JSON never enter this allowlist.
+        // Only public descriptions, structured location IDs, primary colour, and report times
+        // cross the matching boundary. Private evidence, attributes and identity never enter it.
         // Missing comparison fields are not guessed: staff can still use the existing manual link.
-        if (string.IsNullOrWhiteSpace(lostReport.PrimaryColor)
-            || string.IsNullOrWhiteSpace(foundReport.PrimaryColor)
-            || string.IsNullOrWhiteSpace(lostReport.ItemType.Name)
+        if (string.IsNullOrWhiteSpace(lostReport.ItemType.Name)
             || string.IsNullOrWhiteSpace(foundReport.ItemType.Name))
         {
             return new GenerateMatchSuggestionResultDto("manual_review", 0m, null);
@@ -156,13 +154,15 @@ public class MatchSuggestionService : IMatchSuggestionService
 
         var result = await _matchingAgent.MatchReportsAsync(
             ToAgentSummary(lostReport.Id, lostReport.ItemType.Name, lostReport.PrimaryColor,
-                lostReport.Description, lostReport.LastSeenLocationId),
+                lostReport.Description, lostReport.LastSeenLocationId,
+                lostReport.EstimatedLostFromAt, lostReport.EstimatedLostToAt),
             ToAgentSummary(foundReport.Id, foundReport.ItemType.Name, foundReport.PrimaryColor,
-                foundReport.GeneralDescription, foundReport.FoundLocationId),
+                foundReport.GeneralDescription, foundReport.FoundLocationId,
+                foundReport.FoundAt, foundReport.FoundAt),
             $"matching-{Guid.NewGuid():N}",
             cancellationToken);
 
-        var audit = CreateAgentRun(request.FoundReportId, result);
+        var audit = CreateAgentRun(request.LostReportId, request.FoundReportId, result);
         _db.AgentRuns.Add(audit);
 
         if (!result.IsSuccess || result.Value is null)
@@ -187,6 +187,8 @@ public class MatchSuggestionService : IMatchSuggestionService
             // This is staff-authored local context, never part of the FastAPI comparison request.
             StaffNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
             GeneratedByAgentRunId = audit.Id,
+            MatchingFactorsJson = SerializeExplanation(recommendation),
+            ConflictingFactorsJson = JsonSerializer.Serialize(recommendation.ConflictingFactors ?? []),
         };
         _db.MatchSuggestions.Add(suggestion);
         _db.MatchStatusHistories.Add(new MatchStatusHistory
@@ -211,6 +213,54 @@ public class MatchSuggestionService : IMatchSuggestionService
             recommendation.Recommendation,
             recommendation.Score,
             await LoadAsync(suggestion.Id, cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<MatchReviewCandidateDto>> GetReviewCandidatesForFoundReportAsync(
+        Guid foundReportId, CancellationToken cancellationToken = default)
+    {
+        var found = await _db.FoundReports.AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == foundReportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Found report '{foundReportId}' was not found.");
+        if (found.Status is not (FoundReportStatus.Unclaimed or FoundReportStatus.Posted))
+            return [];
+
+        // An AgentRun already holds the durable comparison. Read a bounded recent slice and
+        // keep the latest result per pair; no new table or student-visible suggestion is needed.
+        var runs = await _db.AgentRuns.AsNoTracking()
+            .Where(a => a.TriggerEntityType == nameof(FoundReport) && a.TriggerEntityId == foundReportId
+                && a.Objective == "Recommend a possible item match." && a.Status == AgentRunStatus.Completed)
+            .OrderByDescending(a => a.StartedAt).ThenByDescending(a => a.Id)
+            .Take(100)
+            .Select(a => a.FinalOutcomeJson)
+            .ToListAsync(cancellationToken);
+        var seen = new HashSet<Guid>();
+        var reviews = new List<(Guid LostId, decimal Score, string Explanation)>();
+        foreach (var json in runs)
+        {
+            if (!TryReadMatchingAudit(json, out var lostId, out var recommendation, out var score, out var explanation)
+                || !seen.Add(lostId)) continue;
+            if (recommendation == "manual_review" && score >= 0.45m)
+                reviews.Add((lostId, score, explanation));
+        }
+
+        var reviewIds = reviews.Select(r => r.LostId).ToList();
+        var reports = await _db.LostReports.AsNoTracking()
+            .Include(r => r.ItemType).Include(r => r.LastSeenLocation)
+            .Where(r => reviewIds.Contains(r.Id) && r.CategoryId == found.CategoryId
+                && r.ItemTypeId == found.ItemTypeId
+                && (r.Status == LostReportStatus.Active || r.Status == LostReportStatus.Matched)
+                && !r.Claims.Any(c => c.Status == ClaimStatus.Approved)
+                && !r.MatchSuggestions.Any(m => m.FoundReportId == foundReportId))
+            .ToDictionaryAsync(r => r.Id, cancellationToken);
+        return reviews.Where(r => reports.ContainsKey(r.LostId))
+            .OrderByDescending(r => r.Score).ThenBy(r => r.LostId).Take(8)
+            .Select(r =>
+            {
+                var report = reports[r.LostId];
+                return new MatchReviewCandidateDto(report.Id, report.Description, report.ItemType.Name,
+                    report.PrimaryColor, report.LastSeenLocation.Name, report.EstimatedLostFromAt,
+                    r.Score, r.Explanation);
+            }).ToList();
     }
 
     public async Task<PagedResult<MatchSuggestionDto>> GetForStudentAsync(
@@ -240,18 +290,22 @@ public class MatchSuggestionService : IMatchSuggestionService
             .Select(Projection())
             .ToListAsync(cancellationToken);
 
-        return PagedResult<MatchSuggestionDto>.Create(items, query.Page, query.PageSize, totalCount);
+        return PagedResult<MatchSuggestionDto>.Create(
+            items.Select(WithSafeExplanation).ToList(), query.Page, query.PageSize, totalCount);
     }
 
     public async Task<IReadOnlyList<MatchSuggestionDto>> GetForFoundReportAsync(
         Guid foundReportId,
         CancellationToken cancellationToken = default)
-        => await _db.MatchSuggestions
+    {
+        var items = await _db.MatchSuggestions
             .AsNoTracking()
             .Where(m => m.FoundReportId == foundReportId)
             .OrderByDescending(m => m.CreatedAt)
             .Select(Projection())
             .ToListAsync(cancellationToken);
+        return items.Select(WithSafeExplanation).ToList();
+    }
 
     public async Task<MatchSuggestionDto> DismissAsync(
         Guid id,
@@ -310,10 +364,52 @@ public class MatchSuggestionService : IMatchSuggestionService
     }
 
     private static MatchingAgentReportSummary ToAgentSummary(
-        Guid reportId, string itemType, string primaryColor, string description, Guid locationId)
-        => new(reportId.ToString(), itemType.Trim(), primaryColor.Trim(), description, locationId.ToString());
+        Guid reportId, string itemType, string? primaryColor, string? description, Guid locationId,
+        DateTime eventStartAt, DateTime eventEndAt)
+        => new(reportId.ToString(), itemType.Trim(), primaryColor?.Trim(), description, locationId.ToString(),
+            AsUtc(eventStartAt), AsUtc(eventEndAt));
+
+    private static DateTime AsUtc(DateTime value)
+        => value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime();
+
+    private static string SerializeExplanation(MatchingAgentRecommendation recommendation)
+        => JsonSerializer.Serialize(new MatchingExplanation(
+            recommendation.MatchedFactors ?? [], recommendation.MissingFactors ?? [],
+            recommendation.ConflictingFactors ?? []));
+
+    internal static MatchSuggestionDto WithSafeExplanation(MatchSuggestionDto suggestion)
+    {
+        if (!suggestion.IsAgentGenerated) return suggestion;
+        if (string.IsNullOrWhiteSpace(suggestion.MatchReason))
+            return suggestion with { MatchReason = "Public-field similarity suggested a possible match; staff must verify ownership." };
+        try
+        {
+            var explanation = JsonSerializer.Deserialize<MatchingExplanation>(suggestion.MatchReason);
+            // Keep uncertainty visible even when all four positive components were reported.
+            var factors = (explanation?.Conflicting ?? []).Concat(explanation?.Missing ?? [])
+                .Concat(explanation?.Matched ?? []).Take(4).ToList();
+            return suggestion with
+            {
+                MatchReason = factors.Count == 0
+                    ? "Public-field similarity suggested a possible match; staff must verify ownership."
+                    : string.Join(" ", factors) + " Staff must verify ownership."
+            };
+        }
+        catch (JsonException)
+        {
+            return suggestion with { MatchReason = "Public-field similarity suggested a possible match; staff must verify ownership." };
+        }
+    }
+
+    private sealed record MatchingExplanation(
+        IReadOnlyList<string> Matched,
+        IReadOnlyList<string> Missing,
+        IReadOnlyList<string> Conflicting);
 
     private static AgentRun CreateAgentRun(
+        Guid lostReportId,
         Guid foundReportId,
         MatchingAgentCallResult<MatchingAgentRecommendation> result)
     {
@@ -321,9 +417,13 @@ public class MatchSuggestionService : IMatchSuggestionService
             ? JsonSerializer.Serialize(new
             {
                 agent = "matching",
+                lostReportId,
                 remoteAgentRunId = result.Value.AgentRunId,
                 recommendation = result.Value.Recommendation,
                 score = result.Value.Score,
+                matchedFactors = result.Value.MatchedFactors,
+                missingFactors = result.Value.MissingFactors,
+                conflictingFactors = result.Value.ConflictingFactors,
             })
             : JsonSerializer.Serialize(new { agent = "matching", outcome = "unavailable" });
 
@@ -341,13 +441,72 @@ public class MatchSuggestionService : IMatchSuggestionService
         };
     }
 
+    private static bool TryReadMatchingAudit(string? json, out Guid lostId,
+        out string recommendation, out decimal score, out string explanation)
+    {
+        lostId = Guid.Empty;
+        recommendation = explanation = string.Empty;
+        score = 0m;
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("lostReportId", out var id) || !Guid.TryParse(id.GetString(), out lostId)
+                || !root.TryGetProperty("recommendation", out var rec)
+                || rec.ValueKind != JsonValueKind.String
+                || !root.TryGetProperty("score", out var value)
+                || !value.TryGetDecimal(out score) || score is < 0 or > 1)
+                return false;
+            recommendation = rec.GetString() ?? "";
+            if (recommendation is not ("manual_review" or "match_candidate" or "no_match")) return false;
+
+            // Convert known factors to fixed public-field labels. Never return remote text verbatim.
+            var matched = ReadFactors(root, "matchedFactors");
+            var missing = ReadFactors(root, "missingFactors");
+            var conflicting = ReadFactors(root, "conflictingFactors");
+            var labels = new List<string>();
+            if (conflicting.Any(f => f.StartsWith("Public descriptions disagree about ", StringComparison.Ordinal)))
+                labels.Add("Public descriptions conflict on an attribute.");
+            if (conflicting.Any(f => f.StartsWith("The item was reportedly found before ", StringComparison.Ordinal)))
+                labels.Add("Reported time order conflicts.");
+            if (missing.Any(f => f.StartsWith("Comparable public identifying details are missing", StringComparison.Ordinal)
+                || f.StartsWith("Public descriptions share no identifying detail", StringComparison.Ordinal)))
+                labels.Add("No shared identifying description detail.");
+            if (missing.Any(f => f.StartsWith("Structured locations differ", StringComparison.Ordinal)))
+                labels.Add("Structured locations differ; proximity is unknown.");
+            if (missing.Any(f => f.StartsWith("Reported time evidence is incomplete", StringComparison.Ordinal)))
+                labels.Add("Reported time is incomplete.");
+            if (matched.Any(f => f.StartsWith("Public identifying details matched", StringComparison.Ordinal)))
+                labels.Add("Public identifying details overlap.");
+            if (matched.Any(f => f.StartsWith("Reported primary colour matched", StringComparison.Ordinal)))
+                labels.Add("Primary colour matches.");
+            if (matched.Any(f => f.StartsWith("Structured campus location matched", StringComparison.Ordinal)))
+                labels.Add("Structured location matches.");
+            if (matched.Any(f => f.Contains("plausible sequence", StringComparison.Ordinal)))
+                labels.Add("Reported times are plausible.");
+            explanation = labels.Count == 0
+                ? "Public-field comparison needs staff review."
+                : string.Join(" ", labels.Take(4));
+            return true;
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+    }
+
+    private static IReadOnlyList<string> ReadFactors(JsonElement root, string property)
+        => root.TryGetProperty(property, out var values) && values.ValueKind == JsonValueKind.Array
+            ? values.EnumerateArray().Where(v => v.ValueKind == JsonValueKind.String)
+                .Select(v => v.GetString() ?? "").Take(4).ToList()
+            : [];
+
     private async Task<MatchSuggestionDto> LoadAsync(Guid id, CancellationToken cancellationToken)
-        => await _db.MatchSuggestions
+        => WithSafeExplanation(await _db.MatchSuggestions
             .AsNoTracking()
             .Where(m => m.Id == id)
             .Select(Projection())
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new NotFoundAppException($"Suggestion '{id}' was not found.");
+            ?? throw new NotFoundAppException($"Suggestion '{id}' was not found."));
 
     /// <summary>
     /// Not static: the claim lookup is a correlated subquery over the same context, which is
@@ -378,9 +537,5 @@ public class MatchSuggestionService : IMatchSuggestionService
                 .Select(c => (Guid?)c.Id)
                 .FirstOrDefault(),
             m.CreatedAt,
-            m.GeneratedByAgentRunId == null ? null :
-                (m.LostReport.ItemTypeId == m.FoundReport.ItemTypeId ? "Same item type. " : "") +
-                (m.LostReport.PrimaryColor != null && m.FoundReport.PrimaryColor != null
-                    && m.LostReport.PrimaryColor.ToLower() == m.FoundReport.PrimaryColor.ToLower() ? "Same reported colour. " : "") +
-                "AI comparison suggests a possible match; staff must verify ownership.");
+            m.GeneratedByAgentRunId == null ? null : m.MatchingFactorsJson);
 }
