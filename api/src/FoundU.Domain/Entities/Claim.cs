@@ -14,11 +14,6 @@ public class Claim : BaseEntity, ISoftDeletable
     public Guid FoundReportId { get; set; }
     public FoundReport FoundReport { get; set; } = default!;
 
-    public Guid? MatchSuggestionId { get; set; }
-    public MatchSuggestion? MatchSuggestion { get; set; }
-    public Guid? CustodyLocationId { get; set; }
-    public StorageLocation? CustodyLocation { get; set; }
-
     public ClaimStatus Status { get; set; } = ClaimStatus.Pending;
 
     /// <summary>

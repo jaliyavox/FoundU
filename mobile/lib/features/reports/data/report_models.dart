@@ -8,7 +8,6 @@ class LostReportListItemModel {
   final DateTime estimatedLostFromAt;
   final DateTime estimatedLostToAt;
   final String status;
-  final String progressStage;
   final List<String> photoUrls;
   final int messageCount;
   final int foundClaimCount;
@@ -29,7 +28,6 @@ class LostReportListItemModel {
     required this.estimatedLostFromAt,
     required this.estimatedLostToAt,
     required this.status,
-    this.progressStage = "Reported",
     required this.photoUrls,
     required this.messageCount,
     required this.foundClaimCount,
@@ -52,7 +50,6 @@ class LostReportListItemModel {
       estimatedLostFromAt: DateTime.parse(json['estimatedLostFromAt'] as String),
       estimatedLostToAt: DateTime.parse(json['estimatedLostToAt'] as String),
       status: json['status'] as String? ?? 'Active',
-      progressStage: json['progressStage'] as String? ?? (json['status'] == 'Resolved' ? 'Resolved' : 'Reported'),
       photoUrls: (json['photoUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       messageCount: json['messageCount'] as int? ?? 0,
       foundClaimCount: json['foundClaimCount'] as int? ?? 0,
@@ -98,7 +95,6 @@ class LostReportDetailModel {
   final DateTime estimatedLostFromAt;
   final DateTime estimatedLostToAt;
   final String status;
-  final String progressStage;
   final String? withdrawReason;
   final DateTime? withdrawnAt;
   final String studentId;
@@ -124,7 +120,6 @@ class LostReportDetailModel {
     required this.estimatedLostFromAt,
     required this.estimatedLostToAt,
     required this.status,
-    this.progressStage = "Reported",
     this.withdrawReason,
     this.withdrawnAt,
     required this.studentId,
@@ -153,7 +148,6 @@ class LostReportDetailModel {
       estimatedLostFromAt: DateTime.parse(json['estimatedLostFromAt'] as String),
       estimatedLostToAt: DateTime.parse(json['estimatedLostToAt'] as String),
       status: json['status'] as String? ?? 'Active',
-      progressStage: json['progressStage'] as String? ?? (json['status'] == 'Resolved' ? 'Resolved' : 'Reported'),
       withdrawReason: json['withdrawReason'] as String?,
       withdrawnAt: json['withdrawnAt'] != null
           ? DateTime.parse(json['withdrawnAt'] as String)
@@ -247,7 +241,6 @@ class FoundReportSummaryModel {
   final String? primaryColor;
   final DateTime foundAt;
   final String status;
-  final String? storageLocationName;
 
   const FoundReportSummaryModel({
     required this.id,
@@ -258,7 +251,6 @@ class FoundReportSummaryModel {
     this.primaryColor,
     required this.foundAt,
     required this.status,
-    this.storageLocationName,
   });
 
   factory FoundReportSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -271,7 +263,6 @@ class FoundReportSummaryModel {
       primaryColor: json['primaryColor'] as String?,
       foundAt: DateTime.parse(json['foundAt'] as String),
       status: json['status'] as String? ?? 'Unclaimed',
-      storageLocationName: json['storageLocationName'] as String?,
     );
   }
 }
@@ -285,7 +276,6 @@ class MatchSuggestionModel {
   final String? note;
   final bool isAgentGenerated;
   final double? matchScore;
-  final String? matchReason;
   final String? claimId;
   final DateTime createdAt;
 
@@ -298,7 +288,6 @@ class MatchSuggestionModel {
     this.note,
     required this.isAgentGenerated,
     this.matchScore,
-    this.matchReason,
     this.claimId,
     required this.createdAt,
   });
@@ -314,7 +303,6 @@ class MatchSuggestionModel {
       note: json['note'] as String?,
       isAgentGenerated: json['isAgentGenerated'] as bool? ?? false,
       matchScore: (json['matchScore'] as num?)?.toDouble(),
-      matchReason: json['matchReason'] as String?,
       claimId: json['claimId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );

@@ -133,8 +133,6 @@ export interface FoundPostItem {
   id: string
   postedByName: string
   isMine: boolean
-  canMessageFinder?: boolean
-  storageLocationName?: string | null
   categoryName: string
   itemTypeName: string
   foundLocationName: string

@@ -9,9 +9,7 @@ namespace FoundU.Application.Claims.Dtos;
 /// Both ids are required: the claim is a link between the student's own lost report and one
 /// found item, and both ends are checked against the caller before anything is written.
 /// </summary>
-public record CreateClaimRequest(Guid LostReportId, Guid FoundReportId, Guid? MatchSuggestionId = null);
-
-public record RequestClaimFollowUp(string? Question, string? AdditionalHiddenDetail = null);
+public record CreateClaimRequest(Guid LostReportId, Guid FoundReportId);
 
 /// <summary>
 /// A verification question and, once given, the student's answer.
@@ -41,10 +39,7 @@ public record ClaimListItemDto(
     /// When the owner took the item home. The status stays Approved - that is the decision -
     /// so this is what tells the lists the story is over.
     /// </summary>
-    DateTime? CollectedAt = null,
-    Guid? LostReportId = null, Guid? FoundReportId = null,
-    string? StorageLocationName = null, decimal? MatchScore = null,
-    string? VerificationStatus = null);
+    DateTime? CollectedAt = null);
 
 /// <summary>
 /// Full claim. The found item is projected through <see cref="FoundReportSummaryDto"/>, which
@@ -79,19 +74,7 @@ public record ClaimDetailDto(
     /// The item's hidden verification detail, so staff can judge the answers beside it. Only on
     /// a staff member opening the claim (GET) - null for the owner and in every action response.
     /// </summary>
-    string? HiddenDetailForStaff = null,
-    Guid? MatchSuggestionId = null,
-    StaffVerificationAssessment? VerificationForStaff = null,
-    IReadOnlyList<StaffVerificationEvidenceDto>? AdditionalEvidenceForStaff = null,
-    bool CanUseUnusedEvidenceForFollowUp = false);
-
-public record StaffVerificationEvidenceDto(Guid Id, string Detail, Guid RecordedByUserId, DateTime RecordedAt);
-public record StaffVerificationAssessment(double Score, IReadOnlyList<string> MatchedEvidence,
-    IReadOnlyList<string> MissingInformation, IReadOnlyList<string> ConflictingInformation,
-    string Rationale, string Recommendation,
-    IReadOnlyList<StaffQuestionEvaluation>? QuestionResults = null);
-
-public record StaffQuestionEvaluation(Guid QuestionId, string Result, double Score);
+    string? HiddenDetailForStaff = null);
 
 /// <summary>The desk marking an item collected. The code is the whole request.</summary>
 /// <summary>

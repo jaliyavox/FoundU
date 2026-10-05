@@ -80,8 +80,7 @@ public record FoundReportSummaryDto(
     string GeneralDescription,
     string? PrimaryColor,
     DateTime FoundAt,
-    string Status,
-    string? StorageLocationName = null);
+    string Status);
 
 /// <summary>Filters for the staff items table, on top of the standard pagination contract.</summary>
 public class FoundReportQuery : PaginationQuery

@@ -41,12 +41,6 @@ public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
             .HasForeignKey(c => c.FoundReportId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(c => c.MatchSuggestion).WithMany().HasForeignKey(c => c.MatchSuggestionId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(c => c.CustodyLocation).WithMany().HasForeignKey(c => c.CustodyLocationId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(c => new { c.StudentId, c.LostReportId, c.FoundReportId }).IsUnique()
-            .HasDatabaseName("IX_Claims_OneActivePair")
-            .HasFilter("\"IsDeleted\" = false AND \"Status\" IN ('Pending', 'WaitingForAnswer', 'UnderReview', 'RevisionRequested', 'ManualReviewRequired', 'Approved')");
-
         // 1:N - a claim can be revised multiple times (RevisionRequested -> Approved, etc).
         // Full navigation + FK configured from the ApprovalDecision side (see
         // ApprovalDecisionConfiguration); nothing to configure here for that relationship.

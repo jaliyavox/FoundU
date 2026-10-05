@@ -1,8 +1,6 @@
-"""Read-only, deterministic public-evidence matcher."""
+"""Read-only, deterministic matching agent backed by the central tool registry."""
 
 import re
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -42,57 +40,13 @@ class MatchingResult(BaseModel):
 
     recommendation: Literal["match_candidate", "no_match", "manual_review"]
     score: float = Field(ge=0.0, le=1.0)
-    matched_factors: list[str] = Field(default_factory=list, max_length=4)
-    missing_factors: list[str] = Field(default_factory=list, max_length=4)
-    conflicting_factors: list[str] = Field(default_factory=list, max_length=4)
 
 
-# Reporting boilerplate, the item type, colours, and campus-place wording do not identify an
-# individual item. Removing them also prevents double-counting the other score components.
+# Reporting boilerplate contributes no identifying information.
 _DESCRIPTION_STOP_WORDS = frozenset(
     "a an the and or is it its was were be been my this that of to in on at near "
-    "by beside for from with lost found item color colour area place student study campus "
-    "i we you they has have had there here just some one an another "
-    "code number regular regularly ordinary usual standard basic "
-    "library canteen cafeteria building room floor desk table tables regularly used".split()
+    "by for with lost found item color colour area place student study".split()
 )
-
-_COLOR_ALIASES = {
-    # Spelling variants only. Shades such as navy and blue are not identical evidence.
-    "grey": "gray",
-}
-_KNOWN_COLORS = frozenset(
-    "black white red blue green yellow orange purple pink gray brown silver gold beige teal".split()
-)
-_TOKEN_ALIASES = {
-    "scuff": "scratch", "scuffed": "scratch", "scratched": "scratch",
-    "marking": "mark", "markings": "mark",
-    "zip": "zipper", "zipped": "zipper", "base": "bottom",
-    "minor": "small", "tiny": "small", "sized": "",
-    "aluminium": "aluminum", "rucksack": "backpack", "cellphone": "phone",
-}
-_ATTRIBUTE_VALUES = {
-    "size": {"small", "medium", "large"},
-    "material": {
-        "stainless_steel", "steel", "aluminum", "plastic", "glass",
-        "leather", "canvas", "wood", "metal",
-    },
-    "pattern": {"plain", "striped", "spotted", "checkered"},
-    "brand": {"nike", "adidas", "apple", "samsung", "dell", "lenovo", "hp"},
-}
-
-_STRONG_CANDIDATE_MIN = 0.65
-_STRONG_DESCRIPTION_MIN = 0.10
-_UNLIKELY_MAX = 0.35
-
-
-@dataclass(frozen=True)
-class _ScoreBreakdown:
-    score: float
-    description_score: float
-    matched: list[str]
-    missing: list[str]
-    conflicting: list[str]
 
 
 def _normalize(value: str | None) -> str:
@@ -100,151 +54,29 @@ def _normalize(value: str | None) -> str:
     return " ".join(re.findall(r"[^\W_]+", (value or "").casefold()))
 
 
-def _normalize_color(value: str | None) -> str:
-    normalized = _normalize(value).replace("colour", "color")
-    return _COLOR_ALIASES.get(normalized, normalized)
+def _description_similarity(left: str | None, right: str | None) -> float:
+    """Jaccard overlap of unique meaningful public words; missing text earns zero."""
+    a = set(_normalize(left).split()) - _DESCRIPTION_STOP_WORDS
+    b = set(_normalize(right).split()) - _DESCRIPTION_STOP_WORDS
+    return len(a & b) / len(a | b) if a and b else 0.0
 
 
-def _description_tokens(value: str | None, item_type: str | None, color: str | None) -> set[str]:
-    text = (value or "").casefold().replace("stainless-steel", "stainless_steel")
-    text = text.replace("stainless steel", "stainless_steel")
-    tokens = re.findall(r"[a-z0-9_]+", text)
-    excluded = _DESCRIPTION_STOP_WORDS | set(_normalize(item_type).split()) | _KNOWN_COLORS
-    normalized = {_TOKEN_ALIASES.get(token, token) for token in tokens if token not in excluded}
-    normalized.discard("")
-    # The structured primary colour owns colour evidence. Explicit aliases must not sneak it
-    # back into description credit.
-    normalized.discard(_normalize_color(color))
-    return normalized
-
-
-def _description_similarity(
-    left: str | None,
-    right: str | None,
-    *,
-    item_type: str | None = None,
-    left_color: str | None = None,
-    right_color: str | None = None,
-) -> float:
-    """Dice overlap of public identifying details after removing already-scored context."""
-    a = _description_tokens(left, item_type, left_color)
-    b = _description_tokens(right, item_type, right_color)
-    return 2 * len(a & b) / (len(a) + len(b)) if a and b else 0.0
-
-
-def _attribute_values(tokens: set[str], attribute: str) -> set[str]:
-    return tokens & _ATTRIBUTE_VALUES[attribute]
-
-
-def _description_conflicts(left: set[str], right: set[str]) -> list[str]:
-    conflicts: list[str] = []
-    for attribute in ("size", "pattern", "brand"):
-        a, b = _attribute_values(left, attribute), _attribute_values(right, attribute)
-        if a and b and a.isdisjoint(b):
-            conflicts.append(f"Public descriptions disagree about {attribute}.")
-    a_material = _attribute_values(left, "material")
-    b_material = _attribute_values(right, "material")
-    if a_material and b_material and a_material.isdisjoint(b_material):
-        # "metal" and "steel" are broad and compatible with their specific forms, but are
-        # not equivalent and earn no shared-detail credit.
-        compatible_broad_metal = ("metal" in a_material or "metal" in b_material
-                                  or {"steel", "stainless_steel"} <= (a_material | b_material))
-        metallic = {"stainless_steel", "steel", "aluminum", "metal"}
-        if not compatible_broad_metal or not (a_material | b_material) <= metallic:
-            conflicts.append("Public descriptions disagree about material.")
-    return conflicts
-
-
-def _as_utc(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
-
-
-def _time_score(lost: ReportSummary, found: ReportSummary) -> tuple[float, str | None, str | None]:
-    if lost.event_start_at is None or lost.event_end_at is None or found.event_start_at is None:
-        return 0.0, None, "Reported time evidence is incomplete (0/25)."
-    try:
-        start, end, found_at = map(
-            _as_utc, (lost.event_start_at, lost.event_end_at, found.event_start_at)
-        )
-    except ValueError:
-        return 0.0, None, "Reported time evidence is invalid (0/25)."
-    if end < start:
-        return 0.0, None, "The approximate lost-time window is invalid (0/25)."
-    # Lost times are explicitly approximate. A find up to two hours before the entered start is
-    # tolerated; earlier finds are a clear sequence conflict. Later finds remain plausible, with
-    # decreasing evidence rather than an arbitrary rejection.
-    if found_at < start - timedelta(hours=2):
-        return 0.0, None, "The item was reportedly found before the tolerated loss window (0/25)."
-    if found_at <= end + timedelta(days=1):
-        return 0.25, "Reported times are in a strongly plausible sequence (25/25).", None
-    if found_at <= end + timedelta(days=30):
-        return 0.15, "Reported times are in a plausible sequence (15/25).", None
-    return 0.08, "The found time is later than the loss window but still possible (8/25).", None
-
-
-def _score_reports(lost: ReportLookupOutput, found: ReportLookupOutput) -> _ScoreBreakdown:
-    """Score only public evidence; eligibility contributes no points."""
+def _score_reports(lost: ReportLookupOutput, found: ReportLookupOutput) -> float:
+    """Fixed evidence weights, never renormalized when optional evidence is missing."""
     if not lost.found or not found.found or lost.report is None or found.report is None:
-        return _ScoreBreakdown(0.0, 0.0, [], ["Report evidence is unavailable."], [])
+        return 0.0
     left, right = lost.report, found.report
     item_type = _normalize(left.item_type)
     if not item_type or item_type != _normalize(right.item_type):
-        return _ScoreBreakdown(0.0, 0.0, [], [], ["Item types are incompatible."])
-
-    matched: list[str] = []
-    missing: list[str] = []
-    conflicting: list[str] = []
-    score = 0.0
-
-    left_color = _normalize_color(left.primary_color)
-    right_color = _normalize_color(right.primary_color)
-    if not left_color or not right_color:
-        missing.append("Primary colour evidence is incomplete (0/20).")
-    elif left_color == right_color:
-        score += 0.20
-        matched.append("Reported primary colour matched (20/20).")
-    else:
-        conflicting.append("Reported primary colours conflict (0/20).")
-
-    left_tokens = _description_tokens(left.description, left.item_type, left.primary_color)
-    right_tokens = _description_tokens(right.description, right.item_type, right.primary_color)
-    similarity = _description_similarity(
-        left.description, right.description, item_type=left.item_type,
-        left_color=left.primary_color, right_color=right.primary_color,
-    )
-    description_score = 0.35 * similarity
-    score += description_score
-    if not left_tokens or not right_tokens:
-        missing.append("Comparable public identifying details are missing (0/35).")
-    elif description_score > 0:
-        matched.append(f"Public identifying details matched ({description_score * 100:.1f}/35).")
-    else:
-        missing.append("Public descriptions share no identifying detail (0/35).")
-    conflicting.extend(_description_conflicts(left_tokens, right_tokens))
-
+        return 0.0
+    color = _normalize(left.primary_color)
+    same_color = bool(color) and color == _normalize(right.primary_color)
     location = _normalize(left.location)
-    right_location = _normalize(right.location)
-    if not location or not right_location:
-        missing.append("Structured location evidence is incomplete (0/20).")
-    elif location == right_location:
-        score += 0.20
-        matched.append("Structured campus location matched (20/20).")
-    else:
-        missing.append("Structured locations differ; no proximity metadata is available (0/20).")
-
-    time_score, time_match, time_problem = _time_score(left, right)
-    score += time_score
-    if time_match:
-        matched.append(time_match)
-    if time_problem:
-        target = conflicting if "before" in time_problem or "invalid" in time_problem else missing
-        target.append(time_problem)
-
-    return _ScoreBreakdown(
-        round(min(1.0, max(0.0, score)), 6), round(description_score, 6),
-        matched, missing, conflicting,
-    )
+    same_location = bool(location) and location == _normalize(right.location)
+    score = (0.40 + 0.20 * same_color
+             + 0.25 * _description_similarity(left.description, right.description)
+             + 0.15 * same_location)
+    return round(min(1.0, max(0.0, score)), 6)
 
 
 def _report_summary(report: SuppliedReportContext) -> ReportSummary:
@@ -255,8 +87,6 @@ def _report_summary(report: SuppliedReportContext) -> ReportSummary:
         primary_color=report.primary_color,
         description=report.description,
         location=report.location,
-        event_start_at=report.event_start_at,
-        event_end_at=report.event_end_at,
     )
 
 
@@ -365,25 +195,11 @@ def matching_node(state: AgentState, *, tool_registry: ToolRegistry | None = Non
             "plan": plan,
         }
 
-    breakdown = _score_reports(lost_result.output, found_result.output)
+    score = _score_reports(lost_result.output, found_result.output)
     recommendation: Literal["match_candidate", "manual_review", "no_match"]
-    if ("Item types are incompatible." in breakdown.conflicting
-            or (breakdown.score < _UNLIKELY_MAX and len(breakdown.conflicting) >= 2)):
-        recommendation = "no_match"
-    elif (breakdown.score >= _STRONG_CANDIDATE_MIN
-            and breakdown.description_score >= _STRONG_DESCRIPTION_MIN
-            and not breakdown.conflicting):
-        recommendation = "match_candidate"
-    else:
-        # One disagreement or missing public evidence cannot establish an unlikely item.
-        recommendation = "manual_review"
-    output = MatchingResult(
-        recommendation=recommendation,
-        score=breakdown.score,
-        matched_factors=breakdown.matched,
-        missing_factors=breakdown.missing,
-        conflicting_factors=breakdown.conflicting,
-    )
+    recommendation = ("match_candidate" if score >= 0.75 else
+                      "manual_review" if score >= 0.50 else "no_match")
+    output = MatchingResult(recommendation=recommendation, score=score)
     return {
         "output": output.model_dump(),
         "trace": [*trace, "matching:scored", "executed:matching"],

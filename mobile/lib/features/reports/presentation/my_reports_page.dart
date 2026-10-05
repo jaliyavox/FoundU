@@ -1,4 +1,3 @@
-import 'report_progress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -425,8 +424,7 @@ class _ReportCard extends StatelessWidget {
     final statusColor = _getStatusColor(item.status);
     final isWithdrawn = item.status.toLowerCase() == 'withdrawn';
     final isActive = item.status.toLowerCase() == 'active';
-    final stageIndex = reportProgressIndex(item.status, item.progressStage);
-    final progressDetail = reportProgressDetail(item.status, item.progressStage);
+    final stageIndex = reportStageOf(item.status, foundClaimCount: item.foundClaimCount, messageCount: item.messageCount);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -507,7 +505,7 @@ class _ReportCard extends StatelessWidget {
                                 border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                               ),
                               child: Text(
-                                item.status == 'Matched' ? 'IN PROGRESS' : item.status.toUpperCase(),
+                                item.status.toUpperCase(),
                                 style: TextStyle(
                                   color: statusColor,
                                   fontSize: 10,
@@ -537,7 +535,7 @@ class _ReportCard extends StatelessWidget {
               if (!isWithdrawn) HandoverNotice(reportId: item.id, bottomGap: 10),
 
               // Found notice banner (matching Web UI)
-              if (!isWithdrawn && finderContacted(item.foundClaimCount, item.messageCount)) ...[
+              if (!isWithdrawn && item.foundClaimCount > 0) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -552,7 +550,7 @@ class _ReportCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          item.foundClaimCount <= 1
+                          item.foundClaimCount == 1
                               ? 'Someone reported finding this item!'
                               : '${item.foundClaimCount} people reported finding this item!',
                           style: const TextStyle(
@@ -601,13 +599,7 @@ class _ReportCard extends StatelessWidget {
 
               // Visual Lifecycle Progress Track (matching Web UI stage track)
               if (!isWithdrawn) ...[
-                Text('Suggestion and claim progress', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
-                const SizedBox(height: 6),
                 ReportStageTrack(stage: stageIndex, compact: true),
-                if (progressDetail != null) ...[
-                  const SizedBox(height: 6),
-                  Text(progressDetail, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
-                ],
                 const SizedBox(height: 12),
               ],
 

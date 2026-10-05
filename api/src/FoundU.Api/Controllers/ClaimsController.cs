@@ -79,17 +79,6 @@ public class ClaimsController : ControllerBase
     public async Task<ActionResult<ClaimDetailDto>> GenerateQuestions(Guid id, CancellationToken cancellationToken)
         => Ok(await _claims.GenerateQuestionsAsync(id, User.GetUserId(), cancellationToken));
 
-    [HttpPost("{id:guid}/follow-up")]
-    [Authorize(Policy = PolicyNames.Staff)]
-    public async Task<ActionResult<ClaimDetailDto>> RequestFollowUp(
-        Guid id, [FromBody] RequestClaimFollowUp request, CancellationToken cancellationToken)
-        => Ok(await _claims.RequestFollowUpAsync(id, User.GetUserId(), request, cancellationToken));
-
-    [HttpPost("{id:guid}/follow-up/draft")]
-    [Authorize(Policy = PolicyNames.Staff)]
-    public async Task<ActionResult<object>> DraftFollowUp(Guid id, [FromBody] RequestClaimFollowUp request, CancellationToken cancellationToken)
-        => Ok(new { Question = await _claims.DraftFollowUpAsync(id, User.GetUserId(), request, cancellationToken) });
-
     /// <summary>The student answering. Every outstanding question must be answered at once.</summary>
     [HttpPost("{id:guid}/answers")]
     [Authorize(Policy = PolicyNames.Student)]

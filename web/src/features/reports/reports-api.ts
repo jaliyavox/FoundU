@@ -58,8 +58,6 @@ export interface LostReportListItem {
   estimatedLostFromAt: string
   estimatedLostToAt: string
   status: string
-  /** Suggestion and claim progress; custody is reported separately by the handover API. */
-  progressStage?: string
   photoUrls: string[]
   /** Messages from finders. A message on a lost report only ever means "I found this". */
   messageCount: number
@@ -95,7 +93,6 @@ export interface LostReportDetail {
   estimatedLostFromAt: string
   estimatedLostToAt: string
   status: string
-  progressStage?: string
   withdrawReason: string | null
   withdrawnAt: string | null
   studentId: string

@@ -97,8 +97,6 @@ class FoundPost {
     required this.status,
     required this.handInCode,
     required this.createdAt,
-    this.storageLocationName,
-    this.canMessageFinder = true,
   });
 
   final String id;
@@ -111,8 +109,6 @@ class FoundPost {
   final String? primaryColor;
   final DateTime foundAt;
   final String status;
-  final String? storageLocationName;
-  final bool canMessageFinder;
   /// Only on your own post - what you quote at the desk.
   final String? handInCode;
   final DateTime createdAt;
@@ -130,7 +126,7 @@ class FoundPost {
               : 'Not at a desk yet';
 
   String get stageNote => isAtDesk
-      ? 'Held securely at the desk. Staff verify ownership before collection.'
+      ? 'In storage at a security desk. Think it is yours? Link it to your report below and claim it - staff check before handing it over.'
       : isSpokenFor
           ? 'Its owner has proved it is theirs and is collecting it from security.'
           : 'Not at a desk yet. It can be claimed once the finder hands it in.';
@@ -153,8 +149,6 @@ class FoundPost {
         primaryColor: json['primaryColor'] as String?,
         foundAt: DateTime.parse(json['foundAt'] as String),
         status: json['status'] as String,
-        storageLocationName: json['storageLocationName'] as String?,
-        canMessageFinder: json['canMessageFinder'] as bool? ?? true,
         handInCode: json['handInCode'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
       );

@@ -73,8 +73,7 @@ export function HandoverDeskPage() {
         <p className="text-sm font-medium text-brand-green">Front desk</p>
         <h1 className="pt-1 text-2xl font-semibold tracking-tight">Handover code</h1>
         <p className="max-w-xl pt-2 text-sm text-muted-foreground">
-          Use this code for an item brought in from a lost report, or for its owner to collect
-          it after hand-in.
+          A student brings an item in, or comes to collect one. Type the six digits they quote.
         </p>
       </div>
 

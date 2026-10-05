@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/auth/auth_session.dart';
 
 import '../data/feed_models.dart';
 import '../data/feed_repository.dart';
@@ -51,16 +49,9 @@ class FoundFeedState {
 
 class FoundFeedController extends Notifier<FoundFeedState> {
   static const _pageSize = 12;
-  int _generation = 0;
 
   @override
   FoundFeedState build() {
-    ref.watch(authSessionEpochProvider);
-    _generation++;
-    final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!state.isLoading) refresh();
-    });
-    ref.onDispose(timer.cancel);
     Future.microtask(refresh);
     return const FoundFeedState();
   }
@@ -89,7 +80,6 @@ class FoundFeedController extends Notifier<FoundFeedState> {
   }
 
   Future<void> _load(int page) async {
-    final generation = ++_generation;
     try {
       final result = await ref.read(feedRepositoryProvider).getFoundFeed(
             page: page,
@@ -97,7 +87,6 @@ class FoundFeedController extends Notifier<FoundFeedState> {
             search: state.search,
             categoryId: state.categoryId,
           );
-      if (!ref.mounted || generation != _generation) return;
       state = state.copyWith(
         items: page == 1 ? result.items : [...state.items, ...result.items],
         page: result.page,
@@ -106,7 +95,6 @@ class FoundFeedController extends Notifier<FoundFeedState> {
         clearError: true,
       );
     } catch (error) {
-      if (!ref.mounted || generation != _generation) return;
       state = state.copyWith(isLoading: false, error: error.toString());
     }
   }

@@ -13,7 +13,6 @@ namespace FoundU.Application.Abstractions;
 /// </summary>
 public interface IClaimService
 {
-    Task<string> DraftFollowUpAsync(Guid claimId, Guid staffId, RequestClaimFollowUp request, CancellationToken cancellationToken = default);
     Task<ClaimDetailDto> CreateAsync(CreateClaimRequest request, Guid studentId, CancellationToken cancellationToken = default);
 
     /// <summary>The signed-in student's own claims.</summary>
@@ -32,8 +31,6 @@ public interface IClaimService
     Task<ClaimDetailDto> AddQuestionsAsync(Guid claimId, Guid staffId, AddVerificationQuestionsRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Generates safe questions from trusted staff evidence using the Verification Agent.</summary>
-    Task<ClaimDetailDto> RequestFollowUpAsync(Guid claimId, Guid staffId, RequestClaimFollowUp request, CancellationToken cancellationToken = default);
-
     Task<ClaimDetailDto> GenerateQuestionsAsync(Guid claimId, Guid staffId, CancellationToken cancellationToken = default);
 
     /// <summary>The student answering every outstanding question, which sends the claim to review.</summary>

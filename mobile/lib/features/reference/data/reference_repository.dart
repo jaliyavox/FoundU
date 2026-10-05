@@ -1,4 +1,3 @@
-import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +6,6 @@ import '../../../core/api/api_exception.dart';
 import 'reference_models.dart';
 
 final referenceRepositoryProvider = Provider<ReferenceRepository>((ref) {
-  ref.watch(authSessionEpochProvider);
   return ReferenceRepository(dio: ref.watch(apiClientProvider));
 });
 

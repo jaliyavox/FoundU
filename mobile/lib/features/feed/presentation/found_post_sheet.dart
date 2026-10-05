@@ -5,22 +5,23 @@ import 'package:intl/intl.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/auth/auth_controller.dart';
-import '../../../core/auth/auth_session.dart';
 import '../../../core/theme/brand.dart';
 import '../../../core/widgets/item_illustration.dart';
 import '../../../core/widgets/surfaces.dart';
+import '../../reports/data/report_models.dart';
+import '../../reports/data/report_repository.dart';
 import '../data/feed_models.dart';
 import '../data/feed_repository.dart';
 import 'feed_controller.dart';
 import 'found_feed_controller.dart';
 import 'message_thread.dart';
-import '../../claims/data/claim_models.dart';
-import '../../claims/presentation/providers/claim_providers.dart';
-import '../../reports/data/report_models.dart';
-import '../../reports/data/report_repository.dart';
-import '../../reports/presentation/providers/report_providers.dart';
 
-/// A found item, with exact matched-report claim actions once it reaches security.
+final _myOpenReportsProvider = FutureProvider.autoDispose<List<LostReportListItemModel>>(
+  (ref) async => (await ref.watch(reportRepositoryProvider).getMyReports(status: 'Active', pageSize: 50)).items,
+);
+
+/// A finder's post, opened. Two things a person can do here: say it is theirs, or take
+/// down their own post. Nobody can claim from here - that waits for a desk.
 Future<void> showFoundPostDetail(BuildContext context, FoundPost post) {
   return showModalBottomSheet<void>(
     context: context,
@@ -50,7 +51,25 @@ class _FoundPostDetail extends ConsumerStatefulWidget {
 }
 
 class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
+  String? _reportId;
   bool _busy = false;
+  bool _done = false;
+
+  Future<void> _recognise() async {
+    final reportId = _reportId;
+    if (reportId == null) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(feedRepositoryProvider).recogniseFoundPost(widget.post.id, reportId);
+      if (!mounted) return;
+      setState(() => _done = true);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _withdraw() async {
     setState(() => _busy = true);
@@ -69,11 +88,11 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final latest = ref.watch(foundFeedControllerProvider).items.where((p) => p.id == widget.post.id);
-    final post = latest.isEmpty ? widget.post : latest.first;
+    final post = widget.post;
     final text = Theme.of(context).textTheme;
     final user = ref.watch(authControllerProvider).value;
-    final canRecognise = user?.role == 'Student' && !post.isMine;
+    // Spoken for once a claim is approved - nobody else can say it is theirs then.
+    final canRecognise = user?.role == 'Student' && !post.isMine && !post.isSpokenFor;
 
     return ListView(
       controller: widget.scrollController,
@@ -108,10 +127,6 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
           child: Column(
             children: [
               _Fact(icon: Icons.place_outlined, label: 'Found at', value: post.foundLocationName),
-              if (post.storageLocationName != null) ...[
-                const SizedBox(height: 12),
-                _Fact(icon: Icons.security, label: 'Security desk', value: post.storageLocationName!),
-              ],
               const SizedBox(height: 12),
               _Fact(icon: Icons.schedule_outlined, label: 'When', value: DateFormat('EEE, d MMM, h:mm a').format(post.foundAt.toLocal())),
             ],
@@ -136,7 +151,7 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
           ],
           Text('People asking about this', style: text.titleMedium),
           const SizedBox(height: 10),
-          if (post.canMessageFinder && post.status == 'Posted') MessageThread(reportId: post.id, isAuthor: true, source: MessageSource.foundPost),
+          MessageThread(reportId: post.id, isAuthor: true, source: MessageSource.foundPost),
           const SizedBox(height: 18),
           // Once a desk has it, it is the desk's to deal with - not the finder's to take down.
           if (post.status == 'Posted')
@@ -153,122 +168,84 @@ class _FoundPostDetailState extends ConsumerState<_FoundPostDetail> {
         else ...[
           // Asking comes first and needs no report of your own: a question is not a claim,
           // and a detail only the owner would know settles it faster than a form.
-          Text(post.isAtDesk ? 'This item is now held at ${post.storageLocationName ?? 'the security desk'}.' : 'Think it is yours?', style: text.titleMedium),
+          Text('Think it is yours?', style: text.titleMedium),
           const SizedBox(height: 4),
-          if (post.canMessageFinder && post.status == 'Posted') Text(
+          Text(
             'Ask ${post.postedByName.split(' ').first} about it. Nothing is claimed by asking.',
             style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4),
           ),
           const SizedBox(height: 12),
-          if (post.canMessageFinder && post.status == 'Posted')
-            MessageThread(reportId: post.id, isAuthor: false, source: MessageSource.foundPost),
+          MessageThread(reportId: post.id, isAuthor: false, source: MessageSource.foundPost),
           const SizedBox(height: 18),
-          KeyedSubtree(key: const ValueKey('found-item-match-actions'),
-            child: _FoundItemMatchActions(key: ValueKey('${user.id}:${ref.watch(authSessionEpochProvider)}'), post: post)),
+          if (_done)
+            Panel(
+              color: Brand.mist,
+              child: Text(
+                post.isAtDesk
+                    ? 'Done. It now shows on your report - open it from My reports and claim it. '
+                        'The desk checks it is yours before handing it over.'
+                    : 'Done. ${post.postedByName.split(' ').first} has been asked to hand it in, and it now shows on your report. '
+                        'You will be able to claim it once it reaches a desk.',
+                style: text.bodyMedium?.copyWith(color: Brand.forest, height: 1.45),
+              ),
+            )
+          else
+            _RecognisePanel(
+              reportId: _reportId,
+              onChanged: (id) => setState(() => _reportId = id),
+              busy: _busy,
+              onConfirm: _recognise,
+            ),
         ],
       ],
     );
   }
 }
 
-class _FoundItemMatchActions extends ConsumerStatefulWidget {
-  const _FoundItemMatchActions({super.key, required this.post});
-  final FoundPost post;
+class _RecognisePanel extends ConsumerWidget {
+  const _RecognisePanel({required this.reportId, required this.onChanged, required this.busy, required this.onConfirm});
+  final String? reportId;
+  final ValueChanged<String?> onChanged;
+  final bool busy;
+  final VoidCallback onConfirm;
 
   @override
-  ConsumerState<_FoundItemMatchActions> createState() => _FoundItemMatchActionsState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
+    final reports = ref.watch(_myOpenReportsProvider);
 
-class _FoundItemMatchActionsState extends ConsumerState<_FoundItemMatchActions> {
-  bool _busy = false;
-  String? _claimId;
-  String? _error;
-  final _dismissed = <String>{};
-
-  Future<void> _answer(MatchSuggestionModel match, bool yes) async {
-    if (_busy || _claimId != null) return;
-    final epoch = ref.read(authSessionEpochProvider);
-    setState(() { _busy = true; _error = null; });
-    try {
-      if (yes) {
-        final claim = await ref.read(claimControllerProvider.notifier).create(
-          CreateClaimRequest(lostReportId: match.lostReportId,
-            foundReportId: widget.post.id, matchSuggestionId: match.id));
-        if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
-        setState(() => _claimId = claim.id);
-      } else {
-        await ref.read(reportRepositoryProvider).dismissMatch(match.id);
-        if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
-        setState(() => _dismissed.add(match.id));
-        ref.invalidate(foundItemMatchesProvider(widget.post.id));
-        ref.invalidate(possibleMatchesProvider(match.lostReportId));
-        ref.invalidate(myReportsProvider);
-        ref.invalidate(reportDetailProvider(match.lostReportId));
-      }
-    } catch (error) {
-      if (!mounted || ref.read(authSessionEpochProvider) != epoch) return;
-      setState(() => _error = error is ApiException ? error.message : 'Unable to save your response. Please try again.');
-    } finally {
-      if (mounted && ref.read(authSessionEpochProvider) == epoch) setState(() => _busy = false);
-    }
-  }
-
-  Widget _viewClaim(String id) => InkButton(label: 'View claim', onPressed: () {
-    final router = GoRouter.of(context);
-    Navigator.of(context).pop();
-    router.push('/claims/$id');
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final matches = ref.watch(foundItemMatchesProvider(widget.post.id));
-    if (_claimId != null) { return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Claim submitted — waiting for verification questions.'),
-      const SizedBox(height: 12), _viewClaim(_claimId!),
-    ]); }
-    return matches.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, stack) => Column(children: [
-        const Text('Unable to check your matches.'),
-        TextButton(onPressed: () => ref.invalidate(foundItemMatchesProvider(widget.post.id)), child: const Text('Retry')),
-      ]),
-      data: (items) {
-        final own = items.where((m) => m.foundItem.id == widget.post.id && !_dismissed.contains(m.id) && m.status != 'Dismissed').toList();
-        final claimed = own.where((m) => m.claimId != null);
-        if (claimed.isNotEmpty) { return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('You have already submitted a claim for this item.'),
-          const SizedBox(height: 12), _viewClaim(claimed.first.claimId!),
-        ]); }
-        // ASP.NET only persists agent-generated suggestions after the deterministic matcher has
-        // classified them as strong candidates. Reapplying a client-side numeric threshold would
-        // make the app disagree with future server scoring policies.
-        final eligible = own.where((m) => m.status == 'Suggested').toList();
-        if (eligible.isEmpty) { return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_dismissed.isEmpty ? 'There is no eligible match to your lost reports for this item.' : 'This match was dismissed. Your lost report remains active.'),
-          const SizedBox(height: 12),
-          InkButton(label: 'View my lost reports', onPressed: () {
-            final router = GoRouter.of(context);
-            Navigator.of(context).pop(); router.push('/reports');
-          }),
-        ]); }
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-          if (!widget.post.isAtDesk) const Text('You can submit a claim after this item is handed to security.'),
-          for (final match in eligible) ...[
-            if (eligible.length > 1) ...[
-              const SizedBox(height: 12),
-              Text('Your lost report: ${match.lostReportDescription}'),
-            ],
-            const SizedBox(height: 12),
-            Text('Is this your item?', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            FilledButton(onPressed: _busy || !widget.post.isAtDesk ? null : () => _answer(match, true),
-              child: const Text('Yes, this is mine')),
-            OutlinedButton(onPressed: _busy ? null : () => _answer(match, false),
-              child: const Text('No, this is not mine')),
-          ],
-        ]);
-      },
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Is this yours?', style: text.titleMedium),
+          const SizedBox(height: 4),
+          Text('Pick the report it matches. The finder is asked to hand it in; the desk will still check it is yours.',
+              style: text.bodySmall?.copyWith(color: Brand.muted, height: 1.4)),
+          const SizedBox(height: 14),
+          reports.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (_, __) => Text('Could not load your reports.', style: text.bodySmall?.copyWith(color: Brand.danger)),
+            data: (items) => items.isEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('You have no open report to match it to.', style: text.bodySmall?.copyWith(color: Brand.muted)),
+                      const SizedBox(height: 8),
+                      OutlinedButton(onPressed: () { Navigator.of(context).pop(); context.push('/reports/new'); }, child: const Text('Post one first')),
+                    ],
+                  )
+                : DropdownButtonFormField<String>(
+                    initialValue: reportId,
+                    decoration: const InputDecoration(labelText: 'Your report'),
+                    items: [for (final r in items) DropdownMenuItem(value: r.id, child: Text('${r.itemTypeName} · ${r.lastSeenLocationName}', overflow: TextOverflow.ellipsis))],
+                    onChanged: onChanged,
+                  ),
+          ),
+          const SizedBox(height: 14),
+          InkButton(label: 'That is mine', busy: busy, onPressed: reportId == null ? null : onConfirm),
+        ],
+      ),
     );
   }
 }

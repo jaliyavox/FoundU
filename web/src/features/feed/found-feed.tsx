@@ -4,8 +4,11 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { ClockIcon, HashIcon, HandIcon, Loader2Icon, MapPinIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAuth } from '@/features/auth/use-auth'
+import { getMyLostReports } from '@/features/reports/reports-api'
+import { FormSelect } from '@/features/reports/form-select'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import {
@@ -13,6 +16,7 @@ import {
   displayCode,
   getFoundFeed,
   invalidateFoundPosts,
+  recogniseFoundPost,
   timeAgo,
   withdrawFoundPost,
   type FoundPostItem,
@@ -150,6 +154,8 @@ export function FoundPostCard({ item, onOpen }: { item: FoundPostItem; onOpen: (
 export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; onClose: () => void }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [reportId, setReportId] = useState('')
+  const [done, setDone] = useState(false)
   const [selectedPostState, setSelectedPostState] = useState<FoundPostItem | null>(item)
 
   useEffect(() => {
@@ -158,6 +164,22 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
 
   // Spoken for once a claim is approved - nobody else can say it is theirs then.
   const canRecognise = user?.role === 'Student' && item !== null && !item.isMine && item.status !== 'Claimed'
+
+  const myReports = useQuery({
+    queryKey: ['my-lost-reports', { page: 1, pageSize: 50, status: 'Active' }],
+    queryFn: () => getMyLostReports({ page: 1, pageSize: 50, status: 'Active' }),
+    enabled: canRecognise,
+  })
+
+  const recognise = useMutation({
+    mutationFn: () => recogniseFoundPost(item!.id, reportId),
+    onSuccess: () => {
+      setDone(true)
+      queryClient.invalidateQueries({ queryKey: ['my-suggestions'] })
+      toast.success('The finder has been asked to hand it in.')
+    },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Could not reach the server.'),
+  })
 
   const withdraw = useMutation({
     mutationFn: () => withdrawFoundPost(item!.id),
@@ -192,6 +214,8 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
       onOpenChange={(open) => {
         if (!open) {
           onClose()
+          setDone(false)
+          setReportId('')
         }
       }}
     >
@@ -243,7 +267,7 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
             {item.isMine && (
               <div className="flex flex-col gap-3 border-t border-neutral-900/8 pt-5">
                 <p className="text-sm font-medium">People asking about this</p>
-                {item.status === 'Posted' && item.canMessageFinder !== false && <MessageThread reportId={item.id} isAuthor source="found" tone="light" />}
+                <MessageThread reportId={item.id} isAuthor source="found" tone="light" />
               </div>
             )}
 
@@ -282,18 +306,61 @@ export function FoundPostPanel({ item, onClose }: { item: FoundPostItem | null; 
                     making someone post a lost report before they can ask "does it have a
                     dent in the lid?" is a wall in front of the obvious first step. */}
                 <div>
-                  <p className="text-sm font-medium">{item.status === 'Unclaimed' ? `This item is now held at ${item.storageLocationName ?? 'the security desk'}. Submit a claim to verify ownership.` : 'Think it is yours?'}</p>
-                  {item.status === 'Posted' && item.canMessageFinder !== false && <p className="text-xs text-neutral-500">
+                  <p className="text-sm font-medium">Think it is yours?</p>
+                  <p className="text-xs text-neutral-500">
                     Ask {item.postedByName.split(' ')[0]} about it - a detail only the owner
                     would know is the quickest way to be sure. Nothing is claimed by asking.
-                  </p>}
+                  </p>
                 </div>
 
-                {item.status === 'Posted' && item.canMessageFinder !== false && <MessageThread reportId={item.id} isAuthor={false} source="found" tone="light" />}
+                <MessageThread reportId={item.id} isAuthor={false} source="found" tone="light" />
 
-                <Link to="/my-reports" className="font-medium text-brand-forest underline underline-offset-4">
-                  Open your matches to submit a claim
-                </Link>
+                {done ? (
+                  <p className="rounded-xl border border-brand-green/30 bg-brand-green/10 p-4 text-sm text-neutral-700">
+                    {item.status === 'Unclaimed'
+                      ? 'Done. It now shows on your report - open it from My reports and claim it. The desk checks it is yours before handing it over.'
+                      : `Done. ${item.postedByName.split(' ')[0]} has been asked to hand it in, and it now shows on your report. You will be able to claim it once it reaches a desk.`}
+                  </p>
+                ) : (myReports.data?.items.length ?? 0) > 0 ? (
+                  <details className="rounded-xl border border-neutral-900/8 bg-white/70 p-4">
+                    <summary className="cursor-pointer text-sm font-medium">
+                      Sure it is yours? Link it to one of your reports
+                    </summary>
+                    <div className="flex flex-col gap-3 pt-3">
+                      <p className="text-xs text-neutral-500">
+                        {item.status === 'Unclaimed'
+                          ? 'It becomes a possible match on your report, ready to claim. The desk will still check it is yours.'
+                          : "The finder is asked to hand it in with your report's code. The desk will still check it is yours."}
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="recognise-report" className="text-sm text-neutral-900">Your report</Label>
+                        <FormSelect
+                          id="recognise-report"
+                          value={reportId}
+                          onValueChange={setReportId}
+                          options={(myReports.data?.items ?? []).map((r) => ({ value: r.id, label: `${r.itemTypeName} · ${r.lastSeenLocationName}` }))}
+                          placeholder={myReports.isPending ? 'Loading your reports' : 'Choose a report'}
+                        />
+                      </div>
+                      <Button
+                        className="bg-brand-forest text-white hover:bg-brand-forest/90"
+                        disabled={!reportId || recognise.isPending}
+                        onClick={() => recognise.mutate()}
+                      >
+                        {recognise.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+                        That is mine
+                      </Button>
+                    </div>
+                  </details>
+                ) : (
+                  <p className="text-xs text-neutral-500">
+                    Once you are sure, {' '}
+                    <Link to="/my-reports/new" className="font-medium text-brand-forest underline underline-offset-4">
+                      post a lost report
+                    </Link>{' '}
+                    - that is what gives the finder a code to hand it in with.
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-sm text-neutral-500">Staff can pull this post up at the desk by the finder's code.</p>

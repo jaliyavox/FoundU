@@ -116,11 +116,6 @@ public sealed class HandoverTests
         Assert.Equal("InCustody", received.Status);
         Assert.Equal("release", received.NextStep);
         Assert.Equal("Main Desk", received.StorageLocationName);
-        // Receiving a finder's item sets the legacy report status to Matched, but creates
-        // neither an ownership claim nor a possible-match suggestion.
-        Assert.Equal(LostReportStatus.Matched, (await fixture.Db.LostReports.SingleAsync()).Status);
-        Assert.Empty(await fixture.Db.Claims.ToListAsync());
-        Assert.Equal("Reported", (await fixture.Reports.GetByIdAsync(fixture.Report.Id, fixture.Owner.Id, false)).ProgressStage);
 
         // The item is now logged like anything else in custody, and the two records point at
         // each other.

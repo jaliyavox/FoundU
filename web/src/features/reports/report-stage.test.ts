@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { elapsedSince, LIFECYCLE, stageOf } from '../../../src/features/reports/report-stage'
+import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
 
 describe('stageOf', () => {
   it('starts at Reported for a fresh active report', () => {

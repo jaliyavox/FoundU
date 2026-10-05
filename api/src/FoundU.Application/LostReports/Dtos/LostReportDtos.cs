@@ -63,9 +63,7 @@ public record LostReportListItemDto(
     DateTime? FlaggedAt,
     /// <summary>Display name only, and only on staff-reachable lists. Null when unflagged.</summary>
     string? FlaggedByName,
-    DateTime CreatedAt,
-    /// <summary>Suggestion and ownership-claim progress; finder contact and custody are separate signals.</summary>
-    string ProgressStage = "Reported");
+    DateTime CreatedAt);
 
 public record LostReportDetailDto(
     Guid Id,
@@ -92,9 +90,7 @@ public record LostReportDetailDto(
     bool IsFlagged,
     string? FlagReason,
     DateTime CreatedAt,
-    DateTime UpdatedAt,
-    /// <summary>Suggestion and ownership-claim progress; Matched status alone does not imply a claim.</summary>
-    string ProgressStage = "Reported");
+    DateTime UpdatedAt);
 
 public record WithdrawLostReportRequest(string? Reason);
 
@@ -129,7 +125,6 @@ public record LostReportFeedItemDto(
 
 public class LostReportQuery : PaginationQuery
 {
-    public Guid? ExcludeSuggestedForFoundReportId { get; set; }
     /// <summary>Filter by LostReportStatus name (Active, Matched, Resolved, Withdrawn).</summary>
     public string? Status { get; set; }
 
