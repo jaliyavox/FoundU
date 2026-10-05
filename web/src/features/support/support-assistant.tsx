@@ -157,7 +157,9 @@ function DraftTicket({ draft, onSent }: { draft: TicketDraft; onSent: (id: strin
     mutationFn: () => createTicket({ subject: subject.trim(), category, body: body.trim(), viaAssistant: true }),
     onSuccess: ticket => {
       queryClient.invalidateQueries({ queryKey: ['my-tickets'] })
-      toast.success('Sent to the support team. They will answer on the ticket.')
+      toast.success(ticket.addedToExisting
+        ? `Added to your ticket "${ticket.subject}" and back with the support team.`
+        : 'Sent to the support team. They will answer on the ticket.')
       onSent(ticket.id)
     },
     onError: error => toast.error(error instanceof ApiError ? error.message : 'Could not send the ticket.'),

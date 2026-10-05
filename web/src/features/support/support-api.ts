@@ -75,6 +75,8 @@ export interface TicketDetail {
   createdAt: string
   messages: TicketMessage[]
   viaAssistant?: boolean
+  /** On a create: the message joined a live ticket on the same topic instead of opening one. */
+  addedToExisting?: boolean
 }
 
 export interface TicketQuery {

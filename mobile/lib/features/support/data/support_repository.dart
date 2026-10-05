@@ -90,6 +90,7 @@ class TicketDetail {
     required this.status,
     required this.createdAt,
     required this.messages,
+    this.addedToExisting = false,
   });
 
   final String id;
@@ -98,6 +99,9 @@ class TicketDetail {
   final String status;
   final DateTime createdAt;
   final List<TicketMessage> messages;
+
+  /// On a create: the message joined a live ticket on the same topic instead of opening one.
+  final bool addedToExisting;
 
   bool get isClosed => status == 'Closed';
 
@@ -110,6 +114,7 @@ class TicketDetail {
         messages: ((json['messages'] as List<dynamic>?) ?? const [])
             .map((m) => TicketMessage.fromJson(m as Map<String, dynamic>))
             .toList(),
+        addedToExisting: json['addedToExisting'] as bool? ?? false,
       );
 }
 

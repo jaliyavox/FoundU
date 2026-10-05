@@ -58,7 +58,12 @@ public record SupportTicketDetailDto(
     DateTime? ResolvedAt,
     DateTime CreatedAt,
     IReadOnlyList<SupportTicketMessageDto> Messages,
-    bool ViaAssistant = false);
+    bool ViaAssistant = false,
+    /// <summary>
+    /// Set on the answer to a create: the message went onto a live ticket the person already
+    /// had on the same topic, rather than opening a second one.
+    /// </summary>
+    bool AddedToExisting = false);
 
 public class SupportTicketQuery : PaginationQuery
 {

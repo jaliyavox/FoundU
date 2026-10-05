@@ -164,6 +164,80 @@ public sealed class SupportTicketTests
         Assert.Equal("student@test", staffView.RaisedByEmail);
     }
 
+    // ---- The assistant follows up on a live ticket instead of opening another (found in use:
+    // a second "lost report" ticket appeared while the first was still with the desk).
+
+    private static CreateSupportTicketRequest FromAssistant(string subject, string category = "LostReport") =>
+        new(subject, category, "The report form will not save my description, it keeps erroring.", null, null, ViaAssistant: true);
+
+    [Fact]
+    public async Task TheAssistantAddsToAnOpenTicketOnTheSameTopic()                          // normal
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var first = await fixture.Service.CreateAsync(FromAssistant("I got an issue with reporting a lost item"), fixture.Student.Id);
+
+        var second = await fixture.Service.CreateAsync(FromAssistant("I got an issue with creating a lost report"), fixture.Student.Id);
+
+        Assert.Equal(first.Id, second.Id);
+        Assert.True(second.AddedToExisting);
+        Assert.Equal(2, second.Messages.Count);
+        Assert.StartsWith("I got an issue with creating a lost report", second.Messages[^1].Body);  // the new subject travels with it
+        Assert.Equal(1, await fixture.Db.SupportTickets.CountAsync());
+    }
+
+    [Fact]
+    public async Task AFollowUpOnATicketWaitingOnThePersonPutsItBackInTheQueue()             // normal
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var first = await fixture.Service.CreateAsync(FromAssistant("Report will not save"), fixture.Student.Id);
+        await fixture.Service.ReplyAsync(first.Id, fixture.Staff.Id, isStaff: true, "Which browser are you using?");
+
+        var again = await fixture.Service.CreateAsync(FromAssistant("Report will not save"), fixture.Student.Id);
+
+        Assert.Equal(first.Id, again.Id);
+        Assert.Equal("Open", again.Status);
+        Assert.Equal("The report form will not save my description, it keeps erroring.", again.Messages[^1].Body); // same subject: not repeated
+    }
+
+    [Theory]
+    [InlineData(6, true)]    // resolved within the week: reopened
+    [InlineData(8, false)]   // resolved longer ago: a fresh ticket
+    public async Task AResolvedTicketIsReopenedOnlyWithinAWeek(int daysAgo, bool reopened)   // boundary
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var first = await fixture.Service.CreateAsync(FromAssistant("Report will not save"), fixture.Student.Id);
+        var saved = await fixture.Db.SupportTickets.SingleAsync(t => t.Id == first.Id);
+        saved.Status = SupportTicketStatus.Resolved;
+        saved.ResolvedAt = DateTime.UtcNow.AddDays(-daysAgo);
+        await fixture.Db.SaveChangesAsync();
+
+        var again = await fixture.Service.CreateAsync(FromAssistant("Still cannot save the report"), fixture.Student.Id);
+
+        Assert.Equal(reopened, again.Id == first.Id);
+        Assert.Equal(reopened, again.AddedToExisting);
+        Assert.Equal("Open", again.Status);
+        Assert.Null(again.ResolvedAt);
+    }
+
+    [Fact]
+    public async Task ADifferentTopicAClosedTicketOrAHandWrittenTicketStillOpensANewOne()      // invalid for merging
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var first = await fixture.Service.CreateAsync(FromAssistant("Report will not save"), fixture.Student.Id);
+
+        var otherTopic = await fixture.Service.CreateAsync(FromAssistant("My code does not work", "Collection"), fixture.Student.Id);
+        var byHand = await fixture.Service.CreateAsync(
+            new CreateSupportTicketRequest("Another report problem", "LostReport", "Writing this one myself, separately.", null, null),
+            fixture.Student.Id);
+        var otherPerson = await fixture.Service.CreateAsync(FromAssistant("Report will not save"), fixture.Other.Id);
+        await fixture.Service.UpdateAsync(first.Id, fixture.Staff.Id, new UpdateSupportTicketRequest("Closed", null));
+        var afterClose = await fixture.Service.CreateAsync(FromAssistant("Report will not save"), fixture.Student.Id);
+
+        Assert.All(new[] { otherTopic, byHand, otherPerson }, t => Assert.NotEqual(first.Id, t.Id));
+        Assert.NotEqual(first.Id, afterClose.Id);
+        Assert.False(byHand.AddedToExisting);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private Fixture(FoundUDbContext db, SupportService service, AppUser student, AppUser staff, AppUser other)
