@@ -66,4 +66,16 @@ public sealed class VerificationGroundingTests
     [InlineData("A bag with an apple inside.", "What brand is the item?", false)]
     public void FactsCannotBeRelocated(string detail, string question, bool supported)
         => Assert.Equal(supported, SafeVerificationFallback.IsSafe(question, [detail]));
+
+    // The API image is built from api/ alone, so it embeds its own copy of the Python grammar.
+    [Fact]
+    public void EmbeddedGrammarMatchesThePythonCopy()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (!File.Exists(Path.Combine(root.FullName, "ai", "app", "agents", "verification_grounding.json")))
+            root = root.Parent ?? throw new InvalidOperationException("Repository root not found.");
+        Assert.Equal(
+            File.ReadAllText(Path.Combine(root.FullName, "ai", "app", "agents", "verification_grounding.json")),
+            File.ReadAllText(Path.Combine(root.FullName, "api", "src", "FoundU.Infrastructure", "Claims", "verification_grounding.json")));
+    }
 }
