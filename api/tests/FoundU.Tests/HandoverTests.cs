@@ -22,6 +22,28 @@ namespace FoundU.Tests;
 /// </summary>
 public sealed class HandoverTests
 {
+    // The owner's tracker sat on "Reported" while a finder handed the item in: progress was
+    // read only from suggestions and claims. Each step of the finder's route now moves it.
+    [Fact]
+    public async Task TheOwnersProgressFollowsTheFinderAllTheWayToTheDesk()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        async Task<string> StageAsync() =>
+            (await fixture.Reports.SearchForStudentAsync(fixture.Owner.Id, new LostReportQuery())).Items.Single().ProgressStage;
+
+        Assert.Equal("Reported", await StageAsync());
+
+        await fixture.Reports.RegisterFoundClaimAsync(fixture.Report.Id, fixture.Finder.Id);
+        Assert.Equal("FinderFound", await StageAsync());
+
+        var started = await fixture.Handovers.StartAsync(fixture.Report.Id, fixture.Finder.Id);
+        Assert.Equal("FinderOnTheWay", await StageAsync());
+
+        await fixture.Handovers.ReceiveAsync(started.Code!, fixture.Staff.Id, new ReceiveHandoverRequest(fixture.Storage.Id, null));
+        Assert.Equal("AtDesk", await StageAsync());
+        Assert.Equal("AtDesk", (await fixture.Reports.GetByIdAsync(fixture.Report.Id, fixture.Owner.Id, false)).ProgressStage);
+    }
+
     [Fact]
     public async Task WithdrawingTheReportStopsTheFindersCodeWorkingAtTheDesk()
     {
@@ -116,11 +138,11 @@ public sealed class HandoverTests
         Assert.Equal("InCustody", received.Status);
         Assert.Equal("release", received.NextStep);
         Assert.Equal("Main Desk", received.StorageLocationName);
-        // Receiving a finder's item sets the legacy report status to Matched, but creates
-        // neither an ownership claim nor a possible-match suggestion.
+        // Receiving a finder's item sets the legacy report status to Matched and creates no
+        // ownership claim - but the owner's tracker shows it waiting at the desk.
         Assert.Equal(LostReportStatus.Matched, (await fixture.Db.LostReports.SingleAsync()).Status);
         Assert.Empty(await fixture.Db.Claims.ToListAsync());
-        Assert.Equal("Reported", (await fixture.Reports.GetByIdAsync(fixture.Report.Id, fixture.Owner.Id, false)).ProgressStage);
+        Assert.Equal("AtDesk", (await fixture.Reports.GetByIdAsync(fixture.Report.Id, fixture.Owner.Id, false)).ProgressStage);
 
         // The item is now logged like anything else in custody, and the two records point at
         // each other.

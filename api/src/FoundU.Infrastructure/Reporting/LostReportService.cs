@@ -856,10 +856,15 @@ public class LostReportService : ILostReportService
                 r.Status == LostReportStatus.Resolved ? "Resolved" :
                 r.Status == LostReportStatus.Withdrawn ? "Reported" :
                 r.Claims.Any(c => c.Status == ClaimStatus.Approved) ? "ClaimApproved" :
+                // A finder's hand-in moves the report too: the item can be at the desk, waiting
+                // for its owner, with no suggestion or claim ever made.
+                r.FoundClaims.Any(h => h.Status == HandoverStatus.InCustody) ? "AtDesk" :
                 r.Claims.Any(c => c.Status == ClaimStatus.UnderReview || c.Status == ClaimStatus.ManualReviewRequired) ? "ClaimUnderReview" :
                 r.Claims.Any(c => c.Status == ClaimStatus.RevisionRequested) ? "RevisionRequested" :
                 r.Claims.Any(c => c.Status == ClaimStatus.WaitingForAnswer) ? "VerificationQuestions" :
                 r.Claims.Any(c => c.Status != ClaimStatus.Rejected && c.Status != ClaimStatus.Cancelled) ? "ClaimSubmitted" :
+                r.FoundClaims.Any(h => h.Status == HandoverStatus.AwaitingHandIn) ? "FinderOnTheWay" :
+                r.FoundClaims.Any(h => h.Status == HandoverStatus.Declared) ? "FinderFound" :
                 r.MatchSuggestions.Any(m => m.Status == MatchSuggestionStatus.Suggested
                     && (m.FoundReport.Status == FoundReportStatus.Posted || m.FoundReport.Status == FoundReportStatus.Unclaimed)) ? "PossibleMatch" : "Reported"))
             .ToListAsync(cancellationToken);
@@ -900,10 +905,15 @@ public class LostReportService : ILostReportService
                 r.Status == LostReportStatus.Resolved ? "Resolved" :
                 r.Status == LostReportStatus.Withdrawn ? "Reported" :
                 r.Claims.Any(c => c.Status == ClaimStatus.Approved) ? "ClaimApproved" :
+                // A finder's hand-in moves the report too: the item can be at the desk, waiting
+                // for its owner, with no suggestion or claim ever made.
+                r.FoundClaims.Any(h => h.Status == HandoverStatus.InCustody) ? "AtDesk" :
                 r.Claims.Any(c => c.Status == ClaimStatus.UnderReview || c.Status == ClaimStatus.ManualReviewRequired) ? "ClaimUnderReview" :
                 r.Claims.Any(c => c.Status == ClaimStatus.RevisionRequested) ? "RevisionRequested" :
                 r.Claims.Any(c => c.Status == ClaimStatus.WaitingForAnswer) ? "VerificationQuestions" :
                 r.Claims.Any(c => c.Status != ClaimStatus.Rejected && c.Status != ClaimStatus.Cancelled) ? "ClaimSubmitted" :
+                r.FoundClaims.Any(h => h.Status == HandoverStatus.AwaitingHandIn) ? "FinderOnTheWay" :
+                r.FoundClaims.Any(h => h.Status == HandoverStatus.Declared) ? "FinderFound" :
                 r.MatchSuggestions.Any(m => m.Status == MatchSuggestionStatus.Suggested
                     && (m.FoundReport.Status == FoundReportStatus.Posted || m.FoundReport.Status == FoundReportStatus.Unclaimed)) ? "PossibleMatch" : "Reported"))
             .FirstOrDefaultAsync(cancellationToken);

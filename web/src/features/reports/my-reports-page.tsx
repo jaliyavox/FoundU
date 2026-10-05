@@ -46,7 +46,7 @@ import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
 import { MessageThread } from '@/features/feed/message-thread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { elapsedSince, finderContacted, LIFECYCLE, progressDetail, stageOf } from './report-stage'
+import { elapsedSince, finderContacted, LIFECYCLE, progressDetail, stageLabel, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
 import { HandoverNotice } from './handover-notice'
 import { GotItBackDialog } from './got-it-back-dialog'
@@ -747,7 +747,7 @@ function ReportCard({
 
         {/* Track */}
         <div className="flex flex-col gap-3">
-          {!isWithdrawn && <p className="text-xs text-muted-foreground">Suggestion and claim progress</p>}
+          {!isWithdrawn && <p className="text-xs text-muted-foreground">Progress</p>}
           <div className={cn('relative h-2', !isWithdrawn && 'mt-8')}>
             <div className="absolute inset-0 rounded-full bg-foreground/10" />
 
@@ -783,7 +783,7 @@ function ReportCard({
                   }
                 >
                   <span className="opacity-60">now</span>
-                  <span className="truncate font-medium">{LIFECYCLE[stage]}</span>
+                  <span className="truncate font-medium">{stageLabel(report)}</span>
                 </span>
 
                 <span
