@@ -1,0 +1,212 @@
+[
+  {
+    "pattern": "\\b(?:initials?|code|mark|engraving|[a-z]+-\\d+)\\b(?:\\s+(?:are|is|handwritten|written|in|black|ink|[a-z]+-\\d+)|[\\s\u2018\u2019\u201c\u201d\\x27])*\\s+(?:underneath|under)\\s+(?:the\\s+)?bottle\\s+cap\\b",
+    "questions": [
+      "What identifying mark is underneath the bottle cap?"
+    ],
+    "fact_id": "fact-1",
+    "answer_kind": "description",
+    "answer_pattern": "\\b(?:initials?|code|mark|engraving|[a-z]+-\\d+)\\b(?:\\s+(?:are|is|handwritten|written|in|black|ink|[a-z]+-\\d+)|[\\s\u2018\u2019\u201c\u201d\\x27])*\\s+(?:underneath|under)\\s+(?:the\\s+)?bottle\\s+cap\\b",
+    "answer_group": 0,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\bbottle\\s+with\\s+(?:a\\s+)?(?:black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+(?:screw\\s+)?cap\\b",
+    "questions": [
+      "What color is the bottle cap?"
+    ],
+    "fact_id": "fact-2",
+    "answer_kind": "color",
+    "answer_pattern": "\\bbottle\\s+with\\s+(?:a\\s+)?(black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+(?:screw\\s+)?cap\\b",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+(?:screw\\s+)?cap\\b",
+    "questions": [
+      "What color is the cap?"
+    ],
+    "fact_id": "fact-3",
+    "answer_kind": "color",
+    "answer_pattern": "\\b(black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+(?:screw\\s+)?cap\\b",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\bscrew\\s+cap\\b",
+    "questions": [
+      "What type of cap does the item have?"
+    ],
+    "fact_id": "fact-4",
+    "answer_kind": "type",
+    "answer_pattern": "\\b(screw)\\s+cap\\b",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:scratch|damage|crack|dent|mark)\\b",
+    "questions": [
+      "What distinctive mark or damage does the item have?",
+      "Is there any noticeable scratch or damage on the bottle?",
+      "What distinctive damage did the item have?"
+    ],
+    "fact_id": "fact-5",
+    "answer_kind": "description",
+    "answer_pattern": "\\b((?:(?:small|large|deep|tiny|noticeable|distinctive)\\s+)*(?:scratch|damage|crack|dent|mark)(?:\\s+(?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+[^,;.!?]+)?)",
+    "answer_group": 1,
+    "presence_questions": [
+      "Is there any noticeable scratch or damage on the bottle?"
+    ]
+  },
+  {
+    "pattern": "\\bscratch\\s+(?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+\\w",
+    "questions": [
+      "Where is the noticeable scratch located?"
+    ],
+    "fact_id": "fact-6",
+    "answer_kind": "location",
+    "answer_pattern": "\\bscratch\\s+((?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+[^,;.!?]+)",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:crack|damage|dent|mark)\\s+(?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+\\w",
+    "questions": [
+      "Where is the damage or mark located?"
+    ],
+    "fact_id": "fact-7",
+    "answer_kind": "location",
+    "answer_pattern": "\\b(?:crack|damage|dent|mark)\\s+((?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+[^,;.!?]+)",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\bsticker\\b",
+    "questions": [
+      "What sticker or label does the item have?",
+      "Is there any sticker or label on the bottle?",
+      "Does the item have a sticker?",
+      "Describe any sticker on the item."
+    ],
+    "fact_id": "fact-8",
+    "answer_kind": "description",
+    "answer_pattern": "\\b((?:(?:small|large|tiny|(?:black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold))\\s+)*sticker(?:\\s+(?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+[^,;.!?]+)?)",
+    "answer_group": 1,
+    "presence_questions": [
+      "Is there any sticker or label on the bottle?",
+      "Does the item have a sticker?"
+    ]
+  },
+  {
+    "pattern": "\\b(?:black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+sticker\\b",
+    "questions": [
+      "What color is the sticker?"
+    ],
+    "fact_id": "fact-9",
+    "answer_kind": "color",
+    "answer_pattern": "\\b(black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+sticker\\b",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\bsticker\\s+(?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+\\w",
+    "questions": [
+      "Where is the sticker located?"
+    ],
+    "fact_id": "fact-10",
+    "answer_kind": "location",
+    "answer_pattern": "\\bsticker\\s+((?:near|on|at|under|underneath|inside|behind|beneath|next to)\\s+[^,;.!?]+)",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:nike|adidas)\\s+(?:stainless[ -]+steel\\s+)?(?:water\\s+)?(?:bottle|shoe|bag|backpack|shirt)\\b|\\b(?:apple|samsung|dell|lenovo)\\s+(?:phone|laptop|tablet|iphone|macbook)\\b|\\bbrand\\s*:\\s*\\w+",
+    "questions": [
+      "What brand is the item?"
+    ],
+    "fact_id": "fact-11",
+    "answer_kind": "brand",
+    "answer_pattern": "\\b(nike|adidas)\\s+(?:stainless[ -]+steel\\s+)?(?:water\\s+)?(?:bottle|shoe|bag|backpack|shirt)\\b|\\b(apple|samsung|dell|lenovo)\\s+(?:phone|laptop|tablet|iphone|macbook)\\b|\\bbrand\\s*:\\s*(\\w+)",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:nike|adidas)\\s+(?:stainless[ -]+steel\\s+)?(?:water\\s+)?bottle\\b",
+    "questions": [
+      "What brand is the bottle?"
+    ],
+    "fact_id": "fact-12",
+    "answer_kind": "brand",
+    "answer_pattern": "\\b(nike|adidas)\\s+(?:stainless[ -]+steel\\s+)?(?:water\\s+)?bottle\\b",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:keychain|strap|accessory)\\b",
+    "questions": [
+      "What accessory does the item have?"
+    ],
+    "fact_id": "fact-13",
+    "answer_kind": "description",
+    "answer_pattern": "\\b((?:(?:black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+)?(?:keychain|strap|accessory)(?:\\s+(?:in|on|at|near|inside)\\s+[^,;.!?]+)?)",
+    "answer_group": 1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:keychain|strap|accessory)\\s+(?:was\\s+|is\\s+)?attached\\b|\\battached\\s+(?:keychain|strap|accessory)\\b",
+    "questions": [
+      "What accessory was attached to the item?",
+      "What accessory was attached?"
+    ],
+    "fact_id": "fact-14",
+    "answer_kind": "description",
+    "answer_pattern": "\\b(?:keychain|strap|accessory)\\s+(?:was\\s+|is\\s+)?attached\\b|\\battached\\s+(?:keychain|strap|accessory)\\b",
+    "answer_group": 0,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:inside|interior)\\b",
+    "questions": [
+      "What identifying detail is visible on the inside?",
+      "Describe an identifying detail on the inside of the item."
+    ],
+    "fact_id": "fact-15",
+    "answer_kind": "description",
+    "answer_pattern": "\\b(?:inside|interior)\\b",
+    "answer_group": 0,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:engraving|initials?|letters|code|serial number)\\b",
+    "questions": [
+      "What identifying letters or markings does the item have?"
+    ],
+    "fact_id": "fact-16",
+    "answer_kind": "description",
+    "answer_pattern": "\\b(?:engraving|initials?|letters|code|serial number)\\b",
+    "answer_group": 0,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\b(?:black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+(?:backpack|bag|phone|shoe|wallet)\\b",
+    "questions": [
+      "What color is the item?"
+    ],
+    "fact_id": "fact-17",
+    "answer_kind": "color",
+    "answer_pattern": "\\b(black|white|red|blue|green|yellow|orange|purple|pink|grey|gray|brown|silver|gold)\\s+(?:backpack|bag|phone|shoe|wallet)\\b",
+    "answer_group": -1,
+    "presence_questions": []
+  },
+  {
+    "pattern": "\\binside\\s+(?:the\\s+)?lining\\b",
+    "questions": [
+      "Describe an identifying feature inside the lining."
+    ],
+    "fact_id": "fact-18",
+    "answer_kind": "description",
+    "answer_pattern": "\\binside\\s+(?:the\\s+)?lining\\b",
+    "answer_group": 0,
+    "presence_questions": []
+  }
+]

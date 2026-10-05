@@ -10,6 +10,7 @@ export interface FoundItemSummary {
   categoryName: string
   itemTypeName: string
   foundLocationName: string
+  storageLocationName?: string | null
   generalDescription: string
   primaryColor: string | null
   foundAt: string
@@ -25,6 +26,7 @@ export interface MatchSuggestion {
   note: string | null
   isAgentGenerated: boolean
   matchScore: number | null
+  matchReason?: string | null
   /** Set once a claim has been opened from this suggestion. */
   claimId: string | null
   createdAt: string
@@ -37,6 +39,18 @@ export interface GenerateMatchSuggestionResult {
   suggestion: MatchSuggestion | null
 }
 
+/** Staff-only scored pair awaiting a decision; it has not been suggested to a student. */
+export interface MatchReviewCandidate {
+  lostReportId: string
+  lostDescription: string
+  itemTypeName: string
+  primaryColor: string | null
+  lastSeenLocationName: string
+  estimatedLostFromAt: string
+  matchScore: number
+  explanation: string
+}
+
 export interface ClaimQuestion {
   id: string
   questionText: string
@@ -45,6 +59,11 @@ export interface ClaimQuestion {
 }
 
 export interface ClaimListItem {
+  lostReportId?: string | null
+  foundReportId?: string | null
+  storageLocationName?: string | null
+  matchScore?: number | null
+  verificationStatus?: string | null
   id: string
   status: ClaimStatus
   categoryName: string
@@ -76,6 +95,9 @@ export interface ClaimDetail {
   collectionCode: string | null
   collectedAt: string | null
   /** The item's hidden detail - only when staff open the claim; never for the owner. */
+  verificationForStaff?: { score: number; matchedEvidence: string[]; missingInformation: string[]; conflictingInformation: string[]; rationale: string; recommendation: string } | null
+  additionalEvidenceForStaff?: { id: string; detail: string; recordedByUserId: string; recordedAt: string }[] | null
+  canUseUnusedEvidenceForFollowUp?: boolean
   hiddenDetailForStaff?: string | null
   createdAt: string
   updatedAt: string
@@ -99,6 +121,9 @@ export const getMySuggestions = (page = 1, pageSize = 20) =>
 export const getSuggestionsForItem = (foundReportId: string) =>
   api.get<MatchSuggestion[]>(`/api/match-suggestions/for-item/${foundReportId}`)
 
+export const getReviewCandidatesForItem = (foundReportId: string) =>
+  api.get<MatchReviewCandidate[]>(`/api/match-suggestions/review-for-item/${foundReportId}`)
+
 export const createSuggestion = (lostReportId: string, foundReportId: string, note?: string) =>
   api.post<MatchSuggestion>('/api/match-suggestions', { lostReportId, foundReportId, note })
 
@@ -111,8 +136,8 @@ export const dismissSuggestion = (id: string, reason?: string) =>
 
 /* -------------------------------------------------------------------- claims */
 
-export const createClaim = (lostReportId: string, foundReportId: string) =>
-  api.post<ClaimDetail>('/api/claims', { lostReportId, foundReportId })
+export const createClaim = (lostReportId: string, foundReportId: string, matchSuggestionId?: string) =>
+  api.post<ClaimDetail>('/api/claims', { lostReportId, foundReportId, matchSuggestionId })
 
 export const getMyClaims = (page = 1, pageSize = 20) =>
   api.get<PagedResult<ClaimListItem>>(`/api/claims/mine?page=${page}&pageSize=${pageSize}`)
@@ -131,6 +156,12 @@ export const addQuestions = (id: string, questions: string[]) =>
 /** Calls ASP.NET only; private verification evidence remains server-side. */
 export const generateVerificationQuestions = (id: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/questions/generate`)
+
+export const requestFollowUp = (id: string, question: string, additionalHiddenDetail: string) =>
+  api.post<ClaimDetail>(`/api/claims/${id}/follow-up`, { question, additionalHiddenDetail })
+
+export const draftFollowUp = (id: string, additionalHiddenDetail: string) =>
+  api.post<{ question: string }>(`/api/claims/${id}/follow-up/draft`, { additionalHiddenDetail })
 
 export const submitAnswers = (id: string, answers: { questionId: string; answerText: string }[]) =>
   api.post<ClaimDetail>(`/api/claims/${id}/answers`, { answers })

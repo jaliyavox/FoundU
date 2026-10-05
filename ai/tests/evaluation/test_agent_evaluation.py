@@ -193,12 +193,14 @@ def test_TC03_matching_type_colour_place_and_wording_is_a_candidate(service):
     }
     out = run(service, "matching", payload)["output"]
     assert out["recommendation"] == "match_candidate"
-    assert out["score"] >= 0.75
+    assert out["score"] == 0.68
 
 
 def test_TC11_matching_type_and_colour_alone_goes_to_manual_review(service):
     out = run(service, "matching", matching("Backpack", "Blue", "Backpack", "Blue"))["output"]
-    assert out == {"recommendation": "manual_review", "score": 0.6}
+    assert out["recommendation"] == "manual_review"
+    assert out["score"] == 0.2
+    assert out["missing_factors"]
 
 
 def test_TC04_verification_drafts_questions_from_hidden_evidence(service):
@@ -609,7 +611,9 @@ def test_AP04_a_rejected_workflow_cannot_be_resumed(service):
 
 def test_AP05_matching_only_recommends(service):
     out = run(service, "matching", matching("Phone", "Black", "Phone", "Black"))["output"]
-    assert set(out) == {"recommendation", "score"}
+    assert set(out) == {
+        "recommendation", "score", "matched_factors", "missing_factors", "conflicting_factors"
+    }
     assert out["recommendation"] in ("match_candidate", "no_match", "manual_review")
 
 

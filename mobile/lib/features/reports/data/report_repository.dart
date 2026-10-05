@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import '../../../core/api/api_exception.dart';
 import 'report_models.dart';
 
 final reportRepositoryProvider = Provider<LostReportRepository>((ref) {
+  ref.watch(authSessionEpochProvider);
   return LostReportRepository(dio: ref.watch(apiClientProvider));
 });
 
@@ -14,6 +16,26 @@ class LostReportRepository {
   final Dio _dio;
 
   LostReportRepository({required Dio dio}) : _dio = dio;
+
+  /// Only the authenticated student's suggestions for this canonical found item.
+  Future<List<MatchSuggestionModel>> getMatchesForFoundItem(String foundItemId) async {
+    try {
+      final matches = <MatchSuggestionModel>[];
+      var page = 1;
+      while (true) {
+        final response = await _dio.get<Map<String, dynamic>>(
+          '/api/match-suggestions/mine',
+          queryParameters: {'foundReportId': foundItemId, 'page': page, 'pageSize': 100},
+        );
+        final result = PagedResult.fromJson(response.data!, MatchSuggestionModel.fromJson);
+        matches.addAll(result.items);
+        if (!result.hasNextPage) return matches;
+        page++;
+      }
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 
   Future<PagedResult<LostReportListItemModel>> getMyReports({
     String? status,
@@ -143,6 +165,12 @@ class LostReportRepository {
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
+  }
+
+  Future<void> dismissMatch(String matchId) async {
+    try {
+      await _dio.post('/api/match-suggestions/$matchId/dismiss', data: {'reason': 'This is not my item.'});
+    } on DioException catch (e) { throw ApiException.fromDio(e); }
   }
 
   Future<List<MatchSuggestionModel>> getPossibleMatches(String reportId) async {

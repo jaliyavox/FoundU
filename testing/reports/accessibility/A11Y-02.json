@@ -2,6 +2,6 @@
   "id": "A11Y-02",
   "path": "/login",
   "as": "anonymous",
-  "passes": 29,
+  "passes": 22,
   "violations": []
 }

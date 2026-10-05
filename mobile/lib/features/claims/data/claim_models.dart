@@ -169,11 +169,12 @@ class PagedClaims {
 
 class CreateClaimRequest {
   const CreateClaimRequest(
-      {required this.lostReportId, required this.foundReportId});
+      {required this.lostReportId, required this.foundReportId, this.matchSuggestionId});
   final String lostReportId;
   final String foundReportId;
+  final String? matchSuggestionId;
   Map<String, dynamic> toJson() =>
-      {'lostReportId': lostReportId, 'foundReportId': foundReportId};
+      {'lostReportId': lostReportId, 'foundReportId': foundReportId, if (matchSuggestionId != null) 'matchSuggestionId': matchSuggestionId};
 }
 
 class ClaimAnswerInput {

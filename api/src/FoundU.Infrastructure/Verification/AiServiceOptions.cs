@@ -6,6 +6,7 @@ public sealed class AiServiceOptions
     public const string ServiceKeyHeaderName = "X-FoundU-Service-Key";
 
     public string BaseUrl { get; init; } = "http://localhost:8000";
+    public int VerificationReviewThreshold { get; init; } = 75;
     public int TimeoutSeconds { get; init; } = 30;
 
     /// <summary>

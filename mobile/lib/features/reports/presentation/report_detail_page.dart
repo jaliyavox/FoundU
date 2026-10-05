@@ -1,3 +1,4 @@
+import 'report_progress.dart';
 import 'package:flutter/material.dart';
 
 import '../../feed/presentation/message_thread.dart';
@@ -155,7 +156,8 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
           final statusColor = _getStatusColor(report.status);
           final isActive = report.status.toLowerCase() == 'active';
           final isWithdrawn = report.status.toLowerCase() == 'withdrawn';
-          final stageIndex = reportStageOf(report.status);
+          final stageIndex = reportProgressIndex(report.status, report.progressStage);
+          final progressDetail = reportProgressDetail(report.status, report.progressStage);
 
           return Stack(
             children: [
@@ -238,7 +240,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                             border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                           ),
                           child: Text(
-                            report.status.toUpperCase(),
+                            report.status == 'Matched' ? 'IN PROGRESS' : report.status.toUpperCase(),
                             style: TextStyle(
                               color: statusColor,
                               fontWeight: FontWeight.bold,
@@ -277,11 +279,15 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Report Progress Track',
+                              'Suggestion and claim progress',
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
                             ),
                             const SizedBox(height: 12),
                             ReportStageTrack(stage: stageIndex),
+                            if (progressDetail != null) ...[
+                              const SizedBox(height: 8),
+                              Text(progressDetail, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                            ],
                           ],
                         ),
                       ),

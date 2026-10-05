@@ -8,6 +8,21 @@ import 'package:foundu/features/claims/presentation/claim_detail_page.dart';
 import 'package:foundu/features/claims/presentation/providers/claim_providers.dart';
 
 void main() {
+  testWidgets('follow-up preserves the previous answer and submits only the new answer', (tester) async {
+    final repository = _DetailRepository();
+    await _pump(tester, _detail(status: 'RevisionRequested', previousAnswer: true), repository);
+    expect(find.textContaining('More Information Requested'), findsOneWidget);
+    expect(find.text('Your answer: NB-27 underneath the cap.'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'A small scratch inside the base');
+    await tester.ensureVisible(find.text('Submit answers'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Submit answers'));
+    await tester.pumpAndSettle();
+    expect(repository.submissions.length, 1);
+    expect(repository.submissions.single.questionId, 'question-1');
+    expect(repository.submissions.single.answerText, 'A small scratch inside the base');
+  });
   testWidgets('shows safe item data and verification questions',
       (tester) async {
     await _pump(tester, _detail(status: 'WaitingForAnswer'));
@@ -16,6 +31,10 @@ void main() {
     expect(find.text('Found at Library'), findsOneWidget);
     expect(
         find.text('What identifying detail can you provide?'), findsOneWidget);
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.decoration!.labelText, 'Your answer');
+    expect(tester.getTopLeft(find.text('What identifying detail can you provide?')).dy,
+        lessThan(tester.getTopLeft(find.byType(TextField)).dy));
     expect(find.textContaining('private-secret'), findsNothing);
   });
 
@@ -35,6 +54,8 @@ void main() {
     final repository = _DetailRepository();
     await _pump(tester, _detail(status: 'WaitingForAnswer'), repository);
 
+    await tester.ensureVisible(find.text('Submit answers'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Submit answers'));
     await tester.pump();
 
@@ -50,6 +71,8 @@ void main() {
 
     expect(find.byType(TextField), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'blue tag');
+    await tester.ensureVisible(find.text('Submit answers'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Submit answers'));
     await tester.pumpAndSettle();
 
@@ -85,7 +108,7 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
-ClaimDetail _detail({required String status}) => ClaimDetail(
+ClaimDetail _detail({required String status, bool previousAnswer = false}) => ClaimDetail(
       id: 'claim-1',
       status: status,
       lostReportId: 'lost-1',
@@ -99,8 +122,9 @@ ClaimDetail _detail({required String status}) => ClaimDetail(
         foundAt: DateTime.utc(2026),
         status: 'Unclaimed',
       ),
-      questions: const [
-        ClaimQuestion(
+      questions: [
+        if (previousAnswer) ClaimQuestion(id: 'previous', questionText: 'What identifying mark is underneath the bottle cap?', answerText: 'NB-27 underneath the cap.', answeredAt: DateTime.utc(2026)),
+        const ClaimQuestion(
           id: 'question-1',
           questionText: 'What identifying detail can you provide?',
         ),

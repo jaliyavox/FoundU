@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -84,7 +85,7 @@ class HandoverRepository {
 }
 
 final handoverRepositoryProvider = Provider<HandoverRepository>(
-    (ref) => HandoverRepository(ref.watch(apiClientProvider)));
+    (ref) { ref.watch(authSessionEpochProvider); return HandoverRepository(ref.watch(apiClientProvider)); });
 
 /// One report's live handover, for whichever of the two people is looking.
 final handoverProvider = FutureProvider.autoDispose.family<Handover?, String>(

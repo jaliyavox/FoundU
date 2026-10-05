@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,7 +6,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/api_exception.dart';
 
 final notificationRepositoryProvider = Provider<NotificationRepository>(
-  (ref) => NotificationRepository(ref.watch(apiClientProvider)),
+  (ref) { ref.watch(authSessionEpochProvider); return NotificationRepository(ref.watch(apiClientProvider)); },
 );
 
 class AppNotification {
