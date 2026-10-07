@@ -1,11 +1,21 @@
 """Regression: every public question must be supported by an original observation."""
 
+from pathlib import Path
+
 import pytest
 
 from app.agents.state import AgentState
 from app.agents.verification import verification_node
 from app.agents.verification_grounding import candidate_questions, is_grounded
 from app.llm.fake import FakeLlmClient
+
+
+def test_api_grounding_rules_match_python_rules():
+    repository = Path(__file__).resolve().parents[2]
+    python_rules = repository / "ai/app/agents/verification_grounding.json"
+    api_rules = repository / "api/src/FoundU.Infrastructure/Claims/verification_grounding.json"
+    assert api_rules.read_bytes() == python_rules.read_bytes()
+
 
 BOTTLE = (
     "Nike stainless steel water bottle with a black screw cap. "
