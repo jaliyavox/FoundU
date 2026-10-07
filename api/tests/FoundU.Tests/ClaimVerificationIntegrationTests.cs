@@ -121,6 +121,45 @@ public sealed class ClaimVerificationIntegrationTests
         Assert.Empty(fixture.Db.ClaimAnswers);
     }
 
+    [Theory]
+    [InlineData("Rejected")]
+    [InlineData("Approved")]
+    [InlineData("Collected")]
+    public async Task DecidedOrCollectedClaimCannotAcceptAnotherAnswer(string outcome)
+    {
+        await using var fixture = await ClaimFixture.CreateAsync();
+        var generated = await fixture.Service.GenerateQuestionsAsync(fixture.Claim.Id, fixture.Staff.Id);
+        var questionId = generated.Questions.Single().Id;
+
+        if (outcome == "Rejected")
+        {
+            await fixture.Service.DecideAsync(fixture.Claim.Id, fixture.Staff.Id,
+                new("Rejected", "The evidence did not establish ownership."));
+        }
+        else
+        {
+            await fixture.Service.SubmitAnswersAsync(fixture.Claim.Id, fixture.Student.Id,
+                new([new(questionId, "blue keychain in front pocket")]));
+            await fixture.Service.DecideAsync(fixture.Claim.Id, fixture.Staff.Id, new("Approved", null));
+            if (outcome == "Collected")
+                await fixture.Service.CollectAsync(fixture.Claim.CollectionCode!, fixture.Staff.Id);
+        }
+
+        var status = fixture.Claim.Status;
+        var collectedAt = fixture.Claim.CollectedAt;
+        var savedAnswers = await fixture.Db.ClaimAnswers.Select(answer => answer.AnswerText).ToListAsync();
+        var evaluationCount = await fixture.Db.AgentRuns.CountAsync(run => run.Objective.EndsWith("evaluate_answers"));
+
+        await Assert.ThrowsAsync<ConflictAppException>(() => fixture.Service.SubmitAnswersAsync(
+            fixture.Claim.Id, fixture.Student.Id, new([new(questionId, "changed answer")])));
+
+        Assert.Equal(status, fixture.Claim.Status);
+        Assert.Equal(collectedAt, fixture.Claim.CollectedAt);
+        Assert.Equal(savedAnswers, await fixture.Db.ClaimAnswers.Select(answer => answer.AnswerText).ToListAsync());
+        Assert.Equal(evaluationCount,
+            await fixture.Db.AgentRuns.CountAsync(run => run.Objective.EndsWith("evaluate_answers")));
+    }
+
     [Fact]
     public async Task FollowUpAnswerUsesNewObservationAndOriginalAnswerKeepsItsOwnFact()
     {

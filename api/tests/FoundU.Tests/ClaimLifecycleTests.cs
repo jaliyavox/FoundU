@@ -138,6 +138,32 @@ public sealed class ClaimLifecycleTests
         Assert.Equal(historyCount, await fixture.Db.ClaimStatusHistories.CountAsync(h => h.ClaimId == claim.Id));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NonApprovedClaimWithStaleCodeCannotBeCollected(bool rejected)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var claim = await fixture.Claims.CreateAsync(new(fixture.Report.Id, fixture.ItemA.Id), fixture.Owner.Id);
+        if (rejected)
+            await fixture.Claims.DecideAsync(claim.Id, fixture.Staff.Id,
+                new ClaimDecisionRequest("Rejected", "The evidence did not establish ownership."));
+
+        // Simulate a stale code on a claim that has never been approved.
+        var stored = await fixture.Db.Claims.SingleAsync(c => c.Id == claim.Id);
+        stored.CollectionCode = "123456";
+        await fixture.Db.SaveChangesAsync();
+        var status = stored.Status;
+        var historyCount = await fixture.Db.ClaimStatusHistories.CountAsync(h => h.ClaimId == claim.Id);
+
+        await Assert.ThrowsAsync<NotFoundAppException>(() => fixture.Claims.CollectAsync("123456", fixture.Staff.Id));
+
+        Assert.Equal(status, stored.Status);
+        Assert.Null(stored.CollectedAt);
+        Assert.Equal(FoundReportStatus.Unclaimed, fixture.ItemA.Status);
+        Assert.Equal(historyCount, await fixture.Db.ClaimStatusHistories.CountAsync(h => h.ClaimId == claim.Id));
+    }
+
     [Fact]
     public async Task AnAdminMakesSomeoneStaffButNeverChangesTheirOwnRole()
     {
