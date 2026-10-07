@@ -73,6 +73,55 @@ public sealed class ClaimVerificationIntegrationTests
     }
 
     [Fact]
+    public async Task MissingAnswerInBatchDoesNotSaveAnyAnswers()
+    {
+        await using var fixture = await ClaimFixture.CreateAsync();
+        fixture.FoundReport.PrivateVerificationDetails = VerificationAnswerScoringTests.Evidence;
+        await fixture.Db.SaveChangesAsync();
+        fixture.Agent.GenerateResult = VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Success(
+            new(fixture.Claim.Id, [new("verification-1", VerificationAnswerScoringTests.Cap),
+                new("verification-2", "What color is the sticker?")], "manual_review", "two-questions"));
+        var generated = await fixture.Service.GenerateQuestionsAsync(fixture.Claim.Id, fixture.Staff.Id);
+
+        await Assert.ThrowsAsync<ValidationAppException>(() => fixture.Service.SubmitAnswersAsync(
+            fixture.Claim.Id, fixture.Student.Id,
+            new([new(generated.Questions.Single(q => q.QuestionText == VerificationAnswerScoringTests.Cap).Id, "Black")])));
+
+        Assert.Equal(ClaimStatus.WaitingForAnswer, fixture.Claim.Status);
+        Assert.Empty(fixture.Db.ClaimAnswers);
+        Assert.DoesNotContain(fixture.Db.AgentRuns, run => run.Objective.EndsWith("evaluate_answers"));
+    }
+
+    [Fact]
+    public async Task DuplicateQuestionIdInOneSubmissionDoesNotSaveAnAnswer()
+    {
+        await using var fixture = await ClaimFixture.CreateAsync();
+        var generated = await fixture.Service.GenerateQuestionsAsync(fixture.Claim.Id, fixture.Staff.Id);
+        var questionId = generated.Questions.Single().Id;
+
+        await Assert.ThrowsAsync<ValidationAppException>(() => fixture.Service.SubmitAnswersAsync(
+            fixture.Claim.Id, fixture.Student.Id,
+            new([new(questionId, "blue keychain"), new(questionId, "front pocket")])));
+
+        Assert.Equal(ClaimStatus.WaitingForAnswer, fixture.Claim.Status);
+        Assert.Empty(fixture.Db.ClaimAnswers);
+    }
+
+    [Fact]
+    public async Task UnknownQuestionIdCannotBeAnsweredForThisClaim()
+    {
+        await using var fixture = await ClaimFixture.CreateAsync();
+        await fixture.Service.GenerateQuestionsAsync(fixture.Claim.Id, fixture.Staff.Id);
+
+        await Assert.ThrowsAsync<ValidationAppException>(() => fixture.Service.SubmitAnswersAsync(
+            fixture.Claim.Id, fixture.Student.Id,
+            new([new(Guid.NewGuid(), "blue keychain")])));
+
+        Assert.Equal(ClaimStatus.WaitingForAnswer, fixture.Claim.Status);
+        Assert.Empty(fixture.Db.ClaimAnswers);
+    }
+
+    [Fact]
     public async Task FollowUpAnswerUsesNewObservationAndOriginalAnswerKeepsItsOwnFact()
     {
         await using var fixture = await ClaimFixture.CreateAsync();

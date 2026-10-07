@@ -117,6 +117,28 @@ public sealed class ClaimLifecycleTests
     }
 
     [Fact]
+    public async Task CollectedItemCannotBeCollectedAgainWithTheSameCode()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var claim = await fixture.Claims.CreateAsync(new(fixture.Report.Id, fixture.ItemA.Id), fixture.Owner.Id);
+        await fixture.AnswerAsync(claim.Id);
+        await fixture.Claims.DecideAsync(claim.Id, fixture.Staff.Id, new ClaimDecisionRequest("Approved", null));
+        var code = (await fixture.Db.Claims.SingleAsync(c => c.Id == claim.Id)).CollectionCode!;
+
+        var collected = await fixture.Claims.CollectAsync(code, fixture.Staff.Id);
+
+        Assert.Null(collected.CollectionCode);
+        Assert.NotNull((await fixture.Db.Claims.SingleAsync(c => c.Id == claim.Id)).CollectedAt);
+        Assert.Equal(FoundReportStatus.Returned, fixture.ItemA.Status);
+        Assert.Equal(LostReportStatus.Resolved, fixture.Report.Status);
+        var historyCount = await fixture.Db.ClaimStatusHistories.CountAsync(h => h.ClaimId == claim.Id);
+
+        await Assert.ThrowsAsync<NotFoundAppException>(() => fixture.Claims.GetByCollectionCodeAsync(code));
+        await Assert.ThrowsAsync<NotFoundAppException>(() => fixture.Claims.CollectAsync(code, fixture.Staff.Id));
+        Assert.Equal(historyCount, await fixture.Db.ClaimStatusHistories.CountAsync(h => h.ClaimId == claim.Id));
+    }
+
+    [Fact]
     public async Task AnAdminMakesSomeoneStaffButNeverChangesTheirOwnRole()
     {
         await using var fixture = await Fixture.CreateAsync();
