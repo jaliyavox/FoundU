@@ -30,4 +30,13 @@ CASES = [
     case("SEC-23 a text file renamed .jpg is refused as a photo", "POST", "/api/lost-reports/{{reportA}}/photos", token="studentA",
          form=[{"key": "files", "type": "file", "src": "fixtures/not-an-image.jpg"}], tests=status(400) + "\n" + no_leak),
     case("SEC-24 non-GUID ids are 404, not a server error", "GET", "/api/lost-reports/1%20OR%201=1", token="studentA", tests=status(404)),
+    case("SEC-34 a description of exactly 1000 characters is accepted (boundary)", "POST", "/api/lost-reports", token="studentA",
+         raw='{"categoryId":"{{categoryId}}","itemTypeId":"{{itemTypeId}}","primaryColor":"Black","lastSeenLocationId":"{{locationId}}","description":"{{exact}}","estimatedLostFromAt":"2026-10-01T08:00:00Z","estimatedLostToAt":"2026-10-01T09:00:00Z"}',
+         pre="pm.environment.set('exact', 'b'.repeat(1000));",
+         tests=status(201) + "\npm.test('stored in full', () => pm.expect(pm.response.json().description.length).to.equal(1000));"),
+    case("SEC-35 a lost-time window that ends before it starts is refused", "POST", "/api/lost-reports", token="studentA",
+         raw='{"categoryId":"{{categoryId}}","itemTypeId":"{{itemTypeId}}","primaryColor":"Black","lastSeenLocationId":"{{locationId}}","description":"Window back to front","estimatedLostFromAt":"2026-10-01T09:00:00Z","estimatedLostToAt":"2026-10-01T08:00:00Z"}',
+         tests=status(400) + "\n" + no_leak),
+    case("SEC-36 IDOR: student B cannot add a photo to student A's report", "POST", "/api/lost-reports/{{reportA}}/photos", token="studentB",
+         form=[{"key": "files", "type": "file", "src": "fixtures/not-an-image.jpg"}], tests=status(403, 404) + "\n" + no_leak),
 ]

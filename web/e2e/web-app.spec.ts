@@ -43,6 +43,8 @@ async function selectToday(page: Page, controlId: string) {
   await page.locator(`[data-day="${today}"]`).click()
   await page.keyboard.press('Escape')
   await expect(page.locator(`#${controlId}`)).toHaveAttribute('aria-expanded', 'false')
+  // The calendar animates out; until it has gone, the next picker's days would match twice.
+  await expect(page.locator('[data-day]')).toHaveCount(0)
 }
 
 async function openLostReportWizard(page: Page) {
