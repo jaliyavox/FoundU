@@ -57,6 +57,11 @@ Never show a password, token, or the `user@machine` prompt in a screenshot: crop
 | 32 | `m2-mobile-screen.png` | 10.2.4 | Ranasinghe | emulator: report form with a photo | Report lost item |
 | 33 | `m3-mobile-screen.png` | 10.3.4 | Uthpala | emulator: Found board or a possible-match score | Found tab |
 | 34 | `m4-mobile-screen.png` | 10.4.4 | Braveena | emulator: answering verification questions | a claim with questions |
+| 34a | `m1-web-admin-users.png` | 10.1.3 | Jaliya | web admin dashboard, **Users**: the user list with roles and the actions (suspend, change role, delete) | http://localhost:5173 › sign in as `admin@foundu.com` › Users |
+| 34b | `m1-web-support-queue.png` | 10.1.3 | Jaliya | web **Support queue** (staff): queue figures and tickets with the Assistant badge | sign in as `priya@foundu.test` › Support queue |
+| 34c | `m2-web-report-form.png` | 10.2.3 | Ranasinghe | web **Report a lost item** form, filled in | sign in as `amara@foundu.test` › My reports › Report a lost item |
+| 34d | `m3-web-log-item.png` | 10.3.3 | Uthpala | web **Log a found item** (staff desk), with the hidden detail field | sign in as `priya@foundu.test` › Found items › Log an item |
+| 34e | `m4-web-claim-review.png` | 10.4.3 | Braveena | web staff **claim page**: the hidden detail beside the claimant's answer, Approve / Reject | sign in as `priya@foundu.test` › Claims › the Water Bottle claim |
 | 35 | `m1-summary.png` | 10.1.9 | Jaliya | final Summary table: every area listed, every count passed | `testing/member1_jaliya/run_tests.sh` (scroll to the Summary) |
 | 36 | `m2-summary.png` | 10.2.9 | Ranasinghe | same | `testing/member2_ranasinghe/run_tests.sh` |
 | 37 | `m3-summary.png` | 10.3.9 | Uthpala | same | `testing/member3_uthpala/run_tests.sh` |
