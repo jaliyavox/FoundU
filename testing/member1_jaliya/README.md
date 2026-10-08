@@ -1,9 +1,9 @@
 # Member 1: Jaliya H. A. W (IT24101976)
 
-**Business component:** Administration and user management, mailing, Google sign-in and support tickets
-**Agent:** Support agent
+**Business component:** Administration and user management (with mailing and Google sign-in), and support tickets
+**Agent:** AI support chatbot (the Support agent)
 
-A student describes a problem. The agent answers from FoundU's own help guide, asks once for more detail, or drafts a ticket for a person. The language model only picks which guide topic fits, so it cannot invent a policy, and it can never open a ticket, approve anything or reveal a code.
+Two business components: **administration and user management** (the Users page and API: search, roles, suspend and reinstate, delete; reference data; analytics; confirmation and reset email; Google sign-in) and **support tickets** (students open tickets, staff work the Support queue). The agent is the **AI support chatbot**: a student describes a problem, and it answers from FoundU's own help guide, asks once for more detail, or drafts a ticket for the Support queue. The language model only picks which guide topic fits, so it cannot invent a policy, and the chatbot can never open a ticket, approve anything or reveal a code.
 
 ## Where my tests are
 

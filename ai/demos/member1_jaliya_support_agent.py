@@ -1,7 +1,8 @@
-"""Member 1 - Jaliya H. A. W (IT24101976): the Support agent.
+"""Member 1 - Jaliya H. A. W (IT24101976): the AI support chatbot (the Support agent).
 
-Business component: support tickets. A student describes a problem; the agent answers from
-FoundU's help guide, asks once for more detail, or drafts a ticket for the desk.
+Business components: administration and user management, and support tickets. A student
+describes a problem; the chatbot answers from FoundU's help guide, asks once for more detail,
+or drafts a ticket for the staff Support queue.
 
   python demos/member1_jaliya_support_agent.py                  # chat, type 'quit' to stop
   python demos/member1_jaliya_support_agent.py "How do I collect my item?"
@@ -48,7 +49,8 @@ def show(service: AgentService, history: list[dict], show_json: bool) -> dict:
         },
     )
     out = body["output"]
-    header("Support agent", "Member 1 · Jaliya H. A. W (IT24101976)", "support tickets")
+    header("AI support chatbot (Support agent)", "Member 1 · Jaliya H. A. W (IT24101976)",
+           "admin and user management, support tickets")
     section("Input")
     row("Student said", history[-1]["text"])
     row("Turns so far", len([t for t in history if t["role"] == "user"]))

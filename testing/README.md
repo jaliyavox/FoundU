@@ -28,7 +28,7 @@ stay group-owned.
 
 | Member | Business component | Agent | Their folder |
 | --- | --- | --- | --- |
-| 1 · Jaliya H. A. W (IT24101976) | Administration, users, mailing, Google sign-in, support tickets | Support agent | [`member1_jaliya/`](member1_jaliya/) |
+| 1 · Jaliya H. A. W (IT24101976) | Administration and user management (with mailing and Google sign-in), support tickets | AI support chatbot (Support agent) | [`member1_jaliya/`](member1_jaliya/) |
 | 2 · Ranasinghe R.G.P.D (IT24100910) | Lost item reporting and tracking | Description-Parsing agent | [`member2_ranasinghe/`](member2_ranasinghe/) |
 | 3 · Uthpala W.A.S (IT24101028) | Found item management and matching | Matching agent | [`member3_uthpala/`](member3_uthpala/) |
 | 4 · Braveena S (IT24100354) | Claims and ownership verification | Verification and Coordinator agents | [`member4_braveena/`](member4_braveena/) |
