@@ -29,6 +29,7 @@ Never show a password, token, or the `user@machine` prompt in a screenshot: crop
 | 6 | `m1-e2e-report.png` | 10.1.5 | Jaliya | Playwright HTML report, their specs, all passed | `cd testing/e2e && npx playwright test tests/member1_jaliya && npx playwright show-report ../reports/e2e/html` |
 | 7 | `m1-e2e-step.png` | 10.1.5 | Jaliya | the ticket in the Support queue with the "Assistant tried first" badge | in that report: E2E-SUP-01 › Attachments, the step "staff see it in the Support queue…" |
 | 8 | `m2-e2e-report.png` | 10.2.5 | Ranasinghe | report for his folder, all passed | as #6 with `tests/member2_ranasinghe` |
+| 8b | `m2-e2e-webapp.png` | 10.2.5 | Ranasinghe | his browser journeys and form boundaries in `web/e2e/web-app.spec.ts`: 7 passed | `cd web && FOUNDU_E2E_BASE_URL=http://127.0.0.1:5173 npx playwright test --reporter=list` |
 | 9 | `m2-e2e-step.png` | 10.2.5 | Ranasinghe | the report tracker moving to "handed in" | E2E-REG-03 › Attachments |
 | 10 | `m3-e2e-report.png` | 10.3.5 | Uthpala | report for her folder, all passed | as #6 with `tests/member3_uthpala` |
 | 11 | `m3-e2e-step.png` | 10.3.5 | Uthpala | the desk receiving an item by hand-in code | desk-handin spec › Attachments |
