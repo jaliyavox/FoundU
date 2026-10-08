@@ -9,10 +9,11 @@ Before you start: the stack is running (`testing/start-stack.sh`), and in each n
 ```bash
 cd ~/UNI/my/Github/FoundU
 export TEST_DATABASE_URL="Host=localhost;Port=5434;Database=foundu_test;Username=foundu;Password=foundu"
-clear    # so the connection string is not on screen
+PROMPT='$ '   # hides the user and machine name in the prompt (this terminal only)
+clear         # so the connection string is not on screen
 ```
 
-Never show a password or token in a screenshot: crop or blur it.
+Never show a password, token, or the `user@machine` prompt in a screenshot: crop or blur it.
 
 `{n}` is the member number, `{name}` the folder name: 1 `member1_jaliya`, 2 `member2_ranasinghe`,
 3 `member3_uthpala`, 4 `member4_braveena`. Member tags: `Member1-Jaliya`, `Member2-Ranasinghe`,
@@ -24,7 +25,7 @@ Never show a password or token in a screenshot: crop or blur it.
 | 2 | `m2-db-run.png` | 10.2.2 | Ranasinghe | each test Passed, total `Passed: 1` | same, `Member=Member2-Ranasinghe` |
 | 3 | `m3-db-run.png` | 10.3.2 | Uthpala | each test Passed, total `Passed: 3` | same, `Member=Member3-Uthpala` |
 | 4 | `m4-db-run.png` | 10.4.2 | Braveena | each test Passed, total `Passed: 6` | same, `Member=Member4-Braveena` |
-| 5 | `m3-db-editor.png` | 10.3.2 | Uthpala | `Member3DatabaseTests.cs` open in the editor beside its passing run | open `api/tests/FoundU.Tests/Member3_Uthpala/Member3DatabaseTests.cs`, run #3 in the VS Code terminal below it |
+| 5 | `m3-db-editor.png` | 10.3.2 | Uthpala | `Member3DatabaseTests.cs` open in the editor (class header with its traits and the first test); its passing run is #3 | open `api/tests/FoundU.Tests/Member3_Uthpala/Member3DatabaseTests.cs`, close the terminal panel |
 | 6 | `m1-e2e-report.png` | 10.1.5 | Jaliya | Playwright HTML report, their specs, all passed | `cd testing/e2e && npx playwright test tests/member1_jaliya && npx playwright show-report ../reports/e2e/html` |
 | 7 | `m1-e2e-step.png` | 10.1.5 | Jaliya | the ticket in the Support queue with the "Assistant tried first" badge | in that report: E2E-SUP-01 › Attachments, the step "staff see it in the Support queue…" |
 | 8 | `m2-e2e-report.png` | 10.2.5 | Ranasinghe | report for his folder, all passed | as #6 with `tests/member2_ranasinghe` |
