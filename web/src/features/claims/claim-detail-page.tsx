@@ -305,19 +305,19 @@ function ItemPanel({ claim }: { claim: ClaimDetail }) {
       <p className="text-sm text-pretty text-muted-foreground">{claim.foundItem.generalDescription}</p>
 
       <dl className="grid gap-3 sm:grid-cols-2">
-        <div className="flex items-start gap-3">
-          <MapPinIcon className="mt-0.5 size-4 shrink-0 text-brand-green" aria-hidden="true" />
-          <div>
-            <dt className="text-xs text-muted-foreground">Handed in at</dt>
-            <dd className="text-sm">{claim.foundItem.foundLocationName}</dd>
-          </div>
+        <div className="relative pl-7">
+          <dt className="text-xs text-muted-foreground">
+            <MapPinIcon className="absolute top-0.5 left-0 size-4 text-brand-green" aria-hidden="true" />
+            Handed in at
+          </dt>
+          <dd className="text-sm">{claim.foundItem.foundLocationName}</dd>
         </div>
-        <div className="flex items-start gap-3">
-          <ClockIcon className="mt-0.5 size-4 shrink-0 text-brand-green" aria-hidden="true" />
-          <div>
-            <dt className="text-xs text-muted-foreground">Found</dt>
-            <dd className="text-sm">{formatDateTime(claim.foundItem.foundAt)}</dd>
-          </div>
+        <div className="relative pl-7">
+          <dt className="text-xs text-muted-foreground">
+            <ClockIcon className="absolute top-0.5 left-0 size-4 text-brand-green" aria-hidden="true" />
+            Found
+          </dt>
+          <dd className="text-sm">{formatDateTime(claim.foundItem.foundAt)}</dd>
         </div>
       </dl>
 

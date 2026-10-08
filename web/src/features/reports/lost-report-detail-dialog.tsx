@@ -272,12 +272,13 @@ function Fact({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn('flex items-start gap-2.5', wide && 'sm:col-span-2')}>
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="flex min-w-0 flex-col">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="font-medium text-foreground">{children}</dd>
-      </div>
+    // A <dl> may hold only dt/dd groups, so the icon sits inside the <dt>.
+    <div className={cn('relative min-w-0 pl-6.5', wide && 'sm:col-span-2')}>
+      <dt className="text-xs text-muted-foreground">
+        <Icon className="absolute top-0.5 left-0 size-4 text-muted-foreground" aria-hidden="true" />
+        {label}
+      </dt>
+      <dd className="font-medium text-foreground">{children}</dd>
     </div>
   )
 }
