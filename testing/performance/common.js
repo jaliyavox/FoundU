@@ -6,8 +6,8 @@ const PASSWORD = __ENV.FOUNDU_DEMO_PASSWORD || 'Demo!Pass2026'
 const json = { headers: { 'Content-Type': 'application/json' } }
 
 /** Signs in once per run (in setup), so the load is on the endpoints and not on password hashing. */
-export function signIn(email) {
-  const res = http.post(`${API}/api/auth/login`, JSON.stringify({ email, password: PASSWORD }), json)
+export function signIn(email, password = PASSWORD) {
+  const res = http.post(`${API}/api/auth/login`, JSON.stringify({ email, password }), json)
   if (res.status !== 200) throw new Error(`login ${email} -> ${res.status}`)
   return res.json('accessToken')
 }
