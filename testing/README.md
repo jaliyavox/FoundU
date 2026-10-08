@@ -18,6 +18,30 @@ execution summary are in the Software Testing Report.
 | Security: web headers and CSP | Playwright against the build with the real headers | `testing/e2e/tests/csp.spec.ts` | E2E report (CSP-01 to 04) |
 | Agentic AI evaluation | pytest (deterministic and live Groq) | `ai/tests/evaluation` | `reports/ai-eval/*-results.json` |
 
+## Each member's tests
+
+Every member owns a business component and the agent for it, and their tests sit in a folder
+named after them in each part of the system (`api/tests/FoundU.Tests/Member1_Jaliya/`,
+`ai/tests/member1_jaliya/`, `web/tests/member1_jaliya/`, `mobile/test/member1_jaliya/`, and so on).
+Shared helpers, the PostgreSQL persistence tests, the evaluation suite and the end-to-end tests
+stay group-owned.
+
+| Member | Business component | Agent | Their folder |
+| --- | --- | --- | --- |
+| 1 · Jaliya H. A. W (IT24101976) | Administration, users, mailing, Google sign-in, support tickets | Support agent | [`member1_jaliya/`](member1_jaliya/) |
+| 2 · Ranasinghe R.G.P.D (IT24100910) | Lost item reporting and tracking | Description-Parsing agent | [`member2_ranasinghe/`](member2_ranasinghe/) |
+| 3 · Uthpala W.A.S (IT24101028) | Found item management and matching | Matching agent | [`member3_uthpala/`](member3_uthpala/) |
+| 4 · Braveena S (IT24100354) | Claims and ownership verification | Verification and Coordinator agents | [`member4_braveena/`](member4_braveena/) |
+
+Each folder has a README listing the member's test cases, and two scripts:
+
+```bash
+testing/member1_jaliya/run_tests.sh          # that member's API, AI, web and mobile tests
+testing/member1_jaliya/agent_demo.sh --sample   # that member's agent, input in, report out
+```
+
+`run_tests.sh` writes `results/SUMMARY.md` (every test case with Pass or Fail) next to it.
+
 ## Running everything
 
 ```bash

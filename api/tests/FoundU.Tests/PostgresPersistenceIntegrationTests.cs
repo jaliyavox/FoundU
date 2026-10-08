@@ -16,6 +16,7 @@ using System.Text.Json.Nodes;
 namespace FoundU.Tests;
 
 [Trait("Category", "PostgreSql")]
+[Trait("Member", "Group")]
 public sealed class PostgresPersistenceIntegrationTests
 {
     [PostgresFact]
