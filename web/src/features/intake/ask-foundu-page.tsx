@@ -118,17 +118,19 @@ function IntakeConversation({ ownerId }: { ownerId: string }) {
       </div>
 
       <DashboardPanel className="flex flex-col gap-5">
-        <ol role="log" aria-label="Conversation with FoundU" aria-live="polite" aria-relevant="additions" className="flex flex-col gap-5">
-          {messages.map((message, index) => (
-            <li key={index} className={message.role === 'user' ? 'ml-8 rounded-xl bg-muted p-4' : 'flex gap-3'}>
-              {message.role === 'assistant' && <BotIcon className="mt-1 size-4 shrink-0 text-brand-green" aria-hidden="true" />}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">{message.role === 'user' ? 'You' : 'FoundU'}</p>
-                <p className="pt-1 whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div role="log" aria-label="Conversation with FoundU" aria-live="polite" aria-relevant="additions">
+          <ol className="flex flex-col gap-5">
+            {messages.map((message, index) => (
+              <li key={index} className={message.role === 'user' ? 'ml-8 rounded-xl bg-muted p-4' : 'flex gap-3'}>
+                {message.role === 'assistant' && <BotIcon className="mt-1 size-4 shrink-0 text-brand-green" aria-hidden="true" />}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">{message.role === 'user' ? 'You' : 'FoundU'}</p>
+                  <p className="pt-1 whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
         {choosing && (
           <div className="flex flex-wrap gap-2 pl-7">
             <Button variant="outline" onClick={() => choose('lost')}><SearchIcon aria-hidden="true" />I lost something</Button>

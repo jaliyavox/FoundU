@@ -253,7 +253,9 @@ internal sealed class AuthTestApp : IAsyncDisposable
         ["Jwt:RefreshTokenDays"] = "14",
         ["ConnectionStrings:FoundUDatabase"] = "Host=unused",
         // The tests' database is in memory, built by EnsureCreated - there is nothing to migrate.
-        ["Database:MigrateOnStartup"] = "false"
+        ["Database:MigrateOnStartup"] = "false",
+        // No AI service runs in the tests; nothing to keep awake.
+        ["AiService:KeepWarm"] = "false"
     };
 
     private readonly ServiceProvider _provider;

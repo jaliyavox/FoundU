@@ -61,4 +61,18 @@ public class AdminUsersController : ControllerBase
         [FromBody] ChangeUserRoleRequest request,
         CancellationToken cancellationToken)
         => Ok(await _adminUsers.ChangeRoleAsync(id, User.GetUserId(), request.Role, cancellationToken));
+
+    /// <summary>
+    /// Deletes an account: open reports, posts and handovers are closed, personal details are
+    /// erased and the person can no longer sign in. Never the acting admin, never another admin.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IAccountDeletionService accounts,
+        CancellationToken cancellationToken)
+    {
+        await accounts.DeleteAsync(id, User.GetUserId(), cancellationToken);
+        return NoContent();
+    }
 }

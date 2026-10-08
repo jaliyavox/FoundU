@@ -20,7 +20,16 @@ public record GenerateVerificationQuestionsResult(
 public record EvaluateVerificationAnswersResult(
     Guid ClaimId,
     string Recommendation,
-    string AgentRunId);
+    string AgentRunId,
+    double? Score = null,
+    IReadOnlyList<string>? MatchedEvidence = null,
+    IReadOnlyList<string>? MissingInformation = null,
+    IReadOnlyList<string>? ConflictingInformation = null,
+    string? Rationale = null,
+    IReadOnlyList<VerificationAgentEvaluation>? Evaluations = null);
+
+/// <summary>Safe per-question advisory result. Contains no expected value or reasoning.</summary>
+public record VerificationAgentEvaluation(string QuestionId, string Result, double Score);
 
 /// <summary>
 /// A deliberately generic failure result. It is safe to persist in audit metadata and never

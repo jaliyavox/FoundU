@@ -38,6 +38,10 @@ class ContextReportLookupProvider:
                 "report_id": input_model.report.report_id,
                 "item_type": input_model.report.item_type,
                 "primary_color": input_model.report.primary_color,
+                "description": input_model.report.description,
+                "location": input_model.report.location,
+                "event_start_at": input_model.report.event_start_at,
+                "event_end_at": input_model.report.event_end_at,
             },
         )
 

@@ -30,6 +30,7 @@ export type NotificationType =
   | 'SupportTicketUpdated'
   | 'HandoverStarted'
   | 'HandoverCancelled'
+  | 'ItemCollected'
 
 export const getNotifications = (page = 1, pageSize = 15) =>
   api.get<PagedResult<AppNotification>>(`/api/notifications?page=${page}&pageSize=${pageSize}`)

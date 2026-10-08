@@ -51,6 +51,7 @@ export function ClaimQueuePage() {
     queryKey: ['claim-queue', { page, status }],
     queryFn: () => getClaimQueue(page, PAGE_SIZE, status === 'open' || status === 'all' ? undefined : status),
     placeholderData: keepPreviousData,
+    refetchInterval: 5000,
   })
 
   // "Needs attention" is a view over statuses rather than one the API filters on, so it is
@@ -149,13 +150,17 @@ export function ClaimQueuePage() {
                   <div className="relative min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-medium">{claim.itemTypeName}</h2>
-                      <ClaimStatusChip status={claim.status} />
+                      <ClaimStatusChip status={claim.status} collectedAt={claim.collectedAt} />
                     </div>
                     <p className="pt-1 text-sm text-muted-foreground">
                       {claim.studentName} · {claim.categoryName}
                     </p>
+                    <p className="text-xs text-muted-foreground">{claim.storageLocationName} · Verification: {claim.verificationStatus ?? claim.status}
+                      {claim.matchScore != null && ` · Match score ${Math.round(claim.matchScore * 100)}%`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Lost report: {claim.lostReportId} · Found item: {claim.foundReportId}</p>
                     <p className="pt-2 text-xs text-muted-foreground">
-                      Waiting {timeAgo(claim.createdAt)}
+                      Submitted {new Date(claim.createdAt).toLocaleString()} · Waiting {timeAgo(claim.createdAt)}
                       {claim.unansweredQuestionCount > 0 &&
                         ` · ${claim.unansweredQuestionCount} question${claim.unansweredQuestionCount === 1 ? '' : 's'} unanswered`}
                     </p>

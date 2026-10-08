@@ -18,6 +18,7 @@ export function FormSelect({
   placeholder,
   disabled,
   invalid,
+  label,
 }: {
   id: string
   value: string
@@ -26,10 +27,12 @@ export function FormSelect({
   placeholder: string
   disabled?: boolean
   invalid?: boolean
+  /** Accessible name, for a select with no visible <label> of its own. */
+  label?: string
 }) {
   return (
     <Select value={value || null} onValueChange={(next) => onValueChange((next as string) ?? '')}>
-      <SelectTrigger id={id} disabled={disabled} aria-invalid={invalid} className="w-full">
+      <SelectTrigger id={id} disabled={disabled} aria-invalid={invalid} aria-label={label} className="w-full">
         <SelectValue>
           {(selected) => {
             const match = options.find((option) => option.value === selected)

@@ -1,0 +1,24 @@
+endpoint                              reqs   avg ms   p95 ms   max ms
+unread count                          2051      1.6      2.3     23.5
+lost feed                             2051      3.9      7.0     21.5
+desk storage list                      300      5.5      9.1      9.9
+my reports                            2051      3.7      5.3     18.5
+feed search                           2051      3.6      5.2     36.5
+found board                           2051      3.0      4.6     13.7
+
+all requests: 10557 (86.6/s), p95 5.5 ms, failed 0.00%
+threshold http_req_failed rate<0.01: PASS
+threshold http_req_duration{name:my reports} p(95)<500: PASS
+threshold http_reqs{name:desk storage list} count>0: PASS
+threshold http_req_duration{name:feed search} p(95)<500: PASS
+threshold http_req_duration{name:found board} p(95)<500: PASS
+threshold http_reqs{name:unread count} count>0: PASS
+threshold http_reqs{name:feed search} count>0: PASS
+threshold http_req_duration{name:unread count} p(95)<300: PASS
+threshold http_reqs{name:my reports} count>0: PASS
+threshold http_req_duration{name:lost feed} p(95)<500: PASS
+threshold checks rate>0.99: PASS
+threshold http_req_duration{name:desk storage list} p(95)<500: PASS
+threshold http_req_duration p(95)<500: PASS
+threshold http_reqs{name:found board} count>0: PASS
+threshold http_reqs{name:lost feed} count>0: PASS

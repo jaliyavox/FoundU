@@ -226,12 +226,15 @@ GUIDE: tuple[Topic, ...] = (
         id="cannot_sign_in",
         title="Cannot sign in",
         category="Account",
-        keywords=("forgot", "reset", "locked out", "can't log in", "cannot log in", "sign in"),
+        keywords=("forgot", "reset", "password", "locked out", "can't log in", "cannot log in",
+                  "sign in"),
+        # Self-service since the email reset shipped: only a missing email needs the desk.
         answer=(
-            "If you signed up with Google, use Continue with Google. A forgotten password has "
-            "to be reset by the desk after they check who you are - I can send them a ticket."
+            "On the sign-in page choose Forgot password? and enter your email - we send a link "
+            "to set a new one. If you signed up with Google, use Continue with Google instead. "
+            "After five wrong tries the account rests for 15 minutes. If the email never "
+            "arrives, I can send the desk a ticket."
         ),
-        needs_staff=True,
     ),
     Topic(
         id="suspended",

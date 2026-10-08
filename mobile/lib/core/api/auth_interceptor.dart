@@ -27,7 +27,9 @@ class AuthInterceptor extends QueuedInterceptor {
     required RefreshSession refreshSession,
     required void Function() onSessionInvalidated,
     SingleFlightRefresh? refreshCoordinator,
-  })  : _retryDio = retryDio,
+    int Function()? sessionVersion,
+  })  : _sessionVersion = sessionVersion ?? (() => 0),
+        _retryDio = retryDio,
         _tokenStorage = tokenStorage,
         _refreshSession = refreshSession,
         _onSessionInvalidated = onSessionInvalidated,
@@ -38,6 +40,9 @@ class AuthInterceptor extends QueuedInterceptor {
     '/api/auth/refresh',
     '/api/auth/logout',
   };
+  final int Function() _sessionVersion;
+  static const _versionKey = 'foundu_session_version';
+
   static const _retriedKey = 'foundu_auth_retried';
 
   final Dio _retryDio;
@@ -53,6 +58,8 @@ class AuthInterceptor extends QueuedInterceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    options.extra[_versionKey] = _sessionVersion();
+    options.headers.remove("Authorization");
     if (!_isAnonymous(options.path)) {
       final token = await _tokenStorage.readAccessToken();
       if (token != null && token.isNotEmpty) {
@@ -65,11 +72,25 @@ class AuthInterceptor extends QueuedInterceptor {
   }
 
   @override
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
+    if (response.requestOptions.extra[_versionKey] != _sessionVersion()) {
+      handler.reject(DioException(requestOptions: response.requestOptions,
+          type: DioExceptionType.cancel, message: 'The account changed during this request.'));
+      return;
+    }
+    handler.next(response);
+  }
+
+  @override
   Future<void> onError(
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
     final request = err.requestOptions;
+    if (request.extra[_versionKey] != _sessionVersion()) {
+      handler.next(err);
+      return;
+    }
     if (err.response?.statusCode != 401 ||
         _isAnonymous(request.path) ||
         request.extra[_retriedKey] == true) {
@@ -96,6 +117,10 @@ class AuthInterceptor extends QueuedInterceptor {
       return;
     }
 
+    if (request.extra[_versionKey] != _sessionVersion()) {
+      handler.next(err);
+      return;
+    }
     final refreshedToken = await _tokenStorage.readAccessToken();
     if (refreshedToken == null || refreshedToken.isEmpty) {
       _onSessionInvalidated();

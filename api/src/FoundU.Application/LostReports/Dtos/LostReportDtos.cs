@@ -63,7 +63,12 @@ public record LostReportListItemDto(
     DateTime? FlaggedAt,
     /// <summary>Display name only, and only on staff-reachable lists. Null when unflagged.</summary>
     string? FlaggedByName,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    /// <summary>
+    /// Where the report stands: Reported, PossibleMatch, FinderFound, FinderOnTheWay, ClaimSubmitted,
+    /// VerificationQuestions, RevisionRequested, ClaimUnderReview, AtDesk, ClaimApproved, Resolved.
+    /// </summary>
+    string ProgressStage = "Reported");
 
 public record LostReportDetailDto(
     Guid Id,
@@ -90,7 +95,9 @@ public record LostReportDetailDto(
     bool IsFlagged,
     string? FlagReason,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    /// <summary>Same stages as the list item. Matched status alone does not imply a claim.</summary>
+    string ProgressStage = "Reported");
 
 public record WithdrawLostReportRequest(string? Reason);
 
@@ -125,6 +132,7 @@ public record LostReportFeedItemDto(
 
 public class LostReportQuery : PaginationQuery
 {
+    public Guid? ExcludeSuggestedForFoundReportId { get; set; }
     /// <summary>Filter by LostReportStatus name (Active, Matched, Resolved, Withdrawn).</summary>
     public string? Status { get; set; }
 

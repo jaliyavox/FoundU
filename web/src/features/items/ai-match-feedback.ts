@@ -7,13 +7,12 @@ export function canGenerateAiSuggestion(selectedReportId: string | null, aiPendi
 export function aiMatchSuccessMessage(result: GenerateMatchSuggestionResult) {
   if (!result.suggestion) return 'The Matching Agent did not create a suggestion.'
   const score = result.suggestion.matchScore ?? result.score
-  return `AI-assisted match suggestion created (score ${score.toFixed(2)}).`
+  return `AI-assisted match suggestion created (match score ${Math.round(score * 100)}%).`
 }
 
 export function aiMatchFailureMessage(status?: number) {
-  if (status === 400 || status === 409) {
-    return 'This report pair can no longer be suggested. You can still create a match manually.'
-  }
+  if (status === 409) return 'This item has already been suggested for that lost report.'
+  if (status === 400) return 'This report pair is not eligible for a suggestion.'
   if (status === 401 || status === 403) {
     return 'You are not authorized to generate an AI-assisted suggestion.'
   }

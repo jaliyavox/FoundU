@@ -8,6 +8,7 @@ import {
   SearchIcon,
   ShieldCheckIcon,
   ShieldOffIcon,
+  Trash2Icon,
   UsersIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -28,7 +29,8 @@ import {
 } from '@/components/ui/table'
 import { FormSelect } from '@/features/reports/form-select'
 import { useAuth } from '@/features/auth/use-auth'
-import { changeUserRole, formatDate, getUsers, reinstateUser, type AdminUser } from './admin-api'
+import { changeUserRole, deleteUser, formatDate, getUsers, reinstateUser, type AdminUser } from './admin-api'
+import { ConfirmDeleteDialog } from './confirm-delete-dialog'
 import { StatCards } from './stat-cards'
 import { SuspendDialog } from './suspend-dialog'
 import { ApiError } from '@/lib/api/client'
@@ -59,6 +61,7 @@ export function AdminUsersPage() {
   const [role, setRole] = useState('all')
   const [status, setStatus] = useState('all')
   const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
 
   const { data, isPending, isError, error, isFetching, refetch } = useQuery({
     queryKey: ['admin-users', { page, search, role, status }],
@@ -81,6 +84,22 @@ export function AdminUsersPage() {
       toast.success(`${updated.fullName} can sign in again.`)
     },
     onError: (mutationError) => {
+      toast.error(
+        mutationError instanceof ApiError ? mutationError.message : 'Could not reach the server.',
+      )
+    },
+  })
+
+  const remove = useMutation({
+    mutationFn: (user: AdminUser) => deleteUser(user.id),
+    onSuccess: (_, user) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] })
+      toast.success(`${user.fullName}'s account has been deleted.`)
+      setDeleteTarget(null)
+    },
+    onError: (mutationError) => {
+      // 409s explain themselves: an item waiting at the desk, or decisions on record.
       toast.error(
         mutationError instanceof ApiError ? mutationError.message : 'Could not reach the server.',
       )
@@ -126,7 +145,7 @@ export function AdminUsersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
           <p className="pt-1 text-sm text-muted-foreground">
             Every account on FoundU. Suspending one signs it out immediately and blocks sign-in
-            until it is reinstated.
+            until it is reinstated. Deleting one is permanent: the person's details are erased.
           </p>
         </div>
 
@@ -374,6 +393,23 @@ export function AdminUsersPage() {
                               Suspend
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="ml-1 text-destructive hover:text-destructive"
+                            disabled={cannotSuspend}
+                            title={
+                              isSelf
+                                ? 'You cannot delete your own account'
+                                : isAdmin
+                                  ? 'Administrator accounts cannot be deleted'
+                                  : undefined
+                            }
+                            onClick={() => setDeleteTarget(user)}
+                            aria-label={`Delete ${user.fullName}`}
+                          >
+                            <Trash2Icon aria-hidden="true" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     )
@@ -413,6 +449,24 @@ export function AdminUsersPage() {
       )}
 
       <SuspendDialog user={suspendTarget} onClose={() => setSuspendTarget(null)} />
+      <ConfirmDeleteDialog
+        open={deleteTarget !== null}
+        title={`Delete ${deleteTarget?.fullName ?? 'this account'}?`}
+        confirmLabel="Delete account"
+        pending={remove.isPending}
+        onConfirm={() => deleteTarget && remove.mutate(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+      >
+        <span>
+          They are signed out everywhere and can never sign in to this account again. Their name,
+          email and student number are erased; they can register afresh later.
+        </span>
+        <span>
+          Their open lost reports are withdrawn, found posts still with them come down, and their
+          support tickets are removed. Claims already decided stay on record as "Deleted user".
+          To block someone temporarily, suspend them instead.
+        </span>
+      </ConfirmDeleteDialog>
     </section>
   )
 }

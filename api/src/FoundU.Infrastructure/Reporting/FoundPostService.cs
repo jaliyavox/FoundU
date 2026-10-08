@@ -144,7 +144,7 @@ public class FoundPostService : IFoundPostService
             try
             {
                 await _suggestions.GenerateWithAgentAsync(
-                    new CreateMatchSuggestionRequest(lostReportId, post.Id, "A finder posted this - not at a desk yet."),
+                    new CreateMatchSuggestionRequest(lostReportId, post.Id, "A finder posted a possible match."),
                     finderId,
                     budget.Token);
             }
@@ -175,7 +175,8 @@ public class FoundPostService : IFoundPostService
             .Where(f => f.Status == FoundReportStatus.Posted
                 || f.Status == FoundReportStatus.Unclaimed
                 || f.Status == FoundReportStatus.Claimed)
-            .Where(f => f.StatusHistory.Any(h => h.ToStatus == FoundReportStatus.Posted));
+            .Where(f => f.StatusHistory.Any(h => h.ToStatus == FoundReportStatus.Posted)
+                || (f.FinderId == null && f.Status == FoundReportStatus.Unclaimed));
 
         if (query.CategoryId is { } categoryId) posts = posts.Where(f => f.CategoryId == categoryId);
 
@@ -232,8 +233,8 @@ public class FoundPostService : IFoundPostService
         if (post.FinderId is not { } finderId)
             throw new ConflictAppException("This item was logged at a desk - ask the desk about it, not a finder.");
 
-        if (post.Status is FoundReportStatus.Returned or FoundReportStatus.Disposed)
-            throw new ConflictAppException("This item is no longer here to ask about.");
+        if (post.Status != FoundReportStatus.Posted)
+            throw new ConflictAppException("This item is held by security. Submit a claim to verify ownership.");
 
         var isFinder = finderId == senderId;
         Guid recipient;
@@ -510,6 +511,7 @@ public class FoundPostService : IFoundPostService
             throw new NotFoundAppException($"Storage location '{request.StorageLocationId}' was not found.");
         }
 
+        post.HandedToSecurityAt = DateTime.UtcNow;
         post.StaffId = staffId;
         post.StorageLocationId = request.StorageLocationId;
         post.PrivateVerificationDetails = string.IsNullOrWhiteSpace(request.PrivateVerificationDetails)
@@ -557,6 +559,28 @@ public class FoundPostService : IFoundPostService
             }
         }
 
+        // Preserve every canonical suggestion; custody is read from the linked item on reload.
+        var candidates = await _db.MatchSuggestions
+            .Where(m => m.FoundReportId == post.Id && m.Status == MatchSuggestionStatus.Suggested
+                && (m.LostReport.Status == LostReportStatus.Active || m.LostReport.Status == LostReportStatus.Matched))
+            .Select(m => new { Suggestion = m, m.Id, m.LostReport.StudentId })
+            .ToListAsync(cancellationToken);
+        var desk = await _db.StorageLocations.Where(s => s.Id == request.StorageLocationId)
+            .Select(s => s.Name).SingleAsync(cancellationToken);
+        foreach (var candidate in candidates)
+        {
+            // Older auto-matches stored a custody message as their public note. Replace only
+            // that known system text, preserving staff-authored notes and the suggestion ID.
+            if (candidate.Suggestion.StaffNote == "A finder posted this - not at a desk yet.")
+            {
+                candidate.Suggestion.StaffNote = "The finder handed this item to security.";
+                candidate.Suggestion.UpdatedAt = DateTime.UtcNow;
+            }
+            _notifications.Queue(candidate.StudentId, NotificationType.PossibleMatchFound,
+                "At security — Claim now",
+                $"Your possible match is at {desk}. Open your report to claim it and answer verification questions.",
+                nameof(MatchSuggestion), candidate.Id);
+        }
         await _db.SaveChangesAsync(cancellationToken);
         return await _foundReports.GetByIdAsync(post.Id, cancellationToken);
     }
@@ -589,7 +613,7 @@ public class FoundPostService : IFoundPostService
     private static System.Linq.Expressions.Expression<Func<FoundReport, FoundPostFeedItemDto>> Projection(Guid? requesterId)
         => f => new FoundPostFeedItemDto(
             f.Id,
-            f.Finder == null ? "A student" : f.Finder.FullName,
+            f.Finder == null ? "Security desk" : f.Finder.FullName,
             requesterId != null && f.FinderId == requesterId,
             f.Category.Name,
             f.ItemType.Name,
@@ -600,5 +624,7 @@ public class FoundPostService : IFoundPostService
             f.Status.ToString(),
             requesterId != null && f.FinderId == requesterId ? f.HandInCode : null,
             requesterId != null && f.FinderId == requesterId ? f.HandedToSecurityAt : null,
-            f.CreatedAt);
+            f.CreatedAt,
+            f.StorageLocation == null ? null : f.StorageLocation.Name,
+            f.FinderId != null && f.Status == FoundReportStatus.Posted);
 }

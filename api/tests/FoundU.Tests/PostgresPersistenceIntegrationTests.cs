@@ -8,6 +8,7 @@ using FoundU.Application.Notifications.Dtos;
 using FoundU.Infrastructure.Claims;
 using FoundU.Infrastructure.Honor;
 using FoundU.Infrastructure.Notifications;
+using FoundU.Infrastructure.Persistence;
 using FoundU.Infrastructure.Reporting;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Nodes;
@@ -24,6 +25,7 @@ public sealed class PostgresPersistenceIntegrationTests
         await PostgresTestDatabase.MigrateAsync(db);
 
         Assert.Empty(await db.Database.GetPendingMigrationsAsync());
+        Assert.False(db.Database.HasPendingModelChanges());
         Assert.True(await db.Database.CanConnectAsync());
     }
 
@@ -225,6 +227,23 @@ public sealed class PostgresPersistenceIntegrationTests
     }
 
     [PostgresFact]
+    public async Task ActiveClaimPairIsUniqueAcrossDatabaseContexts()
+    {
+        await using var first = PostgresTestDatabase.CreateContext();
+        await PostgresTestDatabase.MigrateAsync(first);
+        var seeded = await SeedClaimAsync(first);
+        await using var second = PostgresTestDatabase.CreateContext();
+        second.Claims.Add(new Claim
+        {
+            StudentId = seeded.Claim.StudentId,
+            LostReportId = seeded.Claim.LostReportId,
+            FoundReportId = seeded.Found.Id,
+            Status = ClaimStatus.Pending,
+        });
+        await Assert.ThrowsAsync<DbUpdateException>(() => second.SaveChangesAsync());
+    }
+
+    [PostgresFact]
     public async Task ConflictingClaimApprovalRollsBackDecisionAndNotificationWrites()
     {
         await using var db = PostgresTestDatabase.CreateContext();
@@ -334,6 +353,7 @@ public sealed class PostgresPersistenceIntegrationTests
         var claim = new Claim { Student = student, LostReport = lost, FoundReport = found, Status = ClaimStatus.UnderReview };
         db.Claims.Add(claim);
         await db.SaveChangesAsync();
+        await AddCompletedVerificationAsync(db, claim);
         return (claim, lost, found, student, staff);
     }
 
@@ -380,7 +400,32 @@ public sealed class PostgresPersistenceIntegrationTests
         var claim = new Claim { Student = student, LostReport = lost, FoundReportId = found.Id, Status = ClaimStatus.UnderReview };
         db.Claims.Add(claim);
         await db.SaveChangesAsync();
+        await AddCompletedVerificationAsync(db, claim);
         return (claim, lost);
+    }
+
+    private static async Task AddCompletedVerificationAsync(FoundUDbContext db, Claim claim)
+    {
+        var question = new VerificationQuestion { ClaimId = claim.Id, QuestionText = "What identifying detail does the item have?" };
+        db.VerificationQuestions.Add(question);
+        db.ClaimAnswers.Add(new ClaimAnswer
+        {
+            ClaimId = claim.Id,
+            VerificationQuestion = question,
+            AnswerText = "A distinctive mark",
+            IsCorrect = true,
+        });
+        db.AgentRuns.Add(new AgentRun
+        {
+            ClaimId = claim.Id,
+            TriggerEntityType = "Claim",
+            TriggerEntityId = claim.Id,
+            Objective = "Verification Agent evaluate_answers",
+            Status = AgentRunStatus.Completed,
+            FinalOutcomeJson = "{}",
+            CompletedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
     }
 
     private sealed class NoopVerificationAgent : IVerificationAgentClient

@@ -1,309 +1,266 @@
 # FoundU
 
-A smart campus lost & found platform that reunites students with their belongings —
-quickly, fairly, and with a little help from AI.
+A campus lost-and-found service. Students report what they lost, finders post or hand in what
+they found, and the security desk keeps items until an owner proves ownership and collects
+them. AI agents help match, describe and question, but a person at the desk makes every
+decision.
 
-## Monorepo layout
+[![CI](https://github.com/jaliyavox/FoundU/actions/workflows/ci.yml/badge.svg)](https://github.com/jaliyavox/FoundU/actions/workflows/ci.yml)
 
-| Path      | Project                                   | Stack                               |
-|-----------|-------------------------------------------|-------------------------------------|
-| `/api`    | Web API (layered)                         | ASP.NET Core 8, EF Core, PostgreSQL |
-| `/web`    | Staff & admin dashboard                   | React + Vite + TypeScript           |
-| `/mobile` | Student app                               | Flutter                             |
-| `/ai`     | Agent service (Description Parser, Matching, Verification, Coordinator) | Python 3.11, FastAPI, LangGraph, Ollama |
-| `/docs`   | Shared contracts & diagrams               | Markdown / Mermaid                  |
+| | |
+|---|---|
+| Web app | https://foundu-web.onrender.com |
+| API | https://foundu-api.onrender.com ([health](https://foundu-api.onrender.com/api/health)) |
+| AI service | https://foundu-ai.onrender.com/health |
+| Run it locally | [docs/startup.md](docs/startup.md) |
 
-`.github/workflows/ci.yml` builds and tests all four projects on every pull request.
+The services run on Render's free plan and sleep after 15 minutes without requests. The first
+request after that takes about a minute.
 
-## Prerequisites
+---
 
-- .NET SDK 8
-- Node.js 20+ and npm
-- Flutter (stable) — for `/mobile`
-- Python 3.11 — for `/ai`
-- Docker — for Postgres 16 + Ollama via `docker-compose.yml`
+## What it does
 
-## Full-stack PowerShell demo startup
+| Role | Main features |
+|---|---|
+| **Student (owner)** | Report a lost item with a time window and photos; the AI fills in type and colour from the description; see "Might be yours" matches; claim an item; answer verification questions; collect with a 6-digit code |
+| **Student (finder)** | Post a found item on the Found board; press "I found this" on someone's report and message them; hand it to security with a handover code; earn honor points |
+| **Staff (security desk)** | One "Pull it up" box for every code; log walk-in items with a hidden verification detail; receive and release handovers after an ID check; review claims with AI-drafted questions and a recommendation; approve or reject; answer support tickets |
+| **Admin** | Everything staff can do, plus users (search, roles, suspend), places and categories, analytics, moderation and overturning rejected claims |
 
-The development ports are PostgreSQL **5434**, Ollama **11434**, FastAPI **8000**, ASP.NET
-**5292**, and React **5173**.
+Everyone gets **Ask FoundU**, a chat that turns "I lost a blue bottle near the library" into a
+report or a search. There is also a **support assistant** that answers from the help guide or
+drafts a ticket. In-app notifications cover every step, and email covers sign-up confirmation
+and password resets.
 
-1. Start PostgreSQL and the repository's Ollama container:
+## Architecture
 
-```powershell
-docker compose up -d
-docker exec -it foundu-ollama ollama list
-docker exec -it foundu-ollama ollama pull <model-name-you-choose>
+```mermaid
+flowchart LR
+    web["React web app<br/>students, staff, admins"]
+    mobile["Flutter app<br/>students (Android)"]
+    api["ASP.NET Core 8 API<br/>every rule and record"]
+    ai["AI service<br/>FastAPI + LangGraph"]
+    db[("PostgreSQL 16")]
+    groq["Groq<br/>gpt-oss-20b"]
+    google["Google sign-in"]
+    resend["Resend email"]
+
+    web -- "HTTPS + JWT" --> api
+    mobile -- "HTTPS + JWT" --> api
+    api -- "EF Core" --> db
+    api -- "service key" --> ai
+    ai -- "workflow state" --> db
+    ai --> groq
+    api --> google
+    api --> resend
 ```
 
-Alternatively use a locally installed Ollama service on `http://localhost:11434`; use `ollama
-list` to confirm a model, then `ollama pull <model>` if needed. No model is downloaded by CI.
+- **One API owns every rule.** Both apps are thin clients. The API is the only part that talks
+  to the database, the AI service, Google and Resend.
+- **The AI advises, people decide.** Agents return recommendations. Every approval, rejection,
+  handover and record change is made by C# code in the API or by a staff member.
+- **It keeps working without AI.** If the AI service or the model is down, reports, claims and
+  handovers still work. Each agent has a deterministic fallback.
 
-2. In separate PowerShell terminals, set one shared, locally generated 32+ character key and
-start the services:
+### API layers (clean architecture)
 
-```powershell
-# Terminal 1 — FastAPI AI service
-cd ai
-.\.venv\Scripts\Activate.ps1
-$env:AI_SERVICE_KEY = "<strong-shared-key>"
-$env:LLM_PROVIDER = "ollama"
-$env:LLM_MODEL = "<installed-model-name>"
-$env:OLLAMA_BASE_URL = "http://localhost:11434"
-$env:LLM_TIMEOUT_SECONDS = "30"
-$env:WORKFLOW_STATE_STORE = "postgres"
-$env:WORKFLOW_DATABASE_URL = "postgresql://foundu:<local-db-password>@localhost:5434/foundu"
-uvicorn app.main:app --reload --port 8000
+| Project | Holds |
+|---|---|
+| `FoundU.Domain` | Entities, enums, rules that need no I/O |
+| `FoundU.Application` | DTOs, FluentValidation validators, service interfaces, exceptions |
+| `FoundU.Infrastructure` | EF Core and migrations, ASP.NET Identity, JWT, AI clients, email, Google, photo storage, services |
+| `FoundU.Api` | Controllers, global error handler, validation filter, rate limiting, Swagger |
 
-# Terminal 2 — ASP.NET Core API
-cd api
-$env:AiService__ServiceKey = "<same-strong-shared-key>"
-$env:DEV_ADMIN_PASSWORD = "choose-a-local-development-password"
-$env:Jwt__SigningKey = "a-local-development-signing-key-with-at-least-32-bytes"
-dotnet run --project src/FoundU.Api --launch-profile http
+## Tech stack
 
-# Terminal 3 — React staff/admin dashboard
-cd web
-Copy-Item .env.example .env.local
-npm ci
-npm run dev
+| Part | Technology |
+|---|---|
+| API | ASP.NET Core 8, EF Core 8 + Npgsql, ASP.NET Identity, JWT bearer with rotating refresh tokens, FluentValidation, Swashbuckle |
+| Database | PostgreSQL 16 (31 tables, code-first migrations applied on start) |
+| Web | React 19, TypeScript, Vite, TanStack Query, React Router 7, Tailwind CSS 4, shadcn/ui on Base UI, Recharts |
+| Mobile | Flutter (Android), Riverpod, go_router, Dio, flutter_secure_storage, image_picker |
+| AI service | Python 3.11+ (3.12 in Docker), FastAPI, LangGraph, Pydantic; model on Groq (`openai/gpt-oss-20b`); a deterministic `fake` provider for tests and demos; Ollama also supported locally |
+| Integrations | Google sign-in (web and Android), Resend (transactional email) |
+| Hosting | Render Blueprint: managed PostgreSQL, two Docker web services, one static site |
+| CI | GitHub Actions: four parallel jobs on every push and pull request |
 
-# Terminal 4 — Flutter Android emulator
-cd mobile
-flutter pub get
-flutter run --dart-define=FOUND_U_API_BASE_URL=http://10.0.2.2:5292
+## AI agents
+
+Six agents run in one LangGraph graph. Each has a validated plan, a tool allow-list and a strict
+output schema.
+
+| Agent | What it does | Uses the model? |
+|---|---|---|
+| Description parser | Pulls item type, colours and up to 5 features out of a description | Yes; every extracted fact is checked against the original text |
+| Matching | Scores a lost report against a found item: match candidate, manual review or no match | No; 0.40 type + 0.20 colour + 0.25 description overlap + 0.15 location |
+| Verification | Drafts up to 3 ownership questions and grades answers against the hidden detail | No; fixed templates and word-overlap grading |
+| Coordinator | Maps a claim's state to the next step and pauses for staff approval | No; a fixed table with a durable human checkpoint |
+| Intake (Ask FoundU) | Asks one question at a time, then fills in a lost or found report | Yes, to fill slots; keyword fallback |
+| Support | Answers from FoundU's help guide, or drafts a ticket | Yes, only to pick a guide topic by id |
+
+**Guardrails**
+- Every model reply must match a strict schema, or it is rejected.
+- Student text is treated as data, so instructions inside it are ignored.
+- The hidden verification detail never reaches students or the model's questions.
+- Prompts, keys and answers are never logged.
+- No agent has permission to approve anything.
+
+**Evaluation:** 68 cases in nine categories (task completion, agent selection, tool selection,
+structured output, business rules, prompt injection, approval enforcement, failure recovery,
+safe failure). All 68 pass both deterministically and live against Groq. See
+`ai/tests/evaluation`.
+
+## Data model
+
+```mermaid
+erDiagram
+    USER ||--o{ LOST_REPORT : files
+    USER ||--o{ FOUND_REPORT : "finds or logs"
+    USER ||--o{ CLAIM : makes
+    USER ||--o{ SUPPORT_TICKET : opens
+    USER ||--o{ NOTIFICATION : receives
+    LOST_REPORT ||--o{ MATCH_SUGGESTION : "matched in"
+    FOUND_REPORT ||--o{ MATCH_SUGGESTION : "matched in"
+    LOST_REPORT ||--o{ CLAIM : "claimed for"
+    FOUND_REPORT ||--o{ CLAIM : "claimed in"
+    LOST_REPORT ||--o{ HANDOVER : "finder hands in"
+    CLAIM ||--o{ VERIFICATION_QUESTION : asks
+    VERIFICATION_QUESTION ||--o| CLAIM_ANSWER : "answered by"
+    CLAIM ||--o{ APPROVAL_DECISION : "decided by staff"
+    CLAIM ||--o{ AGENT_RUN : runs
+    AGENT_RUN ||--o{ AGENT_STEP : records
+    SUPPORT_TICKET ||--o{ TICKET_MESSAGE : contains
+    CATEGORY ||--o{ ITEM_TYPE : has
 ```
 
-`AI_SERVICE_KEY` and `AiService__ServiceKey` must be the same strong value. It is server-to-server
-only: React and Flutter never receive it. Protected FastAPI endpoints require
-`X-FoundU-Service-Key`; browser/mobile clients call ASP.NET only.
+Some rules are enforced in the database itself:
+- A filtered unique index allows one approved claim per found item.
+- PostgreSQL's `xmin` row version stops two desks saving the same row at once.
+- Records are soft-deleted.
+- Every status change is kept as a history row.
 
-## Deploying to Render
+## API
 
-`render.yaml` describes the whole system: a Postgres database, the AI service and the API as
-Docker web services, and the web app as a static site. Everything is on the free plan in
-Singapore.
+The API has 104 REST endpoints in 23 controllers, all under `/api`. The main groups are `auth`,
+`profile`, `lost-reports`, `found-posts`, `found-reports`, `handovers`, `desk/codes`,
+`match-suggestions`, `claims`, `intake`, `support`, `notifications`, `reference` and `admin/*`.
 
-1. Push `main` to GitHub. Render deploys from the repository, not from your machine.
-2. Render dashboard -> **New -> Blueprint** -> pick this repository -> **Apply**. Render asks
-   for each `sync: false` value; fill them in as below. The URLs follow the service names; if
-   a name is taken Render adds a suffix, so check each service's URL on its page and use that.
+| Concern | How |
+|---|---|
+| Authentication | JWT access tokens (15 min) and refresh tokens (14 days), stored hashed and rotated on every use; reusing an old one revokes every session |
+| Authorisation | `Student`, `Staff` (Staff or Admin) and `Admin` policies on every endpoint, plus ownership checks in each service |
+| Validation | FluentValidation on every request body |
+| Errors | RFC 7807 ProblemDetails: 400, 401, 403, 404, 409 (including concurrency clashes), and 500 with no internal detail in production |
+| Abuse | Account-email endpoints are limited to 5 requests a minute; strict security headers; NUL bytes refused |
+| Docs | Swagger UI at `http://localhost:5292/swagger` in Development (off in production) |
+
+## Testing
+
+| Suite | Tool | Result |
+|---|---|---|
+| API | xUnit, WebApplicationFactory, real PostgreSQL 16 | 225 pass, 67.3% line coverage |
+| AI service | pytest | 396 pass, 91% line coverage |
+| Web | Vitest, React Testing Library | 54 pass |
+| Mobile | flutter_test (unit, widget, live-API integration) | 89 + 4 pass |
+| End-to-end | Playwright | 33 pass (sign-in and guards, full claim workflow, desk hand-in, CSP) |
+| Accessibility | axe-core, Lighthouse | 0 axe violations on 11 pages |
+| Performance | k6 | p95 6 ms at 50 users; 147 ms at 300 users with no failures |
+| Security | Newman (36 checks), OWASP ZAP | All checks pass after fixes |
+
+Evidence lives in [`testing/reports`](testing/reports). The commands to re-run every tool are in
+[`testing/README.md`](testing/README.md), and the defect log is in
+[`docs/testing/test-report.md`](docs/testing/test-report.md).
+
+## CI/CD
+
+`.github/workflows/ci.yml` runs four jobs on every push to `main` and on every pull request:
+
+- **API:** build and test
+- **Web:** lint, test and build
+- **Mobile:** analyze and test
+- **AI:** ruff and pytest, against a PostgreSQL service
+
+Render deploys `main` from [`render.yaml`](render.yaml).
+
+## Running it
+
+The short version, with Docker, .NET 8, Python 3.11+, Node 20+ and Flutter installed:
+
+```bash
+export AI_SERVICE_KEY=$(openssl rand -hex 32)
+testing/start-stack.sh     # PostgreSQL :5434, AI service :8000, API :5292, web :5173
+```
+
+[**docs/startup.md**](docs/startup.md) starts each server by hand: the model provider choices,
+the environment variables, the mobile app, demo data and troubleshooting.
+
+### Deploying to Render
+
+1. In the Render dashboard, choose **New → Blueprint** and pick this repository.
+2. Fill in the secrets Render asks for:
 
 | Service | Setting | Value |
 |---|---|---|
-| foundu-ai | `LLM_API_KEY` | a Groq API key (console.groq.com -> API Keys -> Create API Key) |
+| foundu-ai | `LLM_API_KEY` | A Groq API key |
 | foundu-api | `AiService__BaseUrl` | `https://foundu-ai.onrender.com` |
-| foundu-api | `Seed__DevAdminPassword` | a strong password for `admin@foundu.com` |
-| foundu-api | `Cors__AllowedOrigins__0` | `https://foundu-web.onrender.com` |
-| foundu-api | `Email__WebBaseUrl` | `https://foundu-web.onrender.com` |
-| foundu-api | `Email__ResendApiKey` | your Resend key |
-| foundu-api | `Google__ClientId` | the Web OAuth client id |
+| foundu-api | `Seed__DevAdminPassword` | Password for `admin@foundu.com`, used on the first start |
+| foundu-api | `Cors__AllowedOrigins__0`, `Email__WebBaseUrl` | `https://foundu-web.onrender.com` |
+| foundu-api | `Email__ResendApiKey` | A Resend API key |
+| foundu-api | `Google__ClientId` | The Google **Web** OAuth client id |
 | foundu-web | `VITE_API_BASE_URL` | `https://foundu-api.onrender.com` |
 
-   The JWT signing key and the AI service key are generated by Render and shared between the
-   services automatically.
+Render generates the JWT signing key and the AI service key, and shares the service key between
+the two services. Then:
 
-3. In Google Cloud Console, add `https://foundu-web.onrender.com` to the Web client's
-   **Authorised JavaScript origins**.
-4. A URL changed after the first deploy? Update the setting, then redeploy. The web app needs
-   a redeploy because its API URL is built in.
-5. Phone app: `flutter build apk --dart-define=FOUND_U_API_BASE_URL=https://foundu-api.onrender.com`.
+3. In Google Cloud Console, add the web URL to the OAuth client's authorised JavaScript origins.
+4. Build the Android app against production:
+   `flutter build apk --dart-define=FOUND_U_API_BASE_URL=https://foundu-api.onrender.com`
 
-What to expect on the free plan:
+Free-plan limits:
+- Uploaded photos are stored in PostgreSQL, so a redeploy doesn't lose them.
+- The free database expires 30 days after it is created.
+- Groq's free tier has rate limits. When one is hit, the agents fall back to keywords.
 
-- A service that has had no requests for 15 minutes goes to sleep. The next request wakes it,
-  which takes about a minute. Open the web app a minute before a demo.
-- Uploaded photos are saved on the API server's disk, which Render wipes when the service
-  restarts or redeploys. To keep them, move the API to a paid instance and uncomment the
-  `disk` block in `render.yaml`.
-- The free database is deleted 30 days after it is created unless it is upgraded.
-- The AI service's language model (`openai/gpt-oss-20b`) runs on Groq's free tier (Ollama
-  cannot run on Render). The free tier has per-minute and per-day limits; when one is hit, or
-  Groq is down, each request falls back to keyword understanding by itself. Hugging Face also
-  works (`LLM_PROVIDER=huggingface`, a Hugging Face token as `LLM_API_KEY`), but its free
-  monthly credit ran out after about ten test calls.
-- The admin account is created on the first start with `Seed__DevAdminPassword`; the
-  demo students are not. Create accounts by signing up, or run `scripts/demo_seed.py` against
-  the deployed API.
+### Integrations
 
-## Third-party integration: Firebase Cloud Messaging
+- **Google sign-in.** It stays off until `Google__ClientId` is set; with no client id, the button
+  is hidden. Create a **Web application** OAuth client with the web app's origins. For Android,
+  also create an **Android** client with package `com.example.foundu` and your keystore's
+  SHA-1. The API verifies every ID token against the Web client id.
+- **Email (Resend).** Confirmation and password-reset links are sent from a verified domain. With
+  no key in Development, each email (link included) is written to the API log instead. Reserved
+  test addresses (`*.test`) are never mailed.
 
-FoundU uses Firebase Cloud Messaging (FCM) to complement its persisted in-app notification
-centre. A possible match, claim verification/revision, approval/rejection, collection update, or
-message event first creates the normal PostgreSQL `Notification`; after that transaction commits,
-ASP.NET Core may send a minimal push to the recipient's registered device. This helps students
-act on recovery updates without repeatedly opening the app. A push never makes a business
-decision, and the app fetches full authorized details from FoundU after a tap.
+## Repository layout
 
-```text
-Flutter device → authenticated token registration → ASP.NET Core → PostgreSQL
-business event → persisted FoundU notification → ASP.NET Core → FCM → device
-```
+| Path | Contents |
+|---|---|
+| `api/` | ASP.NET Core solution: `src/` (four projects) and `tests/FoundU.Tests` |
+| `web/` | React app, organised by feature (`src/features/<area>`) |
+| `mobile/` | Flutter app, organised by feature (`lib/features/<area>`, shared code in `lib/core`) |
+| `ai/` | FastAPI service: `app/agents` (the six agents, plans, graph), `app/llm` (providers), `tests/` |
+| `testing/` | Playwright, k6, Newman suites, start and stop scripts, and all test evidence |
+| `scripts/` | `demo_seed.py` (rebuilds demo data), `smoke_full_stack.py` (end-to-end smoke test) |
+| `docs/` | Startup guide, design conventions, user stories, test report |
 
-### Firebase setup (manual, no credentials are committed)
+## Documentation
 
-1. Create a Firebase project and add Android package `com.example.foundu` (replace this package
-   before production if the team changes the application ID).
-2. Download `google-services.json` to `mobile/android/app/google-services.json`. It is ignored by
-   Git. For iOS, add the Firebase iOS app and place `GoogleService-Info.plist` in `ios/Runner`
-   following the Firebase Flutter documentation.
-3. In Firebase Console, create a service account JSON key and keep it outside the repository.
-   Set backend-only environment variables before starting ASP.NET Core:
-
-```powershell
-$env:Firebase__ProjectId = "your-firebase-project-id"
-$env:Firebase__CredentialsPath = "C:\secure\foundu-firebase-service-account.json"
-$env:Firebase__TimeoutSeconds = "5"
-```
-
-`CredentialsPath` and the FCM token are never returned by FoundU APIs or sent to browsers. The
-backend only sends `title`, `body`, `type`, `notificationId`, and when applicable `entityId`; it
-never sends verification evidence/answers, credentials, AI prompts, private notes, or user
-contact details. Device registration and unregistration require the caller's FoundU JWT and are
-owner-scoped.
-
-FCM is best-effort: the backend uses a bounded 5-second delivery timeout and no unbounded retry.
-Provider outage, auth/configuration errors, malformed responses, and rate limiting are logged
-safely and leave the committed FoundU operation plus its in-app notification intact. Firebase
-unregistered/invalid tokens are deactivated so delivery is not repeatedly attempted. A real
-Firebase project, service-account credentials, and platform client files remain required for
-live delivery; automated tests use fakes and never contact Firebase.
-
-## Third-party integration: Google sign-in
-
-Off until a client id is configured; with none, both apps simply hide the Google button. The
-API is the only place the id is set - the web and the phone read it from
-`GET /api/auth/google/status`, so a token is always checked against the id it was issued for.
-
-1. In Google Cloud Console (APIs & Services -> Credentials), configure the OAuth consent
-   screen (External, testing mode; add your team's Google accounts as test users).
-2. Create an OAuth client of type **Web application**. Authorised JavaScript origins:
-   `http://localhost:5173` and `http://127.0.0.1:5173`. No redirect URI is needed.
-3. For the Android app, create a second OAuth client of type **Android**: package name
-   `com.example.foundu` and the SHA-1 of the keystore you build with. For the debug build:
-   `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`.
-   Every teammate building the app adds their own debug SHA-1 to this client.
-4. Give the API the **web** client id - never the Android one, and there is no secret:
-
-```json
-// api/src/FoundU.Api/appsettings.Development.json (git-ignored)
-"Google": { "ClientId": "<web-client-id>.apps.googleusercontent.com" }
-```
-
-Restart the API; `GET /api/auth/google/status` now returns `enabled: true`. A new Google
-address becomes a Student account; an existing account is linked only when Google has verified
-the email. Staff and admins still sign in on the web.
-
-## Third-party integration: email (Resend)
-
-Forgot-password and email-confirmation links are sent through [Resend](https://resend.com)
-from `noreply@thejaliya.com` (the domain is verified in Resend). The key lives only in the
-git-ignored `appsettings.Development.json` (or an environment variable on a server):
-
-```json
-"Email": {
-  "ResendApiKey": "<your Resend API key>",
-  "From": "FoundU <noreply@thejaliya.com>",
-  "WebBaseUrl": "http://localhost:5173",
-  "LogWhenUnconfigured": true
-}
-```
-
-With no key nothing is sent; `LogWhenUnconfigured` (Development only) writes each email,
-link included, to the API log so the flows can still be walked through. Addresses on
-reserved test domains (`*.test`, `example.com`...) are never mailed - the demo accounts are
-on `foundu.test`, and bounces would hurt the sending domain's reputation.
-
-- `POST /api/auth/forgot-password` - always the same answer, so it cannot reveal who has an account.
-- `POST /api/auth/reset-password` - the link works once, confirms the address and signs out every other session.
-- `POST /api/auth/confirm-email`, `POST /api/auth/resend-confirmation` - new accounts and changed
-  addresses get a link; unconfirmed accounts see a reminder, but nothing is blocked.
-
-## Live AI demo flow
-
-1. A student creates a lost report. ASP.NET preserves the user's data and optionally stores
-   Description Parser enrichment; parser/Ollama failure falls back safely.
-2. Staff records a found item, keeping private verification evidence out of screenshots.
-3. In the React staff dashboard, open the item, select **Suggest to a report**, choose the lost
-   report, and use **Generate AI Match Suggestion**. ASP.NET invokes Matching; only a validated
-   `match_candidate` creates a suggestion. Staff can always use the manual suggestion action.
-4. The student opens a claim from the suggestion. Staff generates verification questions; the
-   Verification Agent may draft only safe wording, never reveal expected values.
-5. The student answers. Evaluation and its recommendation are deterministic.
-6. Staff alone approves or rejects the claim; AI never decides ownership, transfers custody, or
-   resolves an item.
-
-The Coordinator is a deterministic workflow-recommendation agent invoked by ASP.NET after a
-verification recommendation. ASP.NET creates a claim-linked audit run with the stable opaque
-workflow ID before calling FastAPI; staff discover its durable pause state through ASP.NET only.
-It has no authority to mutate business state.
-
-### AI observability and bounded resilience
-
-Each AI operation has an opaque server-generated correlation ID. It travels from the ASP.NET
-AgentRun/client request to FastAPI and its workflow logs. Coordinator durable workflows use their
-stable workflow ID as the correlation identifier. `AgentRun` records the safe outcome, timestamps,
-and `RetryCount`; Coordinator runs also record real plan, human-wait, and terminal audit steps.
-No prompts, raw model responses, ownership evidence, answers, service keys, or reasoning are
-recorded.
-
-Recommendation-only Description Parser, Matching, Verification, and Coordinator-start calls make
-at most two short retries after a transient network failure, timeout, or HTTP 408/429/502/503/504.
-Validation, malformed responses, 400/401/403/404/409 responses, and business failures are never
-retried. Approval and resume are deliberately single-shot because their durable transition status
-is the idempotency boundary; staff can safely check state and explicitly retry through ASP.NET.
-Timeouts remain configured by `AiService:TimeoutSeconds` (bounded to 1–30 seconds). Exhaustion
-uses the existing safe manual-review/fallback behavior and preserves the underlying business work.
-
-Demo evidence: submit a verification answer, open the staff claim’s Agent trail to show the
-Coordinator run/workflow ID and retry count, simulate a transient AI 503, then show the bounded
-retry or manual fallback. A waiting workflow shows the staff approval panel; approving resumes
-safe coordination only—the existing ASP.NET claim decision remains authoritative.
-
-### PostgreSQL integration tests
-
-The fast ASP.NET suite uses EF Core InMemory for most service-level coverage. A small, separate
-PostgreSQL category proves provider-specific migration, JSONB, foreign-key, and unique-index
-behaviour against the production provider. It is opt-in and will skip unless `TEST_DATABASE_URL`
-is configured. Its database name must contain `test` (for example `foundu_test`); the guard rejects
-all other names to avoid touching development or production data. Tests use migrations and unique
-test rows, never `EnsureCreated` or destructive database cleanup.
-
-Create an empty dedicated database in your local PostgreSQL instance, then run:
-
-```powershell
-$env:TEST_DATABASE_URL = "Host=localhost;Port=5432;Database=foundu_test;Username=<user>;Password=<password>"
-dotnet test api/FoundU.sln --filter "Category=PostgreSql"
-```
-
-No connection string is committed. CI currently leaves this category opt-in; it does not require a
-database service for normal pull-request validation.
-
-## Safe fallback demonstrations
-
-- Stop Ollama: Description Parser and Verification question wording use their deterministic
-  fallbacks.
-- Stop FastAPI before generating a match: the staff member can still create a manual suggestion.
-- Call `POST /agents/run` without `X-FoundU-Service-Key`: FastAPI returns `401 Unauthorized`.
-- The Verification tests demonstrate that unsafe drafted wording is rejected for deterministic
-  safe templates.
-
-## Local integration smoke test
-
-With PostgreSQL, FastAPI and ASP.NET running, set `FOUNDU_SMOKE_ADMIN_PASSWORD` to a local
-development admin password and run `ai/.venv/bin/python scripts/smoke_full_stack.py` from the
-repository root (Windows: `ai\.venv\Scripts\python.exe scripts\smoke_full_stack.py`). The
-script uses the AI environment's `httpx` dependency. Optional `FOUNDU_SMOKE_ADMIN_EMAIL` and
-`FOUNDU_SMOKE_API_URL` override `admin@foundu.com` and `http://localhost:5292/api`.
-
-This opt-in test **creates** a uniquely labelled test student, report, item and claim. It checks
-AI matching and verification, staff approval, collection, used-code rejection, private evidence
-and agent-history authorization, and notification read counts against real PostgreSQL. Records
-remain in the local database, with the test item returned and report resolved on success. Use
-the deterministic AI provider for a repeatable baseline; this does not validate real Ollama
-quality or Firebase delivery. Do not point it at a production environment.
+- [docs/startup.md](docs/startup.md): starting every server, locally and on Render
+- [docs/design.md](docs/design.md): UI conventions, brand, tokens, accessibility rules
+- [docs/testing/user-stories.md](docs/testing/user-stories.md): 59 user stories with acceptance criteria
+- [docs/testing/test-report.md](docs/testing/test-report.md): defects found and fixed, known issues
+- [testing/README.md](testing/README.md): every test tool and how to re-run it
 
 ## Working agreements
 
-- No direct commits to `main`; branch per step, PR reviewed by a teammate.
-- CI must be green before merge.
+- No direct commits to `main`. Work on a branch and open a pull request that a teammate reviews.
+- CI must be green before merging.
+- Secrets are never committed. Local secrets go in the git-ignored `appsettings.Development.json`
+  and `.env.local`.
+
+## Team
+
+SE3090 group project by Jaliya Hettiarachchi ([@jaliyavox](https://github.com/jaliyavox)),
+[@Braveena15](https://github.com/Braveena15), [@ParamiDinethma](https://github.com/ParamiDinethma)
+and [@uthpalaWAS](https://github.com/uthpalaWAS).

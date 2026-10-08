@@ -69,7 +69,9 @@ export function LogItemPage() {
     onError: (error) => {
       if (error instanceof ApiError) {
         setFieldErrors(error.fieldErrors)
-        if (Object.keys(error.fieldErrors).length === 0) toast.error(error.message)
+        // Always say something: an error keyed to a field this form does not show would
+        // otherwise leave the person looking at an unchanged page.
+        toast.error(Object.values(error.fieldErrors).flat()[0] ?? error.message)
       } else {
         toast.error('Could not reach the server.')
       }
@@ -126,7 +128,21 @@ export function LogItemPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setFieldErrors({})
+    // Say what is missing here. Sent empty, a dropdown reaches the API as "" - not an id - and
+    // the refusal names the JSON path rather than the field, so nothing showed on the form and
+    // the button looked broken.
+    const missing: Record<string, string[]> = {}
+    if (!categoryId) missing.CategoryId = ['Choose a category.']
+    if (!itemTypeId) missing.ItemTypeId = ['Choose an item type.']
+    if (!foundLocationId) missing.FoundLocationId = ['Choose where it was found.']
+    if (!storageLocationId) missing.StorageLocationId = ['Choose where it is being kept.']
+    if (generalDescription.trim().length < 10)
+      missing.GeneralDescription = ['Describe the item in at least 10 characters so it can be matched.']
+    setFieldErrors(missing)
+    if (Object.keys(missing).length > 0) {
+      toast.error('A few details are missing - see the highlighted fields.')
+      return
+    }
     create.mutate()
   }
 

@@ -80,12 +80,19 @@ public record FoundReportSummaryDto(
     string GeneralDescription,
     string? PrimaryColor,
     DateTime FoundAt,
-    string Status);
+    string Status,
+    string? StorageLocationName = null);
 
 /// <summary>Filters for the staff items table, on top of the standard pagination contract.</summary>
 public class FoundReportQuery : PaginationQuery
 {
-    /// <summary>Filter by FoundReportStatus name (Unclaimed, Claimed, Returned, Disposed).</summary>
+    /// <summary>"InStorage" for everything the desk holds (Unclaimed and Claimed).</summary>
+    public const string InStorage = "InStorage";
+
+    /// <summary>
+    /// Filter by FoundReportStatus name (Unclaimed, Claimed, Returned, Disposed), or InStorage
+    /// for everything still physically at a desk.
+    /// </summary>
     public string? Status { get; set; }
 
     public Guid? CategoryId { get; set; }

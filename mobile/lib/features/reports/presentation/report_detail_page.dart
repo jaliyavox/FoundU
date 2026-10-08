@@ -1,3 +1,4 @@
+import 'report_progress.dart';
 import 'package:flutter/material.dart';
 
 import '../../feed/presentation/message_thread.dart';
@@ -7,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'providers/report_providers.dart';
 import '../../handover/presentation/handover_notice.dart';
+import 'report_stage_track.dart';
 
 class LostReportDetailPage extends ConsumerStatefulWidget {
   final String reportId;
@@ -109,21 +111,6 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
     }
   }
 
-  int _getStageIndex(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 0; // Reported
-      case 'matched':
-        return 1; // Matched
-      case 'claimed':
-        return 2; // Claimed
-      case 'resolved':
-        return 3; // Handover / Resolved
-      default:
-        return 0;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(reportDetailProvider(widget.reportId));
@@ -169,7 +156,8 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
           final statusColor = _getStatusColor(report.status);
           final isActive = report.status.toLowerCase() == 'active';
           final isWithdrawn = report.status.toLowerCase() == 'withdrawn';
-          final stageIndex = _getStageIndex(report.status);
+          final stageIndex = reportProgressIndex(report.status, report.progressStage);
+          final progressDetail = reportProgressDetail(report.status, report.progressStage);
 
           return Stack(
             children: [
@@ -252,7 +240,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                             border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                           ),
                           child: Text(
-                            report.status.toUpperCase(),
+                            report.status == 'Matched' ? 'IN PROGRESS' : report.status.toUpperCase(),
                             style: TextStyle(
                               color: statusColor,
                               fontWeight: FontWeight.bold,
@@ -291,11 +279,15 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Report Progress Track',
+                              'Suggestion and claim progress',
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
                             ),
                             const SizedBox(height: 12),
-                            _buildStageTracker(stageIndex),
+                            ReportStageTrack(stage: stageIndex),
+                            if (progressDetail != null) ...[
+                              const SizedBox(height: 8),
+                              Text(progressDetail, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                            ],
                           ],
                         ),
                       ),
@@ -558,64 +550,4 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
     );
   }
 
-  Widget _buildStageTracker(int currentStage) {
-    final stages = ['Reported', 'Matched', 'Claimed', 'Resolved'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: List.generate(stages.length, (index) {
-            final isReached = index <= currentStage;
-            final isCurrent = index == currentStage;
-
-            return Expanded(
-              child: Row(
-                children: [
-                  Container(
-                    width: isCurrent ? 14 : 10,
-                    height: isCurrent ? 14 : 10,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isReached ? const Color(0xFF2E7D32) : Colors.grey[300],
-                      border: isCurrent ? Border.all(color: const Color(0xFF1E5631), width: 2) : null,
-                    ),
-                  ),
-                  if (index < stages.length - 1)
-                    Expanded(
-                      child: Container(
-                        height: 2,
-                        color: index < currentStage ? const Color(0xFF2E7D32) : Colors.grey[300],
-                      ),
-                    ),
-                ],
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 6),
-        // Flexible labels: identical when there is room, able to give way on a narrow phone
-        // or with a larger system text size.
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            for (final (index, label) in const ['Reported', 'Matched', 'Claimed', 'Resolved'].indexed)
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: currentStage >= index ? FontWeight.bold : FontWeight.normal,
-                    color: currentStage >= index ? const Color(0xFF2E7D32) : Colors.grey,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
 }

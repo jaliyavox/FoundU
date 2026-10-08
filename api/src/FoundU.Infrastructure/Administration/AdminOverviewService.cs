@@ -38,8 +38,10 @@ public class AdminOverviewService : IAdminOverviewService
 
         var posted = await _db.FoundReports.CountAsync(
             r => r.Status == FoundReportStatus.Posted, cancellationToken);
+        // Everything physically held, matching the items page's "In storage": an item waiting
+        // for its owner's collection is still on the shelf.
         var unclaimed = await _db.FoundReports.CountAsync(
-            r => r.Status == FoundReportStatus.Unclaimed, cancellationToken);
+            r => r.Status == FoundReportStatus.Unclaimed || r.Status == FoundReportStatus.Claimed, cancellationToken);
 
         var flagged = await _db.LostReports.CountAsync(r => r.IsFlagged, cancellationToken);
 

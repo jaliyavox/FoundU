@@ -55,6 +55,7 @@ __pycache__/
 ai/.venv/
 ai/venv/
 .pytest_cache/
+.pytest_cache*/
 .ruff_cache/
 *.egg-info/
 
@@ -73,3 +74,7 @@ ollama-data/
 
 # Uploaded photos - user content, not source
 api/src/FoundU.Api/wwwroot/uploads/
+
+# ---------- Python coverage ----------
+.coverage
+htmlcov/

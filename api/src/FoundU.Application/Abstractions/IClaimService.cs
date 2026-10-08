@@ -13,6 +13,7 @@ namespace FoundU.Application.Abstractions;
 /// </summary>
 public interface IClaimService
 {
+    Task<string> DraftFollowUpAsync(Guid claimId, Guid staffId, RequestClaimFollowUp request, CancellationToken cancellationToken = default);
     Task<ClaimDetailDto> CreateAsync(CreateClaimRequest request, Guid studentId, CancellationToken cancellationToken = default);
 
     /// <summary>The signed-in student's own claims.</summary>
@@ -31,6 +32,8 @@ public interface IClaimService
     Task<ClaimDetailDto> AddQuestionsAsync(Guid claimId, Guid staffId, AddVerificationQuestionsRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Generates safe questions from trusted staff evidence using the Verification Agent.</summary>
+    Task<ClaimDetailDto> RequestFollowUpAsync(Guid claimId, Guid staffId, RequestClaimFollowUp request, CancellationToken cancellationToken = default);
+
     Task<ClaimDetailDto> GenerateQuestionsAsync(Guid claimId, Guid staffId, CancellationToken cancellationToken = default);
 
     /// <summary>The student answering every outstanding question, which sends the claim to review.</summary>
@@ -68,4 +71,13 @@ public interface IClaimService
 
     /// <summary>The student giving up on their own claim. Nothing is deleted - it is recorded.</summary>
     Task<ClaimDetailDto> CancelAsync(Guid claimId, Guid studentId, string? reason, CancellationToken cancellationToken = default);
+
+    /// <summary>A student claims an item at a desk without a lost report of their own.</summary>
+    Task<ClaimDetailDto> ClaimWithoutReportAsync(ClaimWithoutReportRequest request, Guid studentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Staff verified the owner face to face: claim, approve and hand over in one step.</summary>
+    Task<ClaimDetailDto> HandOverInPersonAsync(InPersonHandoverRequest request, Guid staffId, CancellationToken cancellationToken = default);
+
+    /// <summary>Student accounts matching a name, email or student number, for the desk.</summary>
+    Task<IReadOnlyList<DeskStudentDto>> FindStudentsAsync(string search, CancellationToken cancellationToken = default);
 }

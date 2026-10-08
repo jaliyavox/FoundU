@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -17,6 +17,7 @@ import {
   WarehouseIcon,
   FootprintsIcon,
   EyeIcon,
+  ShieldCheckIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -49,12 +50,14 @@ const ICONS: Record<NotificationType, typeof BellIcon> = {
   SupportTicketUpdated: LifeBuoyIcon,
   HandoverStarted: FootprintsIcon,
   HandoverCancelled: UndoIcon,
+  ItemCollected: ShieldCheckIcon,
 }
 
 /** Only the two that carry an outcome get colour. Everything else is just news. */
 const TONES: Partial<Record<NotificationType, string>> = {
   ClaimApproved: 'text-brand-forest dark:text-brand-sage',
   ClaimRejected: 'text-destructive',
+  ItemCollected: 'text-brand-forest dark:text-brand-sage',
 }
 
 /**
@@ -73,9 +76,24 @@ export function NotificationBell() {
   const { data: count } = useQuery({
     queryKey: ['notification-count'],
     queryFn: getUnreadCount,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   })
+
+  // Every event that moves a report or claim also sends a notification, so a new one is the
+  // cue to refresh the person's own lists - otherwise a page left open (the report tracker,
+  // My claims) only catches up when the window regains focus.
+  const lastUnread = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    const now = count?.unread
+    if (now === undefined) return
+    if (lastUnread.current !== undefined && now > lastUnread.current) {
+      for (const key of ['my-lost-reports', 'my-found-posts', 'my-claims', 'my-suggestions', 'my-tickets']) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
+    }
+    lastUnread.current = now
+  }, [count?.unread, queryClient])
 
   const { data, isPending } = useQuery({
     queryKey: ['notifications'],

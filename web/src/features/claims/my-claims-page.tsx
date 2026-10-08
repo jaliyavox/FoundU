@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/features/feed/feed-api'
-import { CLAIM_STATUS_COPY, getMyClaims } from './claims-api'
+import { claimView, getMyClaims } from './claims-api'
 import { ClaimStatusChip } from './claim-status-chip'
 import { SuggestionsPanel } from './suggestions-panel'
 
@@ -86,10 +86,10 @@ export function MyClaimsPage() {
                 <div className="relative min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-medium">{claim.itemTypeName}</h2>
-                    <ClaimStatusChip status={claim.status} />
+                    <ClaimStatusChip status={claim.status} collectedAt={claim.collectedAt} />
                   </div>
                   <p className="pt-1 text-sm text-pretty text-muted-foreground">
-                    {CLAIM_STATUS_COPY[claim.status].student}
+                    {claimView(claim).student}
                   </p>
                   <p className="pt-2 text-xs text-muted-foreground">
                     Claimed {timeAgo(claim.createdAt)}

@@ -1,0 +1,3 @@
+    Error: expect(page).toHaveURL(expected) failed
+    Received string:  "http://127.0.0.1:5173/my-reports"
+    ../reports/e2e/artifacts/regressions-E2E-REG-01-D49-bcc30---no-stuck-spinner-not-lost/test-failed-1.png

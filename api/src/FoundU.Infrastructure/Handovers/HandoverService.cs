@@ -319,6 +319,18 @@ public class HandoverService : IHandoverService
         report.PausedUntil = null;
         report.UpdatedAt = now;
 
+        // The owner's receipt - and their alarm, if someone else walked off with it.
+        var collectedFrom = claim.FoundReport?.StorageLocation?.Name;
+        _notifications.Queue(
+            report.StudentId,
+            NotificationType.ItemCollected,
+            $"You collected your {report.ItemType.Name.ToLowerInvariant()}",
+            (collectedFrom is null ? "Collected from the desk" : $"Collected from {collectedFrom}")
+                + ". The desk checked your student ID before handing it over. Wasn't you? Contact the desk "
+                + "through Help & support straight away.",
+            nameof(LostReport),
+            report.Id);
+
         _notifications.Queue(
             claim.FinderId,
             NotificationType.ItemReturnedToOwner,

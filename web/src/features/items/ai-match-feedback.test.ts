@@ -26,7 +26,7 @@ describe('AI matching UI feedback', () => {
       recommendation: 'match_candidate',
       score: 0.85,
       suggestion: { matchScore: 0.85 },
-    } as never)).toBe('AI-assisted match suggestion created (score 0.85).')
+    } as never)).toBe('AI-assisted match suggestion created (match score 85%).')
   })
 
   it('clears transient AI feedback when the dialog closes before it is reopened', () => {

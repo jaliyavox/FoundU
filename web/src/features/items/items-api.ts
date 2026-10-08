@@ -86,13 +86,14 @@ export const createItem = (input: CreateFoundReportInput) =>
   api.post<FoundReportDetail>('/api/found-reports', input)
 
 /** The staff view across every student's lost reports - what an item gets linked to. */
-export const searchLostReports = (page: number, pageSize: number, search?: string) => {
+export const searchLostReports = (page: number, pageSize: number, search?: string, item?: Pick<FoundReportDetail, 'categoryId' | 'itemTypeId' | 'id'>, excludeSuggested = false) => {
   const params = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize),
     status: 'Active',
   })
   if (search?.trim()) params.set('search', search.trim())
+  if (item) { params.set('categoryId', item.categoryId); params.set('itemTypeId', item.itemTypeId); if (excludeSuggested) params.set('excludeSuggestedForFoundReportId', item.id) }
   return api.get<PagedResult<LostReportRow>>(`/api/lost-reports?${params}`)
 }
 
@@ -153,8 +154,8 @@ export interface LogItemPrefill {
 
 export const ITEM_STATUS_LABELS: Record<FoundReportStatus, string> = {
   Posted: 'Not at a desk yet',
-  Unclaimed: 'In storage',
-  Claimed: 'Claimed',
+  Unclaimed: 'Waiting for owner',
+  Claimed: 'Owner collecting',
   Returned: 'Returned',
   Disposed: 'Disposed',
 }

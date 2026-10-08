@@ -29,19 +29,22 @@ public class ClaimService : IClaimService
     private readonly IVerificationAgentClient _verificationAgent;
     private readonly IHonorService _honor;
     private readonly IAgentWorkflowClient? _workflows;
+    private readonly int _reviewThreshold;
 
     public ClaimService(
         FoundUDbContext db,
         INotificationService notifications,
         IVerificationAgentClient verificationAgent,
         IHonorService honor,
-        IAgentWorkflowClient? workflows = null)
+        IAgentWorkflowClient? workflows = null,
+        Microsoft.Extensions.Options.IOptions<FoundU.Infrastructure.Verification.AiServiceOptions>? aiOptions = null)
     {
         _db = db;
         _notifications = notifications;
         _verificationAgent = verificationAgent;
         _honor = honor;
         _workflows = workflows;
+        _reviewThreshold = Math.Clamp(aiOptions?.Value.VerificationReviewThreshold ?? new FoundU.Infrastructure.Verification.AiServiceOptions().VerificationReviewThreshold, 0, 100);
     }
 
     /// <summary>Statuses a claim can still move on from. The rest are the end of the road.</summary>
@@ -59,6 +62,24 @@ public class ClaimService : IClaimService
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
+        if (request.MatchSuggestionId is { } matchId)
+        {
+            var match = await _db.MatchSuggestions.Include(m => m.LostReport)
+                .FirstOrDefaultAsync(m => m.Id == matchId, cancellationToken)
+                ?? throw new NotFoundAppException("Match suggestion was not found.");
+            if (match.LostReport.StudentId != studentId)
+                throw new ForbiddenAppException("You can only claim your own match suggestions.");
+            if (match.LostReportId != request.LostReportId || match.FoundReportId != request.FoundReportId)
+                throw new ConflictAppException("This claim must use the report and item from the match suggestion.");
+            if (match.Status == MatchSuggestionStatus.Dismissed)
+                throw new ConflictAppException("This suggestion was dismissed.");
+        }
+
+        var existingClaim = await _db.Claims.FirstOrDefaultAsync(c => c.StudentId == studentId
+            && c.LostReportId == request.LostReportId && c.FoundReportId == request.FoundReportId
+            && (OpenStatuses.Contains(c.Status) || c.Status == ClaimStatus.Approved), cancellationToken);
+        if (existingClaim is not null) return await LoadDetailAsync(existingClaim.Id, cancellationToken);
+
         var lostReport = await _db.LostReports
             .FirstOrDefaultAsync(r => r.Id == request.LostReportId, cancellationToken)
             ?? throw new NotFoundAppException($"Lost report '{request.LostReportId}' was not found.");
@@ -77,6 +98,9 @@ public class ClaimService : IClaimService
         var foundReport = await _db.FoundReports
             .FirstOrDefaultAsync(f => f.Id == request.FoundReportId, cancellationToken)
             ?? throw new NotFoundAppException($"Found report '{request.FoundReportId}' was not found.");
+
+        if (lostReport.ItemTypeId != foundReport.ItemTypeId || lostReport.CategoryId != foundReport.CategoryId)
+            throw new ConflictAppException("Only reports for the same item type and category are eligible.");
 
         // A finder's post cannot be claimed: nothing is at a desk yet, and the hidden detail
         // that verification rests on does not exist until a desk writes it.
@@ -116,10 +140,12 @@ public class ClaimService : IClaimService
             StudentId = studentId,
             LostReportId = request.LostReportId,
             FoundReportId = request.FoundReportId,
+            CustodyLocationId = foundReport.StorageLocationId,
             Status = ClaimStatus.Pending,
         };
 
         _db.Claims.Add(claim);
+        MoveClaim(claim, ClaimStatus.Pending, studentId, "Claim submitted.");
 
         // A claim in progress is what "Matched" means on the student's report - the item may
         // have been found, but nothing is settled until staff decide.
@@ -137,6 +163,7 @@ public class ClaimService : IClaimService
 
         if (suggestion is not null)
         {
+            claim.MatchSuggestionId = suggestion.Id;
             _db.MatchStatusHistories.Add(new MatchStatusHistory
             {
                 MatchSuggestionId = suggestion.Id,
@@ -153,6 +180,163 @@ public class ClaimService : IClaimService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
+    public async Task<ClaimDetailDto> ClaimWithoutReportAsync(
+        ClaimWithoutReportRequest request,
+        Guid studentId,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await ClaimableItemAsync(request.FoundReportId, cancellationToken);
+
+        var existing = await _db.Claims.FirstOrDefaultAsync(
+            c => c.StudentId == studentId && c.FoundReportId == item.Id
+                && (OpenStatuses.Contains(c.Status) || c.Status == ClaimStatus.Approved),
+            cancellationToken);
+        if (existing is not null) return await LoadDetailAsync(existing.Id, cancellationToken);
+
+        var report = await ReportForClaimAsync(item, studentId, request.Description.Trim(), studentId, cancellationToken);
+        return await CreateAsync(new CreateClaimRequest(report.Id, item.Id), studentId, cancellationToken);
+    }
+
+    public async Task<ClaimDetailDto> HandOverInPersonAsync(
+        InPersonHandoverRequest request,
+        Guid staffId,
+        CancellationToken cancellationToken = default)
+    {
+        // Same rule as collecting with a code: a person at the counter proves who they are.
+        if (!request.OwnerIdChecked)
+            throw new ValidationAppException(nameof(InPersonHandoverRequest.OwnerIdChecked),
+                "Check the owner's student ID against the account before handing anything over.");
+
+        var item = await ClaimableItemAsync(request.FoundReportId, cancellationToken);
+        var student = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.StudentId, cancellationToken)
+            ?? throw new NotFoundAppException("That student account was not found.");
+        if (student.Role != UserRole.Student)
+            throw new ValidationAppException(nameof(InPersonHandoverRequest.StudentId), "Items are handed over to student accounts.");
+        if (student.IsSuspended)
+            throw new ConflictAppException("This account is suspended. Resolve that before handing anything over.");
+
+        var notes = request.VerificationNotes.Trim();
+
+        // Their open claim on this item if they have one, else one on their chosen report,
+        // else one on a report made for this hand-over.
+        var claim = await _db.Claims.FirstOrDefaultAsync(
+            c => c.StudentId == student.Id && c.FoundReportId == item.Id && OpenStatuses.Contains(c.Status),
+            cancellationToken);
+        if (claim is null)
+        {
+            Guid reportId;
+            if (request.LostReportId is { } chosen)
+            {
+                var own = await _db.LostReports.FirstOrDefaultAsync(r => r.Id == chosen, cancellationToken)
+                    ?? throw new NotFoundAppException("That lost report was not found.");
+                if (own.StudentId != student.Id)
+                    throw new ValidationAppException(nameof(InPersonHandoverRequest.LostReportId), "That report belongs to someone else.");
+                reportId = own.Id;
+            }
+            else
+            {
+                reportId = (await ReportForClaimAsync(item, student.Id,
+                    $"Claimed in person at the security desk: {item.GeneralDescription}", staffId, cancellationToken)).Id;
+            }
+
+            var created = await CreateAsync(new CreateClaimRequest(reportId, item.Id), student.Id, cancellationToken);
+            claim = await _db.Claims.SingleAsync(c => c.Id == created.Id, cancellationToken);
+        }
+
+        await EnsureApprovableAsync(claim, staffId, "Verified in person at the security desk.", cancellationToken);
+
+        // The notes may well name the hidden detail, so they live on the claim's history (staff
+        // only) - the decision the owner reads says only how it was verified.
+        _db.ClaimStatusHistories.Add(new ClaimStatusHistory
+        {
+            ClaimId = claim.Id,
+            FromStatus = claim.Status,
+            ToStatus = claim.Status,
+            ChangedByUserId = staffId,
+            Reason = $"Verified in person. {notes}",
+        });
+        _db.ApprovalDecisions.Add(new ApprovalDecision
+        {
+            ClaimId = claim.Id,
+            DecidedByUserId = staffId,
+            Decision = ApprovalDecisionType.Approved,
+            Reason = "Verified in person at the security desk.",
+        });
+        await ApproveAsync(claim, staffId, "Verified in person at the security desk.", cancellationToken, tellOwnerWhereToCollect: false);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        // Handed over on the spot: the same collection step as a code at the desk, so the item,
+        // the report, the finder's thanks and the owner's receipt all follow as usual.
+        return ForStaff(await CollectAsync(claim.CollectionCode!, staffId, cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<DeskStudentDto>> FindStudentsAsync(string search, CancellationToken cancellationToken = default)
+    {
+        var term = search.Trim();
+        if (term.Length < 2) return [];
+        var lowered = term.ToLowerInvariant();
+        return await _db.Users.AsNoTracking()
+            .Where(u => u.Role == UserRole.Student && !u.IsSuspended
+                && ((u.Email != null && u.Email.ToLower().Contains(lowered))
+                    || (u.StudentNumber != null && u.StudentNumber.ToLower() == lowered)
+                    || u.FullName.ToLower().Contains(lowered)))
+            .OrderBy(u => u.FullName)
+            .Take(10)
+            .Select(u => new DeskStudentDto(u.Id, u.FullName, u.Email, u.StudentNumber))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>An item a claim can be made on: at a desk, not yet promised to anyone.</summary>
+    private async Task<FoundReport> ClaimableItemAsync(Guid foundReportId, CancellationToken cancellationToken)
+    {
+        var item = await _db.FoundReports.FirstOrDefaultAsync(f => f.Id == foundReportId, cancellationToken)
+            ?? throw new NotFoundAppException($"Found item '{foundReportId}' was not found.");
+        if (item.Status == FoundReportStatus.Posted)
+            throw new ConflictAppException("This item has not reached a desk yet. Once the finder hands it in, you can claim it.");
+        if (item.Status != FoundReportStatus.Unclaimed)
+            throw new ConflictAppException("This item is no longer available to claim.");
+        return item;
+    }
+
+    /// <summary>
+    /// The lost report a claim needs, for an owner who never made one: the item's own type,
+    /// colour and place, with their words as the description. Saved straight away so the
+    /// claim can stand on it; marked so it never reaches the public feed.
+    /// </summary>
+    private async Task<LostReport> ReportForClaimAsync(
+        FoundReport item, Guid studentId, string description, Guid actorId, CancellationToken cancellationToken)
+    {
+        string code;
+        do code = HandoverCodes.Generate();
+        while (await _db.LostReports.AnyAsync(r => r.HandInCode == code, cancellationToken));
+
+        var report = new LostReport
+        {
+            StudentId = studentId,
+            HandInCode = code,
+            CategoryId = item.CategoryId,
+            ItemTypeId = item.ItemTypeId,
+            LastSeenLocationId = item.FoundLocationId,
+            Description = description.Length <= 1000 ? description : description[..1000],
+            PrimaryColor = item.PrimaryColor,
+            EstimatedLostFromAt = item.FoundAt.AddDays(-1),
+            EstimatedLostToAt = item.FoundAt,
+            Status = LostReportStatus.Active,
+            CreatedForClaim = true,
+        };
+        _db.LostReports.Add(report);
+        _db.LostReportStatusHistories.Add(new LostReportStatusHistory
+        {
+            LostReport = report,
+            FromStatus = LostReportStatus.Active,
+            ToStatus = LostReportStatus.Active,
+            ChangedByUserId = actorId,
+            Reason = "Made for a claim on a found item - the owner had not reported it lost.",
+        });
+        await _db.SaveChangesAsync(cancellationToken);
+        return report;
     }
 
     private async Task StartCoordinatorWorkflowAsync(Claim claim, string recommendation, CancellationToken cancellationToken)
@@ -269,7 +453,24 @@ public class ClaimService : IClaimService
 
         // The code is the owner's to quote and the desk's to type. Staff reading it off the
         // screen would make the quoting step theatre.
-        return studentId == requesterId ? detail : ForStaff(detail);
+        // Staff opening a claim also see the item's hidden detail, to judge the answers beside
+        // it. Only here: action responses (questions, AI drafts, decisions) stay without it, so
+        // nothing generated in them can be mistaken for - or carry - the evidence.
+        if (!requesterIsStaff) return detail;
+        var staffDetail = await WithHiddenDetailAsync(ForStaff(detail), cancellationToken);
+        var latest = await _db.AgentRuns.Where(r => r.ClaimId == id && r.Objective == "Verification Agent evaluate_answers")
+            .OrderByDescending(r => r.StartedAt).Select(r => r.FinalOutcomeJson).FirstOrDefaultAsync(cancellationToken);
+        StaffVerificationAssessment? assessment = null;
+        if (latest != null)
+        {
+            try { assessment = JsonSerializer.Deserialize<VerificationAuditOutcome>(latest)?.Assessment; }
+            catch (JsonException) { }
+        }
+        var evidence = await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == detail.FoundItem.Id)
+            .OrderBy(e => e.CreatedAt).Select(e => new StaffVerificationEvidenceDto(e.Id, e.Detail, e.RecordedByUserId, e.CreatedAt)).ToListAsync(cancellationToken);
+        var item = await _db.FoundReports.SingleAsync(f => f.Id == detail.FoundItem.Id, cancellationToken);
+        var unused = await UnusedOriginalEvidenceAsync(id, item, cancellationToken);
+        return staffDetail with { VerificationForStaff = assessment, AdditionalEvidenceForStaff = evidence, CanUseUnusedEvidenceForFollowUp = unused.Count > 0 };
     }
 
     public async Task<ClaimDetailDto> AddQuestionsAsync(
@@ -287,6 +488,17 @@ public class ClaimService : IClaimService
             throw new ConflictAppException("This claim has been decided and takes no more questions.");
         }
 
+        if (claim.Status is not (ClaimStatus.Pending or ClaimStatus.ManualReviewRequired)
+            || await _db.VerificationQuestions.AnyAsync(q => q.ClaimId == claimId, cancellationToken))
+            throw new ConflictAppException("Initial questions have already been sent. Use a distinct follow-up after review.");
+        var item = await _db.FoundReports.SingleAsync(f => f.Id == claim.FoundReportId, cancellationToken);
+        if (item.Status != FoundReportStatus.Unclaimed)
+            throw new ConflictAppException("Verification requires security custody.");
+        // Staff write their own questionnaire, as they always could. The one rule is that a
+        // question never gives the hidden detail away; the template grammar is for questions
+        // the agent drafts, not for a person at the desk.
+        if (request.Questions.Any(q => !IsStaffQuestionSafe(q, BuildPrivateVerificationDetails(item).Values)))
+            throw new ValidationAppException("Questions", "Ask a non-leading question without revealing hidden evidence.");
         foreach (var text in request.Questions)
         {
             _db.VerificationQuestions.Add(new VerificationQuestion
@@ -322,7 +534,7 @@ public class ClaimService : IClaimService
             .FirstOrDefaultAsync(c => c.Id == claimId, cancellationToken)
             ?? throw new NotFoundAppException($"Claim '{claimId}' was not found.");
 
-        if (claim.Status is not (ClaimStatus.Pending or ClaimStatus.RevisionRequested))
+        if (claim.FoundReport.Status != FoundReportStatus.Unclaimed || claim.Status is not (ClaimStatus.Pending or ClaimStatus.ManualReviewRequired))
         {
             throw new ConflictAppException("This claim is not ready for verification questions.");
         }
@@ -333,7 +545,10 @@ public class ClaimService : IClaimService
         }
 
         var correlationId = Guid.NewGuid().ToString("N");
-        var privateDetails = BuildPrivateVerificationDetails(claim.FoundReport);
+        // Challenge one private observation at a time; remaining fields stay unused for a
+        // distinct follow-up, rather than being consumed as increasingly specific hints.
+        var privateDetails = BuildPrivateVerificationDetails(claim.FoundReport)
+            .OrderBy(d => d.Key, StringComparer.Ordinal).Take(1).ToDictionary(d => d.Key, d => d.Value);
         if (privateDetails.Count == 0)
         {
             return await MoveToManualReviewAfterGenerationFailureAsync(
@@ -342,18 +557,14 @@ public class ClaimService : IClaimService
 
         var agentResult = await _verificationAgent.GenerateQuestionsAsync(
             claim.Id, privateDetails, correlationId, cancellationToken);
-        if (!agentResult.IsSuccess || agentResult.Value is null)
-        {
-            return await MoveToManualReviewAfterGenerationFailureAsync(
-                claim,
-                staffId,
-                correlationId,
-                agentResult.FailureReason ?? "Verification question generation failed safely.",
-                agentResult.RetryCount,
-                cancellationToken);
-        }
+        if (!agentResult.IsSuccess || agentResult.Value is null
+            || agentResult.Value.Questions.Any(q => !IsSafeQuestion(q.Question, privateDetails.Values)))
+            agentResult = VerificationAgentCallResult<GenerateVerificationQuestionsResult>.Success(
+                SafeVerificationFallback.Generate(claim.Id, privateDetails));
 
-        var result = agentResult.Value;
+        var result = agentResult.Value!;
+        if (result.Questions.Any(q => !IsSafeQuestion(q.Question, privateDetails.Values)))
+            throw new ConflictAppException("Verification question failed the grounding or privacy check.");
         var audit = CreateVerificationAgentRun(
             claim.Id,
             "generate_questions",
@@ -362,7 +573,8 @@ public class ClaimService : IClaimService
             result.Recommendation,
             success: true,
             result.Questions,
-            retryCount: agentResult.RetryCount);
+            retryCount: agentResult.RetryCount, evidenceKeys: privateDetails.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList(),
+            sourceEvidence: privateDetails);
         _db.AgentRuns.Add(audit);
 
         foreach (var question in result.Questions)
@@ -386,6 +598,115 @@ public class ClaimService : IClaimService
 
         await _db.SaveChangesAsync(cancellationToken);
         return await LoadDetailAsync(claim.Id, cancellationToken);
+    }
+
+    private static bool IsSafeQuestion(string question, IEnumerable<string> details)
+        => SafeVerificationFallback.IsSafe(question, details);
+
+    /// <summary>A question a staff member wrote: any wording, as long as it reveals no hidden value.</summary>
+    private static bool IsStaffQuestionSafe(string question, IEnumerable<string> details)
+        => question.Trim().Length is >= 10 and <= 240 && SafeVerificationFallback.IsPrivateSafe(question, details);
+
+    private async Task<Dictionary<string, string>> UnusedOriginalEvidenceAsync(Guid claimId, FoundReport item, CancellationToken ct)
+    {
+        var all = BuildPrivateVerificationDetails(item);
+        var outcomes = await _db.AgentRuns.Where(r => r.ClaimId == claimId && r.Objective == "Verification Agent generate_questions" && r.Status == AgentRunStatus.Completed)
+            .Select(r => r.FinalOutcomeJson).ToListAsync(ct);
+        if (outcomes.Count == 0) return []; // Older/manual challenges cannot prove unused evidence.
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var json in outcomes)
+        {
+            try
+            {
+                var audit = JsonSerializer.Deserialize<VerificationAuditOutcome>(json!);
+                if (audit?.EvidenceKeys == null) return [];
+                used.UnionWith(audit.EvidenceKeys);
+            }
+            catch (JsonException) { return []; }
+        }
+        var usedValues = all.Where(d => used.Contains(d.Key)).Select(d => d.Value).ToList();
+        return all.Where(d => !used.Contains(d.Key) && !SafeVerificationFallback.ReusesEvidence(d.Value, usedValues))
+            .OrderBy(d => d.Key, StringComparer.Ordinal).Take(1).ToDictionary(d => d.Key, d => d.Value);
+    }
+
+    public async Task<string> DraftFollowUpAsync(Guid claimId, Guid staffId, RequestClaimFollowUp request,
+        CancellationToken cancellationToken = default)
+    {
+        var claim = await _db.Claims.Include(c => c.FoundReport).Include(c => c.VerificationQuestions)
+            .ThenInclude(q => q.Answer).FirstOrDefaultAsync(c => c.Id == claimId, cancellationToken)
+            ?? throw new NotFoundAppException("Claim was not found.");
+        if (claim.Status is not (ClaimStatus.UnderReview or ClaimStatus.ManualReviewRequired)
+            || claim.FoundReport.Status != FoundReportStatus.Unclaimed
+            || claim.VerificationQuestions.Count == 0 || claim.VerificationQuestions.Any(q => q.Answer == null)
+            || !await _db.AgentRuns.AnyAsync(r => r.ClaimId == claimId && r.Objective == "Verification Agent evaluate_answers", cancellationToken))
+            throw new ConflictAppException("Wait for all answers and evaluation before drafting a follow-up.");
+        var detail = request.AdditionalHiddenDetail?.Trim();
+        var unused = await UnusedOriginalEvidenceAsync(claimId, claim.FoundReport, cancellationToken);
+        var useUnused = string.IsNullOrWhiteSpace(detail) && unused.Count > 0;
+        if (useUnused) detail = unused.Values.Single();
+        if (string.IsNullOrWhiteSpace(detail) || detail.Length > 1000)
+            throw new ValidationAppException("AdditionalHiddenDetail", "Record a distinct observable detail from the physical item first.");
+        var previous = BuildPrivateVerificationDetails(claim.FoundReport).Values.Concat(
+            await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == claim.FoundReportId).Select(e => e.Detail).ToListAsync(cancellationToken)).ToList();
+        if (!useUnused && SafeVerificationFallback.ReusesEvidence(detail, previous))
+            throw new ConflictAppException("This evidence has already been used.");
+        var details = useUnused ? unused : new Dictionary<string, string> { ["additional_observation"] = detail };
+        var correlation = Guid.NewGuid().ToString("N");
+        var result = await _verificationAgent.GenerateQuestionsAsync(claimId, details, correlation, cancellationToken);
+        var draft = result.IsSuccess ? result.Value?.Questions.FirstOrDefault()?.Question : null;
+        if (draft is null || !IsSafeQuestion(draft, [detail]))
+            draft = SafeVerificationFallback.Question(detail);
+        if (!IsSafeQuestion(draft, [detail]) || !SafeVerificationFallback.IsPrivateSafe(draft, previous.Append(detail))
+            || claim.VerificationQuestions.Any(q => q.QuestionText.Equals(draft, StringComparison.OrdinalIgnoreCase)))
+            throw new ConflictAppException("No distinct safe question is available. Staff must write and confirm one from the new observation.");
+        _db.AgentRuns.Add(CreateVerificationAgentRun(claimId, "draft_follow_up", correlation,
+            result.Value?.AgentRunId, "manual_review", true, [new("verification-1", draft)]));
+        await _db.SaveChangesAsync(cancellationToken);
+        return draft;
+    }
+
+    public async Task<ClaimDetailDto> RequestFollowUpAsync(Guid claimId, Guid staffId,
+        RequestClaimFollowUp request, CancellationToken cancellationToken = default)
+    {
+        var claim = await _db.Claims.Include(c => c.FoundReport).Include(c => c.VerificationQuestions)
+            .ThenInclude(q => q.Answer).FirstOrDefaultAsync(c => c.Id == claimId, cancellationToken)
+            ?? throw new NotFoundAppException("Claim was not found.");
+        if (claim.FoundReport.Status != FoundReportStatus.Unclaimed
+            || claim.Status is not (ClaimStatus.UnderReview or ClaimStatus.ManualReviewRequired)
+            || claim.VerificationQuestions.Count == 0 || claim.VerificationQuestions.Any(q => q.Answer == null)
+            || !await _db.AgentRuns.AnyAsync(r => r.ClaimId == claimId && r.Objective == "Verification Agent evaluate_answers", cancellationToken))
+            throw new ConflictAppException("Wait for all answers and their evaluation before requesting more detail.");
+        var detail = request.AdditionalHiddenDetail?.Trim();
+        var unused = await UnusedOriginalEvidenceAsync(claimId, claim.FoundReport, cancellationToken);
+        var useUnused = string.IsNullOrWhiteSpace(detail) && unused.Count > 0;
+        if (useUnused) detail = unused.Values.Single();
+        if (string.IsNullOrWhiteSpace(detail) || detail.Length > 1000)
+            throw new ValidationAppException("AdditionalHiddenDetail", "Record an additional observable hidden detail from the physical item (up to 1000 characters).");
+        var previous = BuildPrivateVerificationDetails(claim.FoundReport).Values.Concat(
+            await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == claim.FoundReportId)
+                .Select(e => e.Detail).ToListAsync(cancellationToken)).ToList();
+        if (!useUnused && SafeVerificationFallback.ReusesEvidence(detail, previous))
+            throw new ConflictAppException("This evidence has already been used. Record a distinct physical observation.");
+        var question = request.Question?.Trim();
+        if (string.IsNullOrWhiteSpace(question))
+            throw new ValidationAppException("Question", "Confirm a distinct follow-up question before sending it.");
+        if (!IsSafeQuestion(question, [detail]) || !SafeVerificationFallback.IsPrivateSafe(question, previous.Append(detail))
+            || claim.VerificationQuestions.Any(q => q.QuestionText.Equals(question, StringComparison.OrdinalIgnoreCase)))
+            throw new ValidationAppException("Question", "Ask a distinct non-leading question without revealing hidden evidence.");
+        var evidence = new FoundVerificationEvidence { FoundReportId = claim.FoundReportId, RecordedByUserId = staffId, Detail = detail };
+        if (!useUnused) _db.FoundVerificationEvidence.Add(evidence);
+        var audit = CreateVerificationAgentRun(claim.Id, "generate_questions", Guid.NewGuid().ToString("N"), null,
+            "manual_review", true, [new VerificationAgentQuestion("verification-1", question)],
+            evidenceKeys: useUnused ? unused.Keys.ToList() : [$"additional_{evidence.Id:N}"],
+            sourceEvidence: useUnused ? unused : new Dictionary<string, string> { [$"additional_{evidence.Id:N}"] = detail });
+        _db.AgentRuns.Add(audit);
+        _db.VerificationQuestions.Add(new VerificationQuestion { ClaimId = claim.Id, QuestionText = question, GeneratedByAgentRunId = audit.Id });
+        MoveClaim(claim, ClaimStatus.RevisionRequested, staffId,
+            useUnused ? "Unused private evidence used; distinct follow-up sent." : "Additional physical evidence recorded; distinct follow-up sent.");
+        _notifications.Queue(claim.StudentId, NotificationType.RevisionRequested, "The desk needs more detail",
+            "A follow-up question is ready in your claim.", nameof(Claim), claim.Id);
+        await _db.SaveChangesAsync(cancellationToken);
+        return ForStaff(await LoadDetailAsync(claim.Id, cancellationToken));
     }
 
     public async Task<ClaimDetailDto> SubmitAnswersAsync(
@@ -413,7 +734,11 @@ public class ClaimService : IClaimService
             throw new ConflictAppException("This claim is not waiting for answers.");
         }
 
+        if (request.Answers.Count == 0 || request.Answers.Any(a => string.IsNullOrWhiteSpace(a.AnswerText) || a.AnswerText.Trim().Length < 3))
+            throw new ValidationAppException("Answers", "Provide a meaningful answer to each outstanding question.");
         var questionsById = claim.VerificationQuestions.ToDictionary(q => q.Id);
+        if (request.Answers.Any(a => questionsById.TryGetValue(a.QuestionId, out var q) && q.Answer != null))
+            throw new ConflictAppException("These answers have already been submitted.");
 
         if (request.Answers.Select(a => a.QuestionId).Distinct().Count() != request.Answers.Count)
         {
@@ -468,71 +793,67 @@ public class ClaimService : IClaimService
         }
 
         var correlationId = Guid.NewGuid().ToString("N");
-        if (!TryBuildCanonicalAgentQuestions(claim.VerificationQuestions, out var canonicalQuestions))
+        var allDetails = new Dictionary<string, string>(BuildPrivateVerificationDetails(claim.FoundReport));
+        foreach (var evidence in await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == claim.FoundReportId).ToListAsync(cancellationToken))
+            allDetails[$"additional_{evidence.Id:N}"] = evidence.Detail;
+        var scores = new List<double>();
+        var evaluationSources = new List<string>();
+        var matched = new List<string>();
+        var missing = new List<string>();
+        var conflicting = new List<string>();
+        var individualResults = new List<StaffQuestionEvaluation>();
+        foreach (var group in claim.VerificationQuestions.GroupBy(q => q.GeneratedByAgentRunId))
         {
-            RecordVerificationAgentFailure(claim.Id, "evaluate_answers", correlationId, "Verification challenge is unavailable.");
-            MoveClaim(claim, ClaimStatus.ManualReviewRequired, studentId, "Verification requires staff review.");
-            await _db.SaveChangesAsync(cancellationToken);
-            return await LoadDetailAsync(claim.Id, cancellationToken);
+            if (!TryBuildCanonicalAgentQuestions(group.ToList(), out var canonical))
+            {
+                scores.AddRange(Enumerable.Repeat(0.0, group.Count()));
+                missing.Add("A verification challenge requires manual staff assessment.");
+                continue;
+            }
+            var auditData = JsonSerializer.Deserialize<VerificationAuditOutcome>(group.First().GeneratedByAgentRun!.FinalOutcomeJson!);
+            var keys = auditData?.EvidenceKeys ?? BuildPrivateVerificationDetails(claim.FoundReport).Keys.ToList();
+            var evidence = allDetails.Where(d => keys.Contains(d.Key)).ToDictionary(d => d.Key, d => d.Value);
+            if (auditData?.EvidenceHashes is { } hashes && (hashes.Count != evidence.Count
+                || hashes.Any(h => !evidence.TryGetValue(h.Key, out var value) || EvidenceHash(value) != h.Value)))
+                evidence.Clear(); // The stored question's original observation changed; require staff review.
+            var answers = canonical.Select(q => new VerificationAgentAnswer(q.AgentQuestion.QuestionId,
+                questionsById[q.DatabaseQuestionId].Answer!.AnswerText)).ToList();
+            var agentQuestions = canonical.Select(q => q.AgentQuestion).ToList();
+            var local = SafeVerificationFallback.Evaluate(claim.Id, evidence, agentQuestions, answers);
+            var evaluated = await _verificationAgent.EvaluateAnswersAsync(claim.Id,
+                agentQuestions, evidence, answers, correlationId, cancellationToken);
+            // Obvious atomic answers are deterministic even if a fake/stale provider reports
+            // an inflated score or inconsistent messages. Open descriptive questions retain
+            // advisory provider scoring when its result is usable.
+            var useLocal = agentQuestions.Any(q => SafeVerificationFallback.ResolveFact(q.Question, evidence.Values)?.Kind != "description");
+            var result = !useLocal && evaluated.IsSuccess && evaluated.Value is not null
+                && VerificationAnswerScoring.IsUsableResult(evaluated.Value, agentQuestions)
+                ? evaluated.Value : local;
+            evaluationSources.Add(result.AgentRunId);
+            scores.AddRange(Enumerable.Repeat(Math.Clamp(result.Score!.Value, 0, 100), canonical.Count));
+            matched.AddRange(result.MatchedEvidence ?? []);
+            missing.AddRange(result.MissingInformation ?? []);
+            conflicting.AddRange(result.ConflictingInformation ?? []);
+            if (result.Evaluations is { } results)
+                individualResults.AddRange(canonical.Select(q =>
+                {
+                    var individual = results.Single(e => e.QuestionId == q.AgentQuestion.QuestionId);
+                    return new StaffQuestionEvaluation(q.DatabaseQuestionId, individual.Result, Math.Round(individual.Score * 100, 1));
+                }));
         }
-
-        var privateDetails = BuildPrivateVerificationDetails(claim.FoundReport);
-        // Include the complete validated answer set. On a revision, some answers may be carried
-        // forward unchanged; omitting them would make the agent mistake a complete claim for a
-        // partially answered one.
-        var agentAnswers = canonicalQuestions
-            .Select(question => new VerificationAgentAnswer(
-                question.AgentQuestion.QuestionId,
-                questionsById[question.DatabaseQuestionId].Answer!.AnswerText))
-            .ToList();
-        var agentResult = await _verificationAgent.EvaluateAnswersAsync(
-            claim.Id,
-            canonicalQuestions.Select(question => question.AgentQuestion).ToList(),
-            privateDetails,
-            agentAnswers,
-            correlationId,
-            cancellationToken);
-
-        if (!agentResult.IsSuccess || agentResult.Value is null)
-        {
-            RecordVerificationAgentFailure(
-                claim.Id,
-                "evaluate_answers",
-                correlationId,
-                agentResult.FailureReason ?? "Verification evaluation failed safely.",
-                agentResult.RetryCount);
-            MoveClaim(claim, ClaimStatus.ManualReviewRequired, studentId, "Verification requires staff review.");
-        }
-        else
-        {
-            var result = agentResult.Value;
-            var audit = CreateVerificationAgentRun(
-                claim.Id,
-                "evaluate_answers",
-                correlationId,
-                result.AgentRunId,
-                result.Recommendation,
-                success: true,
-                questions: null,
-                retryCount: agentResult.RetryCount);
-            _db.AgentRuns.Add(audit);
-
-            // Recommendations only choose the staff-review queue. They never call DecideAsync,
-            // create an ApprovalDecision, or change a found item's custody state.
-            var reviewStatus = result.Recommendation == "likely_match"
-                ? ClaimStatus.UnderReview
-                : ClaimStatus.ManualReviewRequired;
-            MoveClaim(claim, reviewStatus, studentId, "Verification recommendation recorded for staff review.");
-        }
-
+        var score = scores.Count == 0 ? 0 : Math.Round(scores.Average(), 1);
+        var recommendation = score >= _reviewThreshold ? "Likely valid — staff review." : "More information required — manual review.";
+        var assessment = new StaffVerificationAssessment(score, matched, missing, conflicting,
+            scores.Count == 0 ? "Manual questions require staff assessment." : "Comparison of each answer with its question-specific staff-held evidence; staff decides ownership.", recommendation,
+            individualResults);
+        var evaluationRun = CreateVerificationAgentRun(claim.Id, "evaluate_answers", correlationId, string.Join("|", evaluationSources),
+            score >= _reviewThreshold ? "likely_match" : "manual_review", true, null, assessment: assessment);
+        _db.AgentRuns.Add(evaluationRun);
+        MoveClaim(claim, score >= _reviewThreshold ? ClaimStatus.UnderReview : ClaimStatus.ManualReviewRequired,
+            studentId, "Answers submitted and evaluated for staff review.");
         await _db.SaveChangesAsync(cancellationToken);
 
-        // The Coordinator is non-authoritative. It starts only after the verification audit and
-        // review status are persisted, and its opaque workflow ID is recorded before FastAPI.
-        if (agentResult.IsSuccess && agentResult.Value is { } successfulEvaluation)
-        {
-            await StartCoordinatorWorkflowAsync(claim, successfulEvaluation.Recommendation, cancellationToken);
-        }
+        await StartCoordinatorWorkflowAsync(claim, score >= _reviewThreshold ? "likely_match" : "manual_review", cancellationToken);
 
         return await LoadDetailAsync(claim.Id, cancellationToken);
     }
@@ -558,6 +879,26 @@ public class ClaimService : IClaimService
         }
 
         var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+        if (reason is not null)
+        {
+            var itemEvidence = await _db.FoundReports.SingleAsync(f => f.Id == claim.FoundReportId, cancellationToken);
+            var privateValues = BuildPrivateVerificationDetails(itemEvidence).Values.Concat(
+                await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == claim.FoundReportId).Select(e => e.Detail).ToListAsync(cancellationToken));
+            if (!SafeVerificationFallback.IsPrivateSafe(reason, privateValues))
+                throw new ValidationAppException("Reason", "Use a student-safe reason without hidden evidence or answer hints.");
+        }
+        if (decision != ApprovalDecisionType.Approved && reason is null)
+            throw new ValidationAppException("Reason", "A reason is required.");
+        if (decision is ApprovalDecisionType.Approved or ApprovalDecisionType.RevisionRequested)
+        {
+            if (claim.Status is not (ClaimStatus.UnderReview or ClaimStatus.ManualReviewRequired)
+                || !await _db.ClaimAnswers.AnyAsync(a => a.ClaimId == claimId, cancellationToken)
+                || await _db.VerificationQuestions.AnyAsync(q => q.ClaimId == claimId && q.Answer == null, cancellationToken)
+                || !await _db.AgentRuns.AnyAsync(r => r.ClaimId == claimId && r.Objective == "Verification Agent evaluate_answers" && r.Status == AgentRunStatus.Completed, cancellationToken))
+                throw new ConflictAppException("Wait for the claimant's answer and evaluation before deciding.");
+        }
+        if (decision == ApprovalDecisionType.RevisionRequested)
+            throw new ConflictAppException("Send a distinct follow-up question using Ask for more detail.");
 
         if (decision == ApprovalDecisionType.Approved)
         {
@@ -632,6 +973,11 @@ public class ClaimService : IClaimService
             .FirstOrDefaultAsync(cancellationToken);
 
         var reason = request.Reason.Trim();
+        var originalItem = await _db.FoundReports.SingleAsync(f => f.Id == claim.FoundReportId, cancellationToken);
+        var privateValues = BuildPrivateVerificationDetails(originalItem).Values.Concat(
+            await _db.FoundVerificationEvidence.Where(e => e.FoundReportId == claim.FoundReportId).Select(e => e.Detail).ToListAsync(cancellationToken));
+        if (!SafeVerificationFallback.IsPrivateSafe(reason, privateValues))
+            throw new ValidationAppException("Reason", "Use a student-safe reason without hidden evidence or answer hints.");
 
         // Both rows stay: the rejection and the override. The audit is the pair of them.
         _db.ApprovalDecisions.Add(new ApprovalDecision
@@ -775,6 +1121,21 @@ public class ClaimService : IClaimService
                 cancellationToken);
         }
 
+        // The owner's receipt - and their alarm, if someone else walked off with it.
+        var collected = await _db.FoundReports
+            .Where(r => r.Id == claim.FoundReportId)
+            .Select(r => new { Item = r.ItemType.Name, Shelf = r.StorageLocation == null ? null : r.StorageLocation.Name })
+            .FirstOrDefaultAsync(cancellationToken);
+        _notifications.Queue(
+            claim.StudentId,
+            NotificationType.ItemCollected,
+            $"You collected your {(collected?.Item ?? "item").ToLowerInvariant()}",
+            (collected?.Shelf is null ? "Collected from the desk" : $"Collected from {collected.Shelf}")
+                + ". The desk checked your student ID before handing it over. Wasn't you? Contact the desk "
+                + "through Help & support straight away.",
+            nameof(Claim),
+            claim.Id);
+
         // Once. The code is gone the moment the item is.
         claim.CollectionCode = null;
         claim.CollectedAt = DateTime.UtcNow;
@@ -814,6 +1175,17 @@ public class ClaimService : IClaimService
     /// staff member receives passes through here, so it is never on their screen.
     /// </summary>
     private static ClaimDetailDto ForStaff(ClaimDetailDto detail) => detail with { CollectionCode = null };
+
+    /// <summary>The item's hidden detail, for a staff reader opening the claim. Never for the owner.</summary>
+    private async Task<ClaimDetailDto> WithHiddenDetailAsync(ClaimDetailDto detail, CancellationToken cancellationToken)
+    {
+        var hidden = await _db.FoundReports
+            .AsNoTracking()
+            .Where(r => r.Id == detail.FoundItem.Id)
+            .Select(r => r.PrivateVerificationDetails)
+            .FirstOrDefaultAsync(cancellationToken);
+        return detail with { HiddenDetailForStaff = hidden };
+    }
 
     private async Task<string> NextCollectionCodeAsync(CancellationToken cancellationToken)
     {
@@ -983,7 +1355,10 @@ public class ClaimService : IClaimService
         bool success,
         IReadOnlyList<VerificationAgentQuestion>? questions,
         string? failureReason = null,
-        int retryCount = 0)
+        int retryCount = 0,
+        IReadOnlyList<string>? evidenceKeys = null,
+        StaffVerificationAssessment? assessment = null,
+        IReadOnlyDictionary<string, string>? sourceEvidence = null)
         => new()
         {
             ClaimId = claimId,
@@ -999,11 +1374,15 @@ public class ClaimService : IClaimService
                 remoteAgentRunId,
                 recommendation,
                 success,
-                questions)),
+                questions, evidenceKeys, assessment,
+                sourceEvidence?.ToDictionary(e => e.Key, e => EvidenceHash(e.Value)))),
             CompletedAt = DateTime.UtcNow,
         };
 
     private sealed record CanonicalAgentQuestion(Guid DatabaseQuestionId, VerificationAgentQuestion AgentQuestion);
+
+    private static string EvidenceHash(string value)
+        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
 
     // Safe audit only: this intentionally excludes hidden evidence, submitted answers, and AI trace.
     private sealed record VerificationAuditOutcome(
@@ -1012,7 +1391,10 @@ public class ClaimService : IClaimService
         string? RemoteAgentRunId,
         string Recommendation,
         bool Success,
-        IReadOnlyList<VerificationAgentQuestion>? Questions);
+        IReadOnlyList<VerificationAgentQuestion>? Questions,
+        IReadOnlyList<string>? EvidenceKeys = null,
+        StaffVerificationAssessment? Assessment = null,
+        IReadOnlyDictionary<string, string>? EvidenceHashes = null);
 
     /* ------------------------------------------------------------------ internals */
 
@@ -1061,7 +1443,8 @@ public class ClaimService : IClaimService
     /// Approval is the only path that closes anything: the item is handed over, the search is
     /// over, and every other open claim on that item is now moot.
     /// </summary>
-    private async Task ApproveAsync(Claim claim, Guid staffId, string? reason, CancellationToken cancellationToken)
+    private async Task ApproveAsync(Claim claim, Guid staffId, string? reason, CancellationToken cancellationToken,
+        bool tellOwnerWhereToCollect = true)
     {
         MoveClaim(claim, ClaimStatus.Approved, staffId, reason);
 
@@ -1079,6 +1462,7 @@ public class ClaimService : IClaimService
             foundReport.UpdatedAt = DateTime.UtcNow;
         }
 
+        if (tellOwnerWhereToCollect)
         _notifications.Queue(
             claim.StudentId,
             NotificationType.ClaimApproved,
@@ -1101,6 +1485,7 @@ public class ClaimService : IClaimService
             ? "the desk"
             : storage.Building is null ? storage.Name : $"{storage.Name}, {storage.Building}";
 
+        if (tellOwnerWhereToCollect)
         _notifications.Queue(
             claim.StudentId,
             NotificationType.CollectionInstructions,
@@ -1175,6 +1560,14 @@ public class ClaimService : IClaimService
 
         if (!stillOpen)
         {
+            // A report made only to carry a claim was never a public notice - it closes with
+            // the claim rather than appearing on the feed in the owner's name.
+            if (lostReport.CreatedForClaim)
+            {
+                MoveLostReport(lostReport, LostReportStatus.Withdrawn, actorId, "The claim it was made for did not succeed.");
+                lostReport.WithdrawnAt = DateTime.UtcNow;
+                return;
+            }
             MoveLostReport(lostReport, LostReportStatus.Active, actorId, "No claim is open on this report any more.");
         }
     }
@@ -1247,7 +1640,11 @@ public class ClaimService : IClaimService
                 c.Student.FullName,
                 c.VerificationQuestions.Count(q => q.Answer == null),
                 c.CreatedAt,
-                c.UpdatedAt))
+                c.UpdatedAt,
+                c.CollectedAt, c.LostReportId, c.FoundReportId,
+                c.CustodyLocation == null ? (c.FoundReport.StorageLocation == null ? null : c.FoundReport.StorageLocation.Name) : c.CustodyLocation.Name,
+                c.MatchSuggestion == null ? null : (decimal?)c.MatchSuggestion.MatchScore,
+                c.Status.ToString()))
             .ToListAsync(cancellationToken);
 
         return PagedResult<ClaimListItemDto>.Create(items, query.Page, query.PageSize, totalCount);
@@ -1272,7 +1669,8 @@ public class ClaimService : IClaimService
                     c.FoundReport.GeneralDescription,
                     c.FoundReport.PrimaryColor,
                     c.FoundReport.FoundAt,
-                    c.FoundReport.Status.ToString()),
+                    c.FoundReport.Status.ToString(),
+                    c.FoundReport.StorageLocation == null ? null : c.FoundReport.StorageLocation.Name),
                 c.VerificationQuestions
                     .OrderBy(q => q.CreatedAt)
                     .Select(q => new ClaimQuestionDto(
@@ -1306,7 +1704,9 @@ public class ClaimService : IClaimService
                 c.CollectionCode,
                 c.CollectedAt,
                 c.CreatedAt,
-                c.UpdatedAt))
+                c.UpdatedAt,
+                // Filled in only on the staff path - see ForStaffAsync.
+                null, c.MatchSuggestionId, null, null, false))
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundAppException($"Claim '{id}' was not found.");
 }

@@ -1,0 +1,17 @@
+{
+  "id": "A11Y-07",
+  "path": "/ask-foundu",
+  "as": "student",
+  "passes": 25,
+  "violations": [
+    {
+      "rule": "listitem",
+      "impact": "serious",
+      "help": "<li> elements must be contained in a <ul> or <ol>",
+      "nodes": 1,
+      "sample": [
+        "ol > .gap-3"
+      ]
+    }
+  ]
+}

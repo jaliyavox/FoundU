@@ -1,0 +1,17 @@
+{
+  "id": "A11Y-01",
+  "path": "/",
+  "as": "anonymous",
+  "passes": 23,
+  "violations": [
+    {
+      "rule": "color-contrast",
+      "impact": "serious",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "nodes": 3,
+      "sample": [
+        ".hover\\:text-white\\/75.focus-visible\\:outline-none[href$=\"#how-it-works\"]"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="FoundU API security tests" tests="36" time="0.830">
+  <testsuite name="SETUP login student A (amara)" id="719a280d-619c-4181-92cb-2e602ec7c0b1" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.149">
+    <testcase name="logged in" time="0.149" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SETUP login staff (priya)" id="26468d36-94b7-4ace-8cda-90d8e5375a2a" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.062">
+    <testcase name="logged in" time="0.062" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SETUP register student B" id="b65575c8-88e7-4fb5-b707-d3aebdd79bca" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.063">
+    <testcase name="registered" time="0.063" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SETUP reference data" id="5922a078-847a-442c-936d-571775b02a1f" timestamp="2026-10-03T11:41:17.059Z" tests="0" failures="0" errors="0" time="0.014"/>
+  <testsuite name="SETUP locations" id="a74c1dbd-7aed-422e-8af2-a01d3e710dae" timestamp="2026-10-03T11:41:17.059Z" tests="0" failures="0" errors="0" time="0.010"/>
+  <testsuite name="SETUP student A files a lost report" id="a550941f-4384-44e3-8a3a-fa21ac2342b2" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.131">
+    <testcase name="created" time="0.131" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-01 anonymous request to a protected endpoint is refused" id="0d278e95-3a86-4859-8f8f-10fe72ec4ba3" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.007">
+    <testcase name="status is 401" time="0.007" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-02 garbage bearer token is refused" id="9e80a812-e1cd-46e6-8b7f-d477d1bc495b" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.014">
+    <testcase name="status is 401" time="0.014" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-03 token with a forged role claim (signature no longer matches) is refused" id="2c493f2e-6ae5-4bee-95b8-15281abf77dd" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.007">
+    <testcase name="status is 401" time="0.007" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-04 unsigned token (alg: none) is refused" id="d4d91b62-0ff5-413b-9ad2-980bdbc0e5fa" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.004">
+    <testcase name="status is 401" time="0.004" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-05 wrong password and unknown email get the same answer (no account enumeration)" id="1c9a1b59-20f1-462b-b0a8-5580564c298b" timestamp="2026-10-03T11:41:17.059Z" tests="3" failures="0" errors="0" time="0.055">
+    <testcase name="status is 401" time="0.055" classname="FoundUApiSecurityTests"/>
+    <testcase name="known email with wrong password: same status" time="0.055" classname="FoundUApiSecurityTests"/>
+    <testcase name="same body apart from the trace id, so an attacker cannot tell which emails exist" time="0.055" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-06 forgot-password answers the same for unknown emails" id="2e9f2a9d-fa7f-46fb-8613-921d2e92228f" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.011">
+    <testcase name="status is 202" time="0.011" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-07 a refresh token cannot be used twice (rotation)" id="da836c7a-e001-45a3-855b-e0139a722cca" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.012">
+    <testcase name="status is 200" time="0.012" classname="FoundUApiSecurityTests"/>
+    <testcase name="replaying the old refresh token is refused" time="0.012" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-08 registration ignores a smuggled role field (mass assignment)" id="1e3acb95-26da-4e39-ac31-ddee3ac540e8" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.043">
+    <testcase name="status is 200" time="0.043" classname="FoundUApiSecurityTests"/>
+    <testcase name="the new account is a Student" time="0.043" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-09 a student cannot read the staff claims queue" id="6a8b43e2-c6d3-44dd-bd25-252b9272e5e8" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="status is 403" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-10 a student cannot log a found item (staff only)" id="6cd1f7bd-b56b-4856-9354-318bef61e602" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="status is 403" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-11 a student cannot read found items with their hidden details" id="52d927c7-d334-4381-a7e9-d54d1efc626f" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="status is 403" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-12 staff cannot open admin user management" id="23106e61-c90b-4f39-8707-45b5a1e12182" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="status is 403" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-13 staff cannot overturn a claim (admin only)" id="8360346b-8d7b-425c-911e-b0b2620a8aff" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="status is 403" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-14 IDOR: student B cannot read student A's report" id="3445b47b-f8db-4327-bae3-e5f606d7c843" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.013">
+    <testcase name="status is 403 or 404" time="0.013" classname="FoundUApiSecurityTests"/>
+    <testcase name="no report data returned" time="0.013" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-15 IDOR: student B cannot edit student A's report" id="a25e84cf-256e-4307-9fda-0dc34e533647" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.017">
+    <testcase name="status is 403 or 404" time="0.017" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-16 IDOR: student B cannot withdraw student A's report" id="e80bd733-3217-4eaf-98d8-088bcc8a3ea0" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.012">
+    <testcase name="status is 403 or 404" time="0.012" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-17 IDOR: student B cannot read student A's report messages" id="32a544ce-e5cd-4739-b3c2-2082ed2eb89b" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.015">
+    <testcase name="status is 403 or 404" time="0.015" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-18 owner still has their report after the attempts above" id="db6604e7-2fa3-4fd5-868e-5881477d7cf1" timestamp="2026-10-03T11:41:17.059Z" tests="3" failures="0" errors="0" time="0.007">
+    <testcase name="status is 200" time="0.007" classname="FoundUApiSecurityTests"/>
+    <testcase name="description untouched" time="0.007" classname="FoundUApiSecurityTests"/>
+    <testcase name="still active" time="0.007" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-19 SQL injection in the feed search is treated as text" id="a5a26bc6-2bc4-489c-a5c9-2ab899c0851f" timestamp="2026-10-03T11:41:17.059Z" tests="3" failures="0" errors="0" time="0.017">
+    <testcase name="status is 200" time="0.017" classname="FoundUApiSecurityTests"/>
+    <testcase name="matches nothing, rather than every row" time="0.017" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.017" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-20 malformed JSON gets a 400 problem response, no internals" id="07c74622-a035-42f1-b2c7-1b73102145b2" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.008">
+    <testcase name="status is 400" time="0.008" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.008" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-21 description over the 1000-character limit is refused (boundary 1001)" id="2aa37dea-98aa-4cb8-a46a-190a23f1a496" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.020">
+    <testcase name="status is 400" time="0.020" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-22 script in a description is stored as plain text and served as JSON" id="e7c2748d-367d-491f-9f55-b4bc8056d25c" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.047">
+    <testcase name="status is 201" time="0.047" classname="FoundUApiSecurityTests"/>
+    <testcase name="served as JSON, never as HTML" time="0.047" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-23 a text file renamed .jpg is refused as a photo" id="e671ec2a-8bcc-443a-b781-417145eab0c1" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.029">
+    <testcase name="status is 400" time="0.029" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.029" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-24 non-GUID ids are 404, not a server error" id="f3c9f38c-7031-4409-a4f6-735cabefc02c" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="status is 404" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-25 CORS does not allow an arbitrary origin" id="5e3982ba-cee7-4784-8132-e416bd868ca8" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.004">
+    <testcase name="no CORS grant for evil.example" time="0.004" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-26 the AI service refuses calls without the service key" id="e191672f-2aef-4e67-ae1b-ba39676ef0cc" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.008">
+    <testcase name="status is 401 or 403" time="0.008" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-27 responses carry basic security headers" id="a4e589a7-f9c3-4aed-862e-e80d02690f42" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.005">
+    <testcase name="X-Content-Type-Options: nosniff" time="0.005" classname="FoundUApiSecurityTests"/>
+    <testcase name="no Server header advertising Kestrel" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-28 forgot-password is rate limited per client (email-flooding protection)" id="f09fa00b-27f7-436f-87c9-862e567ac36e" timestamp="2026-10-03T11:41:17.059Z" tests="1" failures="0" errors="0" time="0.003">
+    <testcase name="a burst of 15 reset requests is throttled with 429" time="0.003" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-29 a NUL byte in a search is a 400, not a server error (ZAP finding)" id="1b40b214-9676-4086-afc2-f53af2ecc838" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.003">
+    <testcase name="status is 400" time="0.003" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.003" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="SEC-30 a NUL byte inside a JSON body is a 400, not a server error" id="647f629f-c178-4ae4-8caa-8dd3ae8cd2c2" timestamp="2026-10-03T11:41:17.059Z" tests="2" failures="0" errors="0" time="0.008">
+    <testcase name="status is 400" time="0.008" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.008" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+</testsuites>

@@ -1,9 +1,17 @@
 import { cn } from '@/lib/utils'
-import { CLAIM_STATUS_COPY, TONE_STYLES, type ClaimStatus } from './claims-api'
+import { claimView, TONE_STYLES, type ClaimStatus } from './claims-api'
 
 /** Status as a shape as well as a word, so the queue reads at a glance. */
-export function ClaimStatusChip({ status, className }: { status: ClaimStatus; className?: string }) {
-  const { label, tone } = CLAIM_STATUS_COPY[status]
+export function ClaimStatusChip({
+  status,
+  collectedAt,
+  className,
+}: {
+  status: ClaimStatus
+  collectedAt?: string | null
+  className?: string
+}) {
+  const { label, tone } = claimView({ status, collectedAt })
 
   return (
     <span

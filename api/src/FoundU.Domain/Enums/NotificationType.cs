@@ -34,5 +34,11 @@ public enum NotificationType
     HandoverStarted,
 
     /// <summary>The finder changed their mind before handing it in.</summary>
-    HandoverCancelled
+    HandoverCancelled,
+
+    /// <summary>
+    /// To the owner, the moment the desk hands their item over: a receipt, and an alarm if it
+    /// was not them who collected it.
+    /// </summary>
+    ItemCollected
 }

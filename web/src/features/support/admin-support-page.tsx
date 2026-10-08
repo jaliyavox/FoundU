@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon, ClockIcon, InboxIcon, Loader2Icon, UserRoundIcon } from 'lucide-react'
+import { ArrowLeftIcon, ClockIcon, InboxIcon, Loader2Icon, Trash2Icon, UserRoundIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-panel'
@@ -11,6 +11,7 @@ import { useAuth } from '@/features/auth/use-auth'
 import { ApiError } from '@/lib/api/client'
 import { AssistantBadge } from './assistant-badge'
 import { TicketThread } from './ticket-thread'
+import { ConfirmDeleteDialog } from '@/features/admin/confirm-delete-dialog'
 import {
   CATEGORY_LABELS,
   STATUS_LABELS,
@@ -18,6 +19,7 @@ import {
   getSupportStats,
   getTicket,
   updateTicket,
+  deleteTicket,
   type TicketStatus,
 } from './support-api'
 
@@ -176,6 +178,7 @@ function Figure({ value, label, emphasis }: { value: number; label: string; emph
 function QueueTicket({ id, onBack }: { id: string; onBack: () => void }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['support-ticket', id],
@@ -191,6 +194,19 @@ function QueueTicket({ id, onBack }: { id: string; onBack: () => void }) {
       toast.success('Ticket updated.')
     },
     onError: error => toast.error(error instanceof ApiError ? error.message : 'Could not update the ticket.'),
+  })
+
+  const remove = useMutation({
+    mutationFn: () => deleteTicket(id),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['support-ticket', id] })
+      queryClient.invalidateQueries({ queryKey: ['support-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['support-stats'] })
+      toast.success('Ticket deleted.')
+      setConfirmingDelete(false)
+      onBack()
+    },
+    onError: error => toast.error(error instanceof ApiError ? error.message : 'Could not delete the ticket.'),
   })
 
   return (
@@ -251,12 +267,40 @@ function QueueTicket({ id, onBack }: { id: string; onBack: () => void }) {
                   Assign to me
                 </Button>
               )}
+
+              {/* Staff answer tickets; only an admin may remove one. The API enforces it too. */}
+              {user?.role === 'Admin' && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto text-destructive hover:text-destructive"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  <Trash2Icon aria-hidden="true" />
+                  Delete ticket
+                </Button>
+              )}
             </div>
           </DashboardPanel>
 
           <DashboardPanel>
             <TicketThread ticket={data} />
           </DashboardPanel>
+
+          <ConfirmDeleteDialog
+            open={confirmingDelete}
+            title="Delete this ticket?"
+            confirmLabel="Delete ticket"
+            pending={remove.isPending}
+            onConfirm={() => remove.mutate()}
+            onClose={() => setConfirmingDelete(false)}
+          >
+            <span>
+              "{data.subject}" and its conversation disappear from the queue and from{' '}
+              {data.raisedByName}'s list of tickets. Use this for spam, duplicates or tickets opened
+              by mistake; to finish a real request, mark it Resolved or Closed instead.
+            </span>
+          </ConfirmDeleteDialog>
         </>
       )}
     </section>

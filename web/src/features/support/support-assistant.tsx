@@ -81,17 +81,19 @@ export function SupportAssistant({ onTicketOpened }: { onTicketOpened: (id: stri
         )}
       </div>
 
-      <ol role="log" aria-label="Conversation with the support assistant" aria-live="polite" className="flex flex-col gap-4">
-        {turns.map((turn, index) => (
-          <li key={index} className={turn.role === 'user' ? 'ml-8 rounded-xl bg-muted p-3' : 'flex gap-3'}>
-            {turn.role === 'assistant' && <BotIcon className="mt-1 size-4 shrink-0 text-brand-green" aria-hidden="true" />}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">{turn.role === 'user' ? 'You' : 'FoundU assistant'}</p>
-              <p className="pt-1 text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+      <div role="log" aria-label="Conversation with the support assistant" aria-live="polite">
+        <ol className="flex flex-col gap-4">
+          {turns.map((turn, index) => (
+            <li key={index} className={turn.role === 'user' ? 'ml-8 rounded-xl bg-muted p-3' : 'flex gap-3'}>
+              {turn.role === 'assistant' && <BotIcon className="mt-1 size-4 shrink-0 text-brand-green" aria-hidden="true" />}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{turn.role === 'user' ? 'You' : 'FoundU assistant'}</p>
+                <p className="pt-1 text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
 
       {ask.isPending && (
         <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -155,7 +157,9 @@ function DraftTicket({ draft, onSent }: { draft: TicketDraft; onSent: (id: strin
     mutationFn: () => createTicket({ subject: subject.trim(), category, body: body.trim(), viaAssistant: true }),
     onSuccess: ticket => {
       queryClient.invalidateQueries({ queryKey: ['my-tickets'] })
-      toast.success('Sent to the support team. They will answer on the ticket.')
+      toast.success(ticket.addedToExisting
+        ? `Added to your ticket "${ticket.subject}" and back with the support team.`
+        : 'Sent to the support team. They will answer on the ticket.')
       onSent(ticket.id)
     },
     onError: error => toast.error(error instanceof ApiError ? error.message : 'Could not send the ticket.'),

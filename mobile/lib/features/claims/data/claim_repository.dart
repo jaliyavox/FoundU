@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,7 +7,7 @@ import '../../../core/api/api_exception.dart';
 import 'claim_models.dart';
 
 final claimRepositoryProvider = Provider<ClaimRepository>(
-    (ref) => ClaimRepository(ref.watch(apiClientProvider)));
+    (ref) { ref.watch(authSessionEpochProvider); return ClaimRepository(ref.watch(apiClientProvider)); });
 
 class ClaimRepository {
   ClaimRepository(this._dio);
@@ -26,6 +27,19 @@ class ClaimRepository {
     try {
       return ClaimDetail.fromJson(
           (await _dio.get<Map<String, dynamic>>('/api/claims/$id')).data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// A claim by someone who never reported the item lost: their own words stand in for the
+  /// report, and the desk asks its questions on the claim as usual.
+  Future<ClaimDetail> claimWithoutReport(String foundReportId, String description) async {
+    try {
+      return ClaimDetail.fromJson((await _dio.post<Map<String, dynamic>>(
+              '/api/claims/without-report',
+              data: {'foundReportId': foundReportId, 'description': description}))
+          .data!);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

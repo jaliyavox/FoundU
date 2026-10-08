@@ -22,5 +22,11 @@ public interface ISupportService
     /// <summary>Status and assignment. Staff only.</summary>
     Task<SupportTicketDetailDto> UpdateAsync(Guid id, Guid staffId, UpdateSupportTicketRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Removes a ticket and its conversation from the queue and from the student's list.
+    /// Admin only. Soft: the rows stay for the audit trail, out of every query.
+    /// </summary>
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
     Task<SupportQueueStatsDto> GetQueueStatsAsync(CancellationToken cancellationToken = default);
 }

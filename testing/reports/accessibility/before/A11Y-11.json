@@ -1,0 +1,17 @@
+{
+  "id": "A11Y-11",
+  "path": "/items/new",
+  "as": "staff",
+  "passes": 25,
+  "violations": [
+    {
+      "rule": "button-name",
+      "impact": "critical",
+      "help": "Buttons must have discernible text",
+      "nodes": 2,
+      "sample": [
+        "#found-at-hour"
+      ]
+    }
+  ]
+}

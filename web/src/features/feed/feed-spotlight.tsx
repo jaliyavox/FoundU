@@ -156,7 +156,7 @@ export function FeedSpotlight({
               {item.description}
             </p>
 
-            <div className="flex items-center gap-2 pt-3 text-xs text-white/40">
+            <div className="flex items-center gap-2 pt-3 text-xs text-white/65">
               <span className="flex size-5 items-center justify-center rounded-full bg-brand-green/20 text-[10px] font-medium text-brand-green">
                 {initials}
               </span>

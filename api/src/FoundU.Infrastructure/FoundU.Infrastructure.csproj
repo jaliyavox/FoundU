@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <EmbeddedResource Include="Claims\verification_grounding.json" LogicalName="VerificationGrounding.json" />
+    <InternalsVisibleTo Include="FoundU.Tests" />
     <ProjectReference Include="..\FoundU.Application\FoundU.Application.csproj" />
     <ProjectReference Include="..\FoundU.Domain\FoundU.Domain.csproj" />
   </ItemGroup>

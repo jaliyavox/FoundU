@@ -1,0 +1,7 @@
+{
+  "id": "A11Y-02",
+  "path": "/login",
+  "as": "anonymous",
+  "passes": 22,
+  "violations": []
+}

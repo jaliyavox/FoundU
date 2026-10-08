@@ -26,7 +26,7 @@ describe('AI matching UI feedback', () => {
       recommendation: 'match_candidate',
       score: 0.85,
       suggestion: { matchScore: 0.85 },
-    } as never)).toBe('AI-assisted match suggestion created (score 0.85).')
+    } as never)).toBe('AI-assisted match suggestion created (match score 85%).')
   })
 
   it('clears transient AI feedback when the dialog closes before it is reopened', () => {
@@ -35,7 +35,7 @@ describe('AI matching UI feedback', () => {
   })
 
   it('uses safe failure copy that preserves the manual workflow', () => {
-    expect(aiMatchFailureMessage(409)).toContain('create a match manually')
+    expect(aiMatchFailureMessage(409)).toBe('This item has already been suggested for that lost report.')
     expect(aiMatchFailureMessage(503)).toBe('AI-assisted matching is unavailable. You can still create a match manually.')
   })
 })

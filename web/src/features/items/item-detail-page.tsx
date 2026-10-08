@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { DashboardPanel, PanelDivider } from '@/components/layout/dashboard-panel'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getSuggestionsForItem } from '@/features/claims/claims-api'
+import { getReviewCandidatesForItem, getSuggestionsForItem } from '@/features/claims/claims-api'
 import { formatDateTime, getStorageLocations } from '@/features/reports/reports-api'
 import { FormSelect } from '@/features/reports/form-select'
 import { Label } from '@/components/ui/label'
@@ -26,8 +26,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
-import { type FoundReportDetail, confirmFoundPost, getItem, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
+import { type FoundReportDetail, confirmFoundPost, searchLostReports, getItem, ITEM_STATUS_LABELS, ITEM_STATUS_STYLES } from './items-api'
 import { LinkReportDialog } from './link-report-dialog'
+import { InPersonHandoverDialog } from './in-person-handover-dialog'
 
 /**
  * One item, as the desk sees it - including the hidden detail that verification rests on.
@@ -39,6 +40,7 @@ import { LinkReportDialog } from './link-report-dialog'
 export function ItemDetailPage() {
   const { id = '' } = useParams()
   const [linking, setLinking] = useState(false)
+  const [inPerson, setInPerson] = useState(false)
 
   const { data: item, isPending, isError, error, refetch } = useQuery({
     queryKey: ['found-item', id],
@@ -49,6 +51,18 @@ export function ItemDetailPage() {
     queryKey: ['item-suggestions', id],
     queryFn: () => getSuggestionsForItem(id),
     enabled: Boolean(item),
+  })
+  const { data: reviewCandidates } = useQuery({
+    queryKey: ['item-match-reviews', id],
+    queryFn: () => getReviewCandidatesForItem(id),
+    enabled: Boolean(item),
+  })
+
+  const eligible = useQuery({
+    queryKey: ['eligible-reports-for-item', id, suggestions?.length],
+    queryFn: () => searchLostReports(1, 1, undefined, item!, true),
+    enabled: Boolean(item),
+    refetchInterval: 5000,
   })
 
   if (isPending) {
@@ -165,6 +179,21 @@ export function ItemDetailPage() {
         )}
       </DashboardPanel>
 
+      {item.status === 'Unclaimed' && (
+        <DashboardPanel className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-base font-medium">Owner at the desk?</h2>
+            <p className="pt-1 text-sm text-muted-foreground">
+              No lost report needed. Ask them about it face to face, check their student ID, and hand it over.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setInPerson(true)}>
+            <UserIcon aria-hidden="true" />
+            Owner here in person
+          </Button>
+        </DashboardPanel>
+      )}
+
       <DashboardPanel className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -174,10 +203,12 @@ export function ItemDetailPage() {
             </p>
           </div>
 
-          {(item.status === 'Unclaimed' || item.status === 'Posted') && (
+          {(item.status === 'Unclaimed' || item.status === 'Posted') && (!item.finderName || (eligible.data?.totalCount ?? 0) > 0 || (reviewCandidates?.length ?? 0) > 0) && (
             <Button variant="outline" onClick={() => setLinking(true)}>
               <LinkIcon aria-hidden="true" />
-              Suggest to a report
+              {(reviewCandidates?.length ?? 0) > 0
+                ? `Review ${reviewCandidates!.length} possible ${reviewCandidates!.length === 1 ? 'pair' : 'pairs'}`
+                : item.finderName && (suggestions?.length ?? 0) > 0 ? 'Suggest to another report' : 'Suggest to a report'}
             </Button>
           )}
         </div>
@@ -195,6 +226,13 @@ export function ItemDetailPage() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm">{suggestion.lostReportDescription}</p>
+                  {suggestion.isAgentGenerated && suggestion.matchScore != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Possible match · {Math.round(suggestion.matchScore * 100)}% match score
+                    </p>
+                  )}
+                  {suggestion.note && <p className="text-xs text-muted-foreground">{suggestion.note}</p>}
+                  {suggestion.matchReason && <p className="text-xs text-muted-foreground">{suggestion.matchReason}</p>}
                   <p className="text-xs text-muted-foreground">
                     {suggestion.status === 'Confirmed'
                       ? 'They opened a claim'
@@ -223,6 +261,7 @@ export function ItemDetailPage() {
       </DashboardPanel>
 
       <LinkReportDialog item={item} open={linking} onOpenChange={setLinking} />
+      <InPersonHandoverDialog item={item} open={inPerson} onOpenChange={setInPerson} />
     </section>
   )
 }
@@ -306,6 +345,9 @@ function ConfirmPostPanel({ item }: { item: FoundReportDetail }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['found-item', item.id] })
       queryClient.invalidateQueries({ queryKey: ['found-items'] })
+      queryClient.invalidateQueries({ queryKey: ['item-suggestions', item.id] })
+      queryClient.invalidateQueries({ queryKey: ['match-suggestions'] })
+      queryClient.invalidateQueries({ queryKey: ['found-feed'] })
       toast.success('Confirmed. It is in storage and can be claimed now.')
     },
     onError: (error) => {

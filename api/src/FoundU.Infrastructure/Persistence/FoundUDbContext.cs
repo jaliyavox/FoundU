@@ -24,6 +24,7 @@ public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
 
     public DbSet<LostReport> LostReports => Set<LostReport>();
     public DbSet<LostItemPhoto> LostItemPhotos => Set<LostItemPhoto>();
+    public DbSet<StoredPhoto> StoredPhotos => Set<StoredPhoto>();
     public DbSet<LostReportStatusHistory> LostReportStatusHistories => Set<LostReportStatusHistory>();
     public DbSet<LostReportMessage> LostReportMessages => Set<LostReportMessage>();
     public DbSet<LostReportFoundClaim> LostReportFoundClaims => Set<LostReportFoundClaim>();
@@ -37,6 +38,8 @@ public class FoundUDbContext : IdentityUserContext<AppUser, Guid>
 
     public DbSet<MatchSuggestion> MatchSuggestions => Set<MatchSuggestion>();
     public DbSet<MatchStatusHistory> MatchStatusHistories => Set<MatchStatusHistory>();
+
+    public DbSet<FoundVerificationEvidence> FoundVerificationEvidence => Set<FoundVerificationEvidence>();
 
     public DbSet<Claim> Claims => Set<Claim>();
     public DbSet<VerificationQuestion> VerificationQuestions => Set<VerificationQuestion>();

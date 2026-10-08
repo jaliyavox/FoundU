@@ -159,7 +159,17 @@ def test_fastapi_matching_path_uses_lifespan_composed_read_only_registry():
 
     assert registry is not None
     assert response.status_code == 200
-    assert response.json()["output"] == {"recommendation": "match_candidate", "score": 1.0}
+    assert response.json()["output"] == {
+        "recommendation": "manual_review",
+        "score": 0.2,
+        "matched_factors": ["Reported primary colour matched (20/20)."],
+        "missing_factors": [
+            "Comparable public identifying details are missing (0/35).",
+            "Structured location evidence is incomplete (0/20).",
+            "Reported time evidence is incomplete (0/25).",
+        ],
+        "conflicting_factors": [],
+    }
     assert response.json()["trace"][2:6] == [
         "tool:attempt:getLostReportDetails",
         "tool:success:getLostReportDetails",

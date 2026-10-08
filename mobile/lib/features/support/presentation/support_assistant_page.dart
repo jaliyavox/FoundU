@@ -273,7 +273,11 @@ class _DraftTicketState extends ConsumerState<_DraftTicket> {
       ref.invalidate(myTicketsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sent to the support team. They will answer on the ticket.')),
+        SnackBar(
+          content: Text(ticket.addedToExisting
+              ? 'Added to your ticket "${ticket.subject}" and back with the support team.'
+              : 'Sent to the support team. They will answer on the ticket.'),
+        ),
       );
       context.pushReplacement('/profile/support/${ticket.id}');
     } on ApiException catch (error) {

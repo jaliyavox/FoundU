@@ -149,9 +149,13 @@ public static class DependencyInjection
         services.AddScoped<IFoundPostService, FoundPostService>();
         services.AddScoped<ILostReportService, LostReportService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<IAccountDeletionService, AccountDeletionService>();
         services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
         services.AddScoped<IClaimService, ClaimService>();
         services.AddScoped<IIntakeService, IntakeService>();
+        // Wakes the AI service with the API and keeps it awake while the API is in use.
+        services.AddHttpClient(nameof(AiWarmupService));
+        services.AddHostedService<AiWarmupService>();
         services.AddHttpClient<IIntakeAgentClient, IntakeAgentClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
@@ -221,7 +225,10 @@ public static class DependencyInjection
                 client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
         });
-        services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
+        // In the database rather than on disk: a host that wipes its disk on every deploy
+        // (Render's free plan) kept the photo rows and lost the files. Photos saved on disk
+        // before this keep being served from wwwroot.
+        services.AddScoped<IPhotoStorage, DatabasePhotoStorage>();
 
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
 

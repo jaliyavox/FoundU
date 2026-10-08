@@ -37,6 +37,36 @@ public class ClaimsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
+    /// <summary>
+    /// A claim on an item at a desk by someone who never reported it lost. Staff then ask their
+    /// questions on it like any other claim.
+    /// </summary>
+    [HttpPost("without-report")]
+    [Authorize(Policy = PolicyNames.Student)]
+    public async Task<ActionResult<ClaimDetailDto>> ClaimWithoutReport(
+        [FromBody] ClaimWithoutReportRequest request,
+        CancellationToken cancellationToken)
+    {
+        var created = await _claims.ClaimWithoutReportAsync(request, User.GetUserId(), cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+    }
+
+    /// <summary>The owner is at the desk: staff verified them face to face and hand it over now.</summary>
+    [HttpPost("in-person")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<ClaimDetailDto>> HandOverInPerson(
+        [FromBody] InPersonHandoverRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _claims.HandOverInPersonAsync(request, User.GetUserId(), cancellationToken));
+
+    /// <summary>Student accounts for the desk to hand an item over to.</summary>
+    [HttpGet("students")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<IReadOnlyList<DeskStudentDto>>> FindStudents(
+        [FromQuery] string search,
+        CancellationToken cancellationToken)
+        => Ok(await _claims.FindStudentsAsync(search ?? string.Empty, cancellationToken));
+
     /// <summary>The staff review queue, oldest first - longest wait is worked next.</summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.Staff)]
@@ -78,6 +108,17 @@ public class ClaimsController : ControllerBase
     [Authorize(Policy = PolicyNames.Staff)]
     public async Task<ActionResult<ClaimDetailDto>> GenerateQuestions(Guid id, CancellationToken cancellationToken)
         => Ok(await _claims.GenerateQuestionsAsync(id, User.GetUserId(), cancellationToken));
+
+    [HttpPost("{id:guid}/follow-up")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<ClaimDetailDto>> RequestFollowUp(
+        Guid id, [FromBody] RequestClaimFollowUp request, CancellationToken cancellationToken)
+        => Ok(await _claims.RequestFollowUpAsync(id, User.GetUserId(), request, cancellationToken));
+
+    [HttpPost("{id:guid}/follow-up/draft")]
+    [Authorize(Policy = PolicyNames.Staff)]
+    public async Task<ActionResult<object>> DraftFollowUp(Guid id, [FromBody] RequestClaimFollowUp request, CancellationToken cancellationToken)
+        => Ok(new { Question = await _claims.DraftFollowUpAsync(id, User.GetUserId(), request, cancellationToken) });
 
     /// <summary>The student answering. Every outstanding question must be answered at once.</summary>
     [HttpPost("{id:guid}/answers")]

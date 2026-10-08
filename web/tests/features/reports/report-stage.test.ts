@@ -1,35 +1,50 @@
 import { describe, expect, it } from 'vitest'
-import { elapsedSince, LIFECYCLE, stageOf } from '../../../src/features/reports/report-stage'
+import { elapsedSince, finderContacted, LIFECYCLE, progressDetail, stageLabel, stageOf } from '../../../src/features/reports/report-stage'
 
 describe('stageOf', () => {
-  it('starts at Reported for a fresh active report', () => {
-    expect(stageOf({ status: 'Active', foundClaimCount: 0, messageCount: 0 })).toBe(0)
+  const states = [
+    ['newly reported', 'Active', 'Reported', 0, 0, 0, null],
+    ['finder contacted owner', 'Active', 'Reported', 1, 0, 0, null],
+    ['suggestion created', 'Active', 'PossibleMatch', 0, 0, 1, null],
+    ['claim submitted', 'Matched', 'ClaimSubmitted', 0, 0, 2, null],
+    ['verification questions', 'Matched', 'VerificationQuestions', 0, 0, 2, 'Verification questions available'],
+    ['follow-up requested', 'Matched', 'RevisionRequested', 0, 0, 2, 'More information requested for your claim'],
+    ['claim under review', 'Matched', 'ClaimUnderReview', 0, 0, 2, 'Claim under staff review'],
+    ['claim approved but still at desk', 'Matched', 'ClaimApproved', 0, 0, 2, 'Claim approved; item awaiting collection'],
+    ['finder pressed "I found this"', 'Active', 'FinderFound', 1, 0, 1, 'A finder says they have it - check your messages'],
+    ['finder walking it to the desk', 'Active', 'FinderOnTheWay', 1, 0, 1, 'A finder is taking it to the security desk'],
+    ['finder handed it in, no claim', 'Matched', 'AtDesk', 1, 0, 2, 'At the security desk - collect it with your collection code and student ID'],
+    ['approved and returned', 'Resolved', 'Resolved', 0, 0, 3, null],
+    ['rejected claim', 'Active', 'Reported', 0, 0, 0, null],
+    ['withdrawn report', 'Withdrawn', 'Reported', 0, 0, 0, 'Withdrawn; no longer being matched'],
+  ] as const
+
+  it.each(states)('%s', (_name, status, progressStage, foundClaimCount, messageCount, stage, detail) => {
+    expect(stageOf({ status, progressStage })).toBe(stage)
+    expect(finderContacted({ foundClaimCount, messageCount })).toBe(foundClaimCount > 0 || messageCount > 0)
+    expect(progressDetail({ status, progressStage })).toBe(detail)
   })
 
-  it('advances when someone presses "I found this", even with no message', () => {
-    expect(stageOf({ status: 'Active', foundClaimCount: 1, messageCount: 0 })).toBe(1)
+  it('a finder message alone signals contact without implying a suggestion', () => {
+    expect(finderContacted({ foundClaimCount: 0, messageCount: 1 })).toBe(true)
+    expect(stageOf({ status: 'Active', progressStage: 'Reported' })).toBe(0)
   })
 
-  it('advances on a message alone - a message on a lost report only ever means "found it"', () => {
-    expect(stageOf({ status: 'Active', foundClaimCount: 0, messageCount: 1 })).toBe(1)
+  it('does not infer a claim or custody from legacy Matched without progressStage', () => {
+    expect(stageOf({ status: 'Matched' })).toBe(0)
   })
 
-  it('reads Matched as "at the guard desk" regardless of finder signals', () => {
-    expect(stageOf({ status: 'Matched', foundClaimCount: 0, messageCount: 0 })).toBe(2)
-  })
-
-  it('reads Resolved as Returned', () => {
-    expect(stageOf({ status: 'Resolved', foundClaimCount: 5, messageCount: 5 })).toBe(3)
-  })
-
-  it('treats a stale payload without counts as not found yet, rather than crashing', () => {
-    // An API build that predates foundClaimCount sends undefined; undefined > 0 is false.
-    expect(stageOf({ status: 'Active' } as never)).toBe(0)
+  it('names the finder route in the pill, and the usual stages otherwise', () => {
+    expect(stageLabel({ status: 'Active', progressStage: 'FinderFound' })).toBe('Finder Has It')
+    expect(stageLabel({ status: 'Active', progressStage: 'FinderOnTheWay' })).toBe('On Its Way to the Desk')
+    expect(stageLabel({ status: 'Matched', progressStage: 'AtDesk' })).toBe('At the Desk')
+    expect(stageLabel({ status: 'Matched', progressStage: 'ClaimUnderReview' })).toBe('Claim Submitted')
+    expect(stageLabel({ status: 'Resolved', progressStage: 'Resolved' })).toBe('Back with Owner')
   })
 
   it('has one label per stage', () => {
     expect(LIFECYCLE).toHaveLength(4)
-    expect(LIFECYCLE[3]).toBe('Returned')
+    expect(LIFECYCLE).toEqual(['Reported', 'Possible Match', 'Claim Submitted', 'Back with Owner'])
   })
 })
 

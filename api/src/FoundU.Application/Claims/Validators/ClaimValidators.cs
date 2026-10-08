@@ -14,6 +14,31 @@ public class CreateClaimRequestValidator : AbstractValidator<CreateClaimRequest>
     }
 }
 
+public class ClaimWithoutReportRequestValidator : AbstractValidator<ClaimWithoutReportRequest>
+{
+    public ClaimWithoutReportRequestValidator()
+    {
+        RuleFor(x => x.FoundReportId).NotEmpty();
+        RuleFor(x => x.Description)
+            .NotEmpty()
+            .MinimumLength(10).WithMessage("Describe your item in a sentence or two, in your own words.")
+            .MaximumLength(1000);
+    }
+}
+
+public class InPersonHandoverRequestValidator : AbstractValidator<InPersonHandoverRequest>
+{
+    public InPersonHandoverRequestValidator()
+    {
+        RuleFor(x => x.FoundReportId).NotEmpty();
+        RuleFor(x => x.StudentId).NotEmpty();
+        RuleFor(x => x.VerificationNotes)
+            .NotEmpty()
+            .MinimumLength(10).WithMessage("Note what you asked and what they answered.")
+            .MaximumLength(500);
+    }
+}
+
 public class AddVerificationQuestionsRequestValidator : AbstractValidator<AddVerificationQuestionsRequest>
 {
     public AddVerificationQuestionsRequestValidator()

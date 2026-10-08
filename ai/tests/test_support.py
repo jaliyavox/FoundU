@@ -58,12 +58,20 @@ def test_a_live_handover_is_named_with_the_time_left():
 
 
 def test_something_only_the_desk_can_fix_goes_straight_to_a_ticket():
-    out = run([user("I forgot my password and I'm locked out")])
+    out = run([user("My account was suspended and I don't know why")])
 
     assert out["phase"] == "escalate"
     assert out["ticket"]["category"] == "Account"
-    assert "forgot my password" in out["ticket"]["body"]
+    assert "account was suspended" in out["ticket"]["body"]
     assert "needs the desk" in out["ticket"]["body"]
+
+
+def test_a_forgotten_password_is_answered_with_the_self_service_reset():
+    out = run([user("I forgot my password and I'm locked out")])
+
+    assert out["phase"] == "answered"
+    assert out["topic"] == "cannot_sign_in"
+    assert "Forgot password?" in out["reply"]
 
 
 def test_that_did_not_help_escalates_the_topic_it_was_about():

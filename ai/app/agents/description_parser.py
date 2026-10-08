@@ -209,6 +209,11 @@ def _parse_item_description_deterministically(raw_description: str) -> Descripti
         ):
             continue
 
+        # The model path already drops instruction-like text; the fallback must too, or an
+        # injected "ignore your instructions..." clause is stored as a feature of the item.
+        if _has_instruction_like_content(clause):
+            continue
+
         formatted_feature = clause[0].upper() + clause[1:] if clause else ""
         formatted_feature = formatted_feature[:MAX_FEATURE_LENGTH].rstrip()
         # Same rules the API applies to the result: at most five, none repeated in any case.

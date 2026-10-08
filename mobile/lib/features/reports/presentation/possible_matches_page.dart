@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'providers/report_providers.dart';
+import '../data/report_repository.dart';
+import '../../claims/data/claim_models.dart';
+import '../../claims/presentation/providers/claim_providers.dart';
 
 class PossibleMatchesPage extends ConsumerWidget {
   final String reportId;
@@ -12,6 +15,7 @@ class PossibleMatchesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final busy = ref.watch(claimControllerProvider).isLoading;
     final matchesAsync = ref.watch(possibleMatchesProvider(reportId));
     final dateFormat = DateFormat('MMM d, yyyy  h:mm a');
 
@@ -150,7 +154,7 @@ class PossibleMatchesPage extends ConsumerWidget {
                                             size: 14, color: Colors.white),
                                         const SizedBox(width: 4),
                                         Text(
-                                          '$scorePercentage% MATCH',
+                                          'Match score $scorePercentage%',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 11,
@@ -240,6 +244,10 @@ class PossibleMatchesPage extends ConsumerWidget {
                             ),
                             const SizedBox(height: 10),
 
+                            if (item.storageLocationName != null) ...[
+                              Text('At security — Claim now: ${item.storageLocationName}'),
+                              const SizedBox(height: 8),
+                            ],
                             // General Description
                             Text(
                               item.generalDescription,
@@ -249,6 +257,10 @@ class PossibleMatchesPage extends ConsumerWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
 
+                            if (match.matchReason != null) ...[
+                              const SizedBox(height: 8),
+                              Text(match.matchReason!, style: const TextStyle(fontSize: 12, color: Colors.teal)),
+                            ],
                             if (match.note != null &&
                                 match.note!.isNotEmpty) ...[
                               const SizedBox(height: 8),
@@ -263,13 +275,45 @@ class PossibleMatchesPage extends ConsumerWidget {
 
                             const SizedBox(height: 14),
 
-                            // Action footer
+                            if (match.claimId == null) const Text('Is this your item?'),
+                            if (match.claimId == null) TextButton(
+                              onPressed: busy ? null : () async {
+                                try {
+                                  await ref.read(reportRepositoryProvider).dismissMatch(match.id);
+                                  ref.invalidate(possibleMatchesProvider(reportId));
+                                  ref.invalidate(foundItemMatchesProvider(match.foundItem.id));
+                                  ref.invalidate(myReportsProvider);
+                                  ref.invalidate(reportDetailProvider(reportId));
+                                } catch (_) {
+                                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not dismiss this suggestion.')));
+                                }
+                              }, child: const Text('No, this is not mine')),
+                            // Action footer. Still with the finder: nothing is at a desk to
+                            // claim yet, and the API refuses - so say when it can be claimed.
+                            if (item.status == 'Posted')
+                              const Text(
+                                'The finder still has this item. You can claim it after it is handed to security.',
+                                style: TextStyle(fontSize: 13, color: Color(0xFF8A5A00)),
+                              )
+                            else if (match.claimId != null)
+                              TextButton(
+                                onPressed: () => context.push('/claims/${match.claimId}'),
+                                child: const Text('View claim'),
+                              )
+                            else if (item.status == 'Unclaimed')
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: () => context.push(
-                                      '/claims/new?lostReportId=$reportId&foundReportId=${item.id}'),
+                                  onPressed: busy ? null : () async {
+                                    try {
+                                      final claim = await ref.read(claimControllerProvider.notifier).create(
+                                        CreateClaimRequest(lostReportId: match.lostReportId, foundReportId: item.id, matchSuggestionId: match.id));
+                                      if (context.mounted) context.push('/claims/${claim.id}');
+                                    } catch (_) {
+                                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not submit claim. Please refresh and try again.')));
+                                    }
+                                  },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF2E7D32),
                                     foregroundColor: Colors.white,
@@ -278,7 +322,7 @@ class PossibleMatchesPage extends ConsumerWidget {
                                             BorderRadius.circular(10)),
                                   ),
                                   icon: const Icon(Icons.verified, size: 18),
-                                  label: const Text('Start claim'),
+                                  label: const Text('Yes, submit a claim'),
                                 ),
                               ],
                             ),

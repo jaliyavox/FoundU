@@ -4,6 +4,8 @@ Shared contracts and documentation that web, mobile and AI code against.
 
 Available now:
 
+- [`startup.md`](startup.md) — how to start PostgreSQL, the AI service, the API, the web app
+  and the mobile app locally, and how Render starts them in production.
 - [`design.md`](design.md) — web UI conventions: design tokens, component rules, folder
   structure, data fetching, required loading/empty/error states, accessibility checklist.
   Read before writing screens in `/web`.
@@ -13,9 +15,3 @@ Available now:
   criteria, owner and how each was verified.
 - [`testing/evaluation-guide.md`](testing/evaluation-guide.md) — the four-member split, demo
   scripts, tests to show, viva questions and a shared rubric.
-
-Planned documents:
-
-- `api-conventions.md` — auth flow, error envelope, pagination, endpoint naming (Step 3)
-- ER diagram, architecture and sequence diagrams (Step 16)
-- Endpoint reference table and agent docs (Step 16)

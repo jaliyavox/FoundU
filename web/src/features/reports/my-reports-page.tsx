@@ -46,7 +46,7 @@ import { ItemMedia } from '@/features/feed/item-media'
 import { SuggestionsPanel } from '@/features/claims/suggestions-panel'
 import { MessageThread } from '@/features/feed/message-thread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { elapsedSince, LIFECYCLE, stageOf } from './report-stage'
+import { elapsedSince, finderContacted, LIFECYCLE, progressDetail, stageLabel, stageOf } from './report-stage'
 import { WithdrawDialog } from './withdraw-dialog'
 import { HandoverNotice } from './handover-notice'
 import { GotItBackDialog } from './got-it-back-dialog'
@@ -251,7 +251,7 @@ export function MyReportsPage() {
               setPage(1)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by category">
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
             <SelectContent>
@@ -271,7 +271,7 @@ export function MyReportsPage() {
               setPage(1)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by location">
               <SelectValue placeholder="All locations" />
             </SelectTrigger>
             <SelectContent>
@@ -291,7 +291,7 @@ export function MyReportsPage() {
               setPage(1)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by status">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -314,7 +314,7 @@ export function MyReportsPage() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-8 text-xs w-[140px]">
+              <SelectTrigger aria-label="Sort by" className="h-8 text-xs w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -501,7 +501,19 @@ function FoundPostCard({
 }) {
   const isPosted = post.status === 'Posted'
   const isDeclared = Boolean(post.handedToSecurityAt)
-  const isConfirmedByStaff = post.status !== 'Posted'
+  // Where the item actually is, in the same words the found board uses.
+  const stage =
+    post.status === 'Unclaimed' ? 'At the security desk'
+    : post.status === 'Claimed' ? 'Owner on the way'
+    : post.status === 'Returned' ? 'Back with its owner'
+    : post.status === 'Disposed' ? 'Taken down'
+    : isDeclared ? 'Waiting for staff'
+    : 'Still with you'
+  const afterHandIn =
+    post.status === 'Unclaimed' ? 'Security has it in storage. The owner can claim it now - thank you.'
+    : post.status === 'Claimed' ? 'Its owner has proved it is theirs and is collecting it from security.'
+    : post.status === 'Returned' ? 'It is back with its owner. Thank you for handing it in.'
+    : null
 
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-foreground/10 bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -510,9 +522,7 @@ function FoundPostCard({
           <h3 className="truncate text-sm font-medium">
             {[post.primaryColor, post.itemTypeName].filter(Boolean).join(' ')}
           </h3>
-          <Badge variant="outline">
-            {isConfirmedByStaff ? 'Gave to staff' : isDeclared ? 'Waiting for staff' : 'Still with you'}
-          </Badge>
+          <Badge variant="outline">{stage}</Badge>
         </div>
         <p className="pt-1 text-xs text-muted-foreground">
           {post.categoryName} · found at {post.foundLocationName} · {timeAgo(post.createdAt)}
@@ -523,6 +533,7 @@ function FoundPostCard({
             Desk code: <span className="font-mono font-medium tracking-wider text-foreground">{displayCode(post.handInCode)}</span>
           </p>
         )}
+        {afterHandIn && <p className="pt-2 text-xs text-brand-green">{afterHandIn}</p>}
         {isDeclared && isPosted && (
           <p className="pt-2 text-xs text-amber-700 dark:text-amber-300">
             Pending staff confirmation. The item is not claimable until security logs receipt.
@@ -540,9 +551,12 @@ function FoundPostCard({
   )
 }
 
-/** Knob position per stage. The ends stop short of the edges so they stay dots on a track
- *  rather than caps on it. */
-const STAGE_OFFSET = ['3%', '35%', '67%', '97%']
+/** Knob position per stage. The ends sit one knob-radius (10px) in from each edge, so the
+ *  first and last knobs touch the ends of the track exactly, at any card width. */
+const STAGE_OFFSET = ['10px', '35%', '65%', 'calc(100% - 10px)']
+
+/** How much of the track is filled: all of it once the item is back with its owner. */
+const STAGE_FILL = ['10px', '35%', '65%', '100%']
 
 /** Which end the pill hangs from, so it never runs off a narrow card. */
 const PILL_ALIGN = ['left-0', '-translate-x-1/2', '-translate-x-1/2', 'right-0'] as const
@@ -571,6 +585,7 @@ function ReportCard({
 }) {
   const isWithdrawn = report.status === 'Withdrawn'
   const stage = stageOf(report)
+  const detail = progressDetail(report)
   const { value, unit } = elapsedSince(report.createdAt)
 
   return (
@@ -611,7 +626,7 @@ function ReportCard({
             <div className="flex items-center gap-2">
               <h2 className="truncate font-medium hover:underline">{report.itemTypeName}</h2>
               <Badge variant="outline" className="text-[10px] uppercase">
-                {report.status}
+                {report.status === 'Matched' ? 'In progress' : report.status}
               </Badge>
             </div>
             <p className="truncate text-sm text-muted-foreground">
@@ -688,7 +703,7 @@ function ReportCard({
         {!isWithdrawn && <HandoverNotice reportId={report.id} />}
 
         {/* Found notice */}
-        {!isWithdrawn && report.foundClaimCount > 0 && (
+        {!isWithdrawn && finderContacted(report) && (
           <p className="fu-appear flex items-start gap-2.5 rounded-xl border border-brand-green/35 bg-brand-green/10 p-3 text-sm">
             <BellRingIcon
               className="mt-0.5 size-4 shrink-0 text-brand-forest dark:text-brand-sage"
@@ -696,7 +711,7 @@ function ReportCard({
             />
             <span>
               <span className="font-medium">
-                {report.foundClaimCount === 1
+                {report.foundClaimCount <= 1
                   ? 'Someone says they found this'
                   : `${report.foundClaimCount} people say they found this`}
               </span>
@@ -732,6 +747,7 @@ function ReportCard({
 
         {/* Track */}
         <div className="flex flex-col gap-3">
+          {!isWithdrawn && <p className="text-xs text-muted-foreground">Progress</p>}
           <div className={cn('relative h-2', !isWithdrawn && 'mt-8')}>
             <div className="absolute inset-0 rounded-full bg-foreground/10" />
 
@@ -739,7 +755,7 @@ function ReportCard({
               <>
                 <div
                   className="absolute inset-y-0 left-0 rounded-full bg-brand-green transition-[width] duration-700 ease-out"
-                  style={{ width: STAGE_OFFSET[stage] }}
+                  style={{ width: STAGE_FILL[stage] }}
                 />
 
                 {STAGE_OFFSET.map((offset, index) => (
@@ -767,7 +783,7 @@ function ReportCard({
                   }
                 >
                   <span className="opacity-60">now</span>
-                  <span className="truncate font-medium">{LIFECYCLE[stage]}</span>
+                  <span className="truncate font-medium">{stageLabel(report)}</span>
                 </span>
 
                 <span
@@ -794,10 +810,11 @@ function ReportCard({
                 {isWithdrawn ? 'Off the feed' : LIFECYCLE[3]}
               </p>
               <p className="text-xs text-muted-foreground">
-                {isWithdrawn ? 'Not being matched' : 'Next goal'}
+                {isWithdrawn ? 'Not being matched' : stage === 3 ? 'Reached' : 'Next goal'}
               </p>
             </div>
           </div>
+          {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
         </div>
       </div>
     </article>

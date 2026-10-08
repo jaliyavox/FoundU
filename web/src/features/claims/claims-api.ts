@@ -10,6 +10,7 @@ export interface FoundItemSummary {
   categoryName: string
   itemTypeName: string
   foundLocationName: string
+  storageLocationName?: string | null
   generalDescription: string
   primaryColor: string | null
   foundAt: string
@@ -25,6 +26,7 @@ export interface MatchSuggestion {
   note: string | null
   isAgentGenerated: boolean
   matchScore: number | null
+  matchReason?: string | null
   /** Set once a claim has been opened from this suggestion. */
   claimId: string | null
   createdAt: string
@@ -37,6 +39,18 @@ export interface GenerateMatchSuggestionResult {
   suggestion: MatchSuggestion | null
 }
 
+/** Staff-only scored pair awaiting a decision; it has not been suggested to a student. */
+export interface MatchReviewCandidate {
+  lostReportId: string
+  lostDescription: string
+  itemTypeName: string
+  primaryColor: string | null
+  lastSeenLocationName: string
+  estimatedLostFromAt: string
+  matchScore: number
+  explanation: string
+}
+
 export interface ClaimQuestion {
   id: string
   questionText: string
@@ -45,6 +59,11 @@ export interface ClaimQuestion {
 }
 
 export interface ClaimListItem {
+  lostReportId?: string | null
+  foundReportId?: string | null
+  storageLocationName?: string | null
+  matchScore?: number | null
+  verificationStatus?: string | null
   id: string
   status: ClaimStatus
   categoryName: string
@@ -53,6 +72,8 @@ export interface ClaimListItem {
   unansweredQuestionCount: number
   createdAt: string
   updatedAt: string
+  /** Set once the owner took it home - the status stays Approved, the decision. */
+  collectedAt?: string | null
 }
 
 export interface ClaimDetail {
@@ -73,6 +94,11 @@ export interface ClaimDetail {
   /** Present only for the owner of an approved, uncollected claim. Staff never receive it. */
   collectionCode: string | null
   collectedAt: string | null
+  /** The item's hidden detail - only when staff open the claim; never for the owner. */
+  verificationForStaff?: { score: number; matchedEvidence: string[]; missingInformation: string[]; conflictingInformation: string[]; rationale: string; recommendation: string } | null
+  additionalEvidenceForStaff?: { id: string; detail: string; recordedByUserId: string; recordedAt: string }[] | null
+  canUseUnusedEvidenceForFollowUp?: boolean
+  hiddenDetailForStaff?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -92,8 +118,15 @@ export type ClaimStatus =
 export const getMySuggestions = (page = 1, pageSize = 20) =>
   api.get<PagedResult<MatchSuggestion>>(`/api/match-suggestions/mine?page=${page}&pageSize=${pageSize}`)
 
+/** The signed-in student's own matches for one found item - what the item's panel offers to claim. */
+export const getMySuggestionsForItem = (foundReportId: string) =>
+  api.get<PagedResult<MatchSuggestion>>(`/api/match-suggestions/mine?page=1&pageSize=20&foundReportId=${foundReportId}`)
+
 export const getSuggestionsForItem = (foundReportId: string) =>
   api.get<MatchSuggestion[]>(`/api/match-suggestions/for-item/${foundReportId}`)
+
+export const getReviewCandidatesForItem = (foundReportId: string) =>
+  api.get<MatchReviewCandidate[]>(`/api/match-suggestions/review-for-item/${foundReportId}`)
 
 export const createSuggestion = (lostReportId: string, foundReportId: string, note?: string) =>
   api.post<MatchSuggestion>('/api/match-suggestions', { lostReportId, foundReportId, note })
@@ -107,8 +140,31 @@ export const dismissSuggestion = (id: string, reason?: string) =>
 
 /* -------------------------------------------------------------------- claims */
 
-export const createClaim = (lostReportId: string, foundReportId: string) =>
-  api.post<ClaimDetail>('/api/claims', { lostReportId, foundReportId })
+export const createClaim = (lostReportId: string, foundReportId: string, matchSuggestionId?: string) =>
+  api.post<ClaimDetail>('/api/claims', { lostReportId, foundReportId, matchSuggestionId })
+
+/** A claim by someone who never reported it lost: their own words stand in for the report. */
+export const claimWithoutReport = (foundReportId: string, description: string) =>
+  api.post<ClaimDetail>('/api/claims/without-report', { foundReportId, description })
+
+export interface DeskStudent {
+  id: string
+  fullName: string
+  email: string | null
+  studentNumber: string | null
+}
+
+/** Staff: student accounts by name, email or student number. */
+export const findStudents = (search: string) =>
+  api.get<DeskStudent[]>(`/api/claims/students?search=${encodeURIComponent(search)}`)
+
+/** Staff: the owner is here, verified face to face - claim, approve and hand over in one step. */
+export const handOverInPerson = (input: {
+  foundReportId: string
+  studentId: string
+  verificationNotes: string
+  ownerIdChecked: boolean
+}) => api.post<ClaimDetail>('/api/claims/in-person', input)
 
 export const getMyClaims = (page = 1, pageSize = 20) =>
   api.get<PagedResult<ClaimListItem>>(`/api/claims/mine?page=${page}&pageSize=${pageSize}`)
@@ -127,6 +183,12 @@ export const addQuestions = (id: string, questions: string[]) =>
 /** Calls ASP.NET only; private verification evidence remains server-side. */
 export const generateVerificationQuestions = (id: string) =>
   api.post<ClaimDetail>(`/api/claims/${id}/questions/generate`)
+
+export const requestFollowUp = (id: string, question: string, additionalHiddenDetail: string) =>
+  api.post<ClaimDetail>(`/api/claims/${id}/follow-up`, { question, additionalHiddenDetail })
+
+export const draftFollowUp = (id: string, additionalHiddenDetail: string) =>
+  api.post<{ question: string }>(`/api/claims/${id}/follow-up/draft`, { additionalHiddenDetail })
 
 export const submitAnswers = (id: string, answers: { questionId: string; answerText: string }[]) =>
   api.post<ClaimDetail>(`/api/claims/${id}/answers`, { answers })
@@ -157,6 +219,17 @@ export const cancelClaim = (id: string, reason?: string) =>
  * What each status means to the person reading it, in their own terms - a student is told
  * what to do next, staff are told what the queue is waiting on.
  */
+/**
+ * The status to show. An approved claim that has been collected is finished: the decision is
+ * still Approved, but "take your code to the desk" would be the wrong thing to say.
+ */
+export function claimView(claim: { status: ClaimStatus; collectedAt?: string | null }) {
+  if (claim.status === 'Approved' && claim.collectedAt) {
+    return { label: 'Collected', student: 'Collected from the desk. It is back with you.', tone: 'good' as Tone }
+  }
+  return CLAIM_STATUS_COPY[claim.status]
+}
+
 export const CLAIM_STATUS_COPY: Record<ClaimStatus, { label: string; student: string; tone: Tone }> = {
   Pending: {
     label: 'Submitted',

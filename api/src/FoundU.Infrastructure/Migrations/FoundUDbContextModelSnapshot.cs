@@ -634,6 +634,9 @@ namespace FoundU.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<Guid?>("CustodyLocationId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamptz");
 
@@ -644,6 +647,9 @@ namespace FoundU.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<Guid>("LostReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("MatchSuggestionId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -668,6 +674,8 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("CollectionCode")
                         .HasFilter("\"CollectionCode\" IS NOT NULL");
 
+                    b.HasIndex("CustodyLocationId");
+
                     b.HasIndex("FoundReportId")
                         .IsUnique()
                         .HasDatabaseName("IX_Claims_FoundReportId_OneApproved")
@@ -675,9 +683,16 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.HasIndex("LostReportId");
 
+                    b.HasIndex("MatchSuggestionId");
+
                     b.HasIndex("Status");
 
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("StudentId", "LostReportId", "FoundReportId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Claims_OneActivePair")
+                        .HasFilter("\"IsDeleted\" = false AND \"Status\" IN ('Pending', 'WaitingForAnswer', 'UnderReview', 'RevisionRequested', 'ManualReviewRequired', 'Approved')");
 
                     b.ToTable("Claims", (string)null);
                 });
@@ -1038,6 +1053,38 @@ namespace FoundU.Infrastructure.Migrations
                     b.HasIndex("FoundReportId");
 
                     b.ToTable("FoundReportStatusHistories", (string)null);
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.FoundVerificationEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Detail")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("FoundReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FoundReportId");
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.ToTable("FoundVerificationEvidence", (string)null);
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.HonorAward", b =>
@@ -1629,6 +1676,9 @@ namespace FoundU.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
+
+                    b.Property<bool>("CreatedForClaim")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamptz");
@@ -2253,6 +2303,32 @@ namespace FoundU.Infrastructure.Migrations
                     b.ToTable("StorageTransfers", (string)null);
                 });
 
+            modelBuilder.Entity("FoundU.Domain.Entities.StoredPhoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StoredPhotos", (string)null);
+                });
+
             modelBuilder.Entity("FoundU.Domain.Entities.SupportTicket", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2522,6 +2598,11 @@ namespace FoundU.Infrastructure.Migrations
 
             modelBuilder.Entity("FoundU.Domain.Entities.Claim", b =>
                 {
+                    b.HasOne("FoundU.Domain.Entities.StorageLocation", "CustodyLocation")
+                        .WithMany()
+                        .HasForeignKey("CustodyLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
                         .WithMany("Claims")
                         .HasForeignKey("FoundReportId")
@@ -2534,15 +2615,24 @@ namespace FoundU.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FoundU.Domain.Entities.MatchSuggestion", "MatchSuggestion")
+                        .WithMany()
+                        .HasForeignKey("MatchSuggestionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FoundU.Domain.Entities.AppUser", "Student")
                         .WithMany("Claims")
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("CustodyLocation");
+
                     b.Navigation("FoundReport");
 
                     b.Navigation("LostReport");
+
+                    b.Navigation("MatchSuggestion");
 
                     b.Navigation("Student");
                 });
@@ -2697,6 +2787,25 @@ namespace FoundU.Infrastructure.Migrations
                     b.Navigation("ChangedByUser");
 
                     b.Navigation("FoundReport");
+                });
+
+            modelBuilder.Entity("FoundU.Domain.Entities.FoundVerificationEvidence", b =>
+                {
+                    b.HasOne("FoundU.Domain.Entities.FoundReport", "FoundReport")
+                        .WithMany()
+                        .HasForeignKey("FoundReportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoundU.Domain.Entities.AppUser", "RecordedByUser")
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FoundReport");
+
+                    b.Navigation("RecordedByUser");
                 });
 
             modelBuilder.Entity("FoundU.Domain.Entities.HonorAward", b =>

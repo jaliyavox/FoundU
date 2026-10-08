@@ -20,6 +20,9 @@ namespace FoundU.Infrastructure.Support;
 public class SupportService : ISupportService
 {
     private readonly FoundUDbContext _db;
+
+    /// <summary>How long a resolved ticket still takes a follow-up from the assistant.</summary>
+    private static readonly TimeSpan RecentlyResolved = TimeSpan.FromDays(7);
     private readonly INotificationService _notifications;
 
     public SupportService(FoundUDbContext db, INotificationService notifications)
@@ -34,6 +37,47 @@ public class SupportService : ISupportService
         CancellationToken cancellationToken = default)
     {
         var category = Enum.Parse<SupportTicketCategory>(request.Category, ignoreCase: true);
+
+        // The assistant escalates whatever the person is stuck on, and people come back to it
+        // with the same problem. One conversation per problem: a live ticket on the same topic
+        // - still open, waiting on them, or resolved this week - takes the new message and is
+        // reopened, instead of a second ticket the desk has to match up by hand.
+        if (request.ViaAssistant)
+        {
+            var reopenAfter = DateTime.UtcNow - RecentlyResolved;
+            var existing = await _db.SupportTickets
+                .Where(t => t.UserId == userId && t.Category == category
+                    && (t.Status == SupportTicketStatus.Open
+                        || t.Status == SupportTicketStatus.Waiting
+                        || (t.Status == SupportTicketStatus.Resolved && t.ResolvedAt >= reopenAfter)))
+                .OrderByDescending(t => t.LastActivityAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (existing is not null)
+            {
+                var subject = request.Subject.Trim();
+                var body = request.Body.Trim();
+                _db.SupportTicketMessages.Add(new SupportTicketMessage
+                {
+                    SupportTicketId = existing.Id,
+                    SenderId = userId,
+                    IsStaffReply = false,
+                    // The new subject may say what changed; keep it with the message when it fits
+                    // the 4,000-character column.
+                    Body = string.Equals(subject, existing.Subject, StringComparison.OrdinalIgnoreCase)
+                           || subject.Length + 2 + body.Length > 4000
+                        ? body
+                        : $"{subject}\n\n{body}",
+                });
+                existing.Status = SupportTicketStatus.Open;
+                existing.ResolvedAt = null;
+                existing.LastActivityAt = DateTime.UtcNow;
+                existing.UpdatedAt = DateTime.UtcNow;
+
+                await _db.SaveChangesAsync(cancellationToken);
+                return await LoadDetailAsync(existing.Id, userId, isStaff: false, cancellationToken) with { AddedToExisting = true };
+            }
+        }
 
         var ticket = new SupportTicket
         {
@@ -140,6 +184,17 @@ public class SupportService : ISupportService
 
         await _db.SaveChangesAsync(cancellationToken);
         return await LoadDetailAsync(ticket.Id, userId, isStaff, cancellationToken);
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _db.SupportTickets
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
+            ?? throw new NotFoundAppException($"Ticket '{id}' was not found.");
+
+        // FoundUDbContext turns this into a soft delete (SupportTicket is ISoftDeletable).
+        _db.SupportTickets.Remove(ticket);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<SupportTicketDetailDto> UpdateAsync(

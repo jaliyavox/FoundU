@@ -7,6 +7,7 @@ class ClaimListItem {
     required this.unansweredQuestionCount,
     required this.createdAt,
     required this.updatedAt,
+    this.collectedAt,
   });
 
   final String id;
@@ -17,6 +18,9 @@ class ClaimListItem {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Set once the owner took it home. The status stays Approved - the decision.
+  final DateTime? collectedAt;
+
   factory ClaimListItem.fromJson(Map<String, dynamic> json) => ClaimListItem(
         id: json['id'] as String,
         status: json['status'] as String? ?? 'Pending',
@@ -25,6 +29,7 @@ class ClaimListItem {
         unansweredQuestionCount: json['unansweredQuestionCount'] as int? ?? 0,
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),
+        collectedAt: json['collectedAt'] == null ? null : DateTime.parse(json['collectedAt'] as String),
       );
 }
 
@@ -164,11 +169,12 @@ class PagedClaims {
 
 class CreateClaimRequest {
   const CreateClaimRequest(
-      {required this.lostReportId, required this.foundReportId});
+      {required this.lostReportId, required this.foundReportId, this.matchSuggestionId});
   final String lostReportId;
   final String foundReportId;
+  final String? matchSuggestionId;
   Map<String, dynamic> toJson() =>
-      {'lostReportId': lostReportId, 'foundReportId': foundReportId};
+      {'lostReportId': lostReportId, 'foundReportId': foundReportId, if (matchSuggestionId != null) 'matchSuggestionId': matchSuggestionId};
 }
 
 class ClaimAnswerInput {
@@ -178,6 +184,10 @@ class ClaimAnswerInput {
   Map<String, dynamic> toJson() =>
       {'questionId': questionId, 'answerText': answerText};
 }
+
+/// An approved claim that has been collected is finished, whatever its decision says.
+String claimLabel(String status, DateTime? collectedAt) =>
+    status == 'Approved' && collectedAt != null ? 'Collected - it is back with you' : claimStatusLabel(status);
 
 String claimStatusLabel(String status) => switch (status) {
       'Pending' => 'Claim submitted',
