@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { STAFF, call, logFoundItem, login, referenceData, registerStudent, run, signInAs } from './support/api'
+import { STAFF, call, logFoundItem, login, referenceData, registerStudent, run, signInAs } from '../support/api'
 
 /** E2E-DESK-05: the owner is at the desk with no report - staff verify in person and hand over. */
 test('E2E-DESK-05 staff verify an owner in person and hand the item over in one step', async ({ page }) => {

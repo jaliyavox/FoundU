@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { STAFF, call, createLostReport, logFoundItem, login, referenceData, registerStudent, run, signInAs } from './support/api'
+import { STAFF, call, createLostReport, logFoundItem, login, referenceData, registerStudent, run, signInAs } from '../support/api'
 
 /**
  * E2E-WF-01: the complete business workflow, across every component.

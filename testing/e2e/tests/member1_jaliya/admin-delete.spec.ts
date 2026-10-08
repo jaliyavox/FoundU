@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { API, STAFF, call, login, registerStudent, signInAs } from './support/api'
+import { API, STAFF, call, login, registerStudent, signInAs } from '../support/api'
 
 /**
  * E2E-ADMIN: an administrator deleting a support ticket and a student account through the

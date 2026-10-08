@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { STAFF, call, createLostReport, login, referenceData, registerStudent, signInAs } from './support/api'
+import { STAFF, call, createLostReport, login, referenceData, registerStudent, signInAs } from '../support/api'
 
 /** E2E-REG-03: the owner's report tracker follows a finder's hand-in to the desk. */
 test('E2E-REG-03 the report tracker moves when a finder hands the item in', async ({ page }) => {

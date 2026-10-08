@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { STAFF, call, createLostReport, login, referenceData, registerStudent, run, signInAs } from './support/api'
+import { STAFF, call, createLostReport, login, referenceData, registerStudent, run, signInAs } from '../support/api'
 
 /**
  * E2E-CLAIM: claiming an item straight from the Found board. An owner nobody had matched to an

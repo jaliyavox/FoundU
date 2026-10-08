@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { STAFF, call, createLostReport, login, referenceData, registerStudent, run, signInAs } from './support/api'
+import { STAFF, call, createLostReport, login, referenceData, registerStudent, run, signInAs } from '../support/api'
 
 /** E2E-DESK: a finder brings an item to the security desk with a code; staff pull it up by that code. */
 test.describe('Security desk hand-in by code', () => {

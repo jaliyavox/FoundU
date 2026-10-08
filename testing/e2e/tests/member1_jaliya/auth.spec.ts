@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { STAFF, STUDENT, call, login, run, signInAs } from './support/api'
+import { STAFF, STUDENT, call, login, run, signInAs } from '../support/api'
 
 /** E2E-AUTH: sign-in, registration and the route guards, through the real pages and API. */
 test.describe('Authentication and protected routes', () => {
