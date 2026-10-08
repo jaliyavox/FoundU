@@ -34,7 +34,8 @@ Never show a password, token, or the `user@machine` prompt in a screenshot: crop
 | 10 | `m3-e2e-report.png` | 10.3.5 | Uthpala | report for her folder, all passed | as #6 with `tests/member3_uthpala` |
 | 11 | `m3-e2e-step.png` | 10.3.5 | Uthpala | the desk receiving an item by hand-in code | desk-handin spec › Attachments |
 | 12 | `m4-e2e-report.png` | 10.4.5 | Braveena | report for her folder, all passed | as #6 with `tests/member4_braveena` |
-| 13 | `m4-e2e-step.png` | 10.4.5 | Braveena | the collection code, then "Collected" | E2E-WF-01 › Attachments |
+| 13 | `m4-e2e-step.png` | 10.4.5 | Braveena | the owner's six-digit collection code | E2E-WF-01 › Attachments › "owner sees the collection code" |
+| 13b | `m4-e2e-collected.png` | 10.4.5 | Braveena | My claims showing the item Collected | E2E-WF-01 › Attachments › "owner sees it Collected" |
 | 14 | `m1-security-newman.png` | 10.1.6 | Jaliya | Postman Collection Runner, folder "Member 1", every assertion passed | Postman desktop: Import `testing/security/foundu-security.postman_collection.json` and `local.postman_environment.json`, choose the environment, Run folder "Member 1" |
 | 15 | `m1-security-sec28-429.png` | 10.1.6 | Jaliya | SEC-28 response **429 Too Many Requests**, Test Results tab all passed | in Postman, open SEC-28 and Send (right after #14, or send it twice) |
 | 16 | `m2-security-newman.png` | 10.2.6 | Ranasinghe | Newman report for "Member 2", 0 failed | `testing/security/run-newman.sh m2 "Member 2"` then open `testing/reports/security/m2/newman-report.html` |

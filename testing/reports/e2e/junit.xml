@@ -1,120 +1,60 @@
-<testsuites id="" name="" tests="16" failures="0" skipped="0" errors="0" time="13.63209">
-<testsuite name="member1_jaliya/admin-delete.spec.ts" timestamp="2026-10-08T14:11:41.802Z" hostname="" tests="4" failures="0" skipped="0" time="3.991" errors="0">
-<testcase name="E2E-ADMIN-01 an admin deletes a spam ticket; it leaves the queue and the student&apos;s list" classname="member1_jaliya/admin-delete.spec.ts" time="1.294">
+<testsuites id="" name="" tests="8" failures="0" skipped="0" errors="0" time="11.325155">
+<testsuite name="member3_uthpala/desk-handin.spec.ts" timestamp="2026-10-08T14:19:01.433Z" hostname="" tests="4" failures="0" skipped="0" time="4.229" errors="0">
+<testcase name="Security desk hand-in by code › E2E-DESK-01 a posted found item is pulled up by its post code and confirmed into storage" classname="member3_uthpala/desk-handin.spec.ts" time="1.446">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-admin-delet-5e662-ueue-and-the-student-s-list/test-finished-1.png]]
+[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-9c853--and-confirmed-into-storage/test-finished-1.png]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="E2E-ADMIN-02 staff can answer tickets but are not offered, or allowed, deletion" classname="member1_jaliya/admin-delete.spec.ts" time="0.83">
+<testcase name="Security desk hand-in by code › E2E-DESK-02 a handover code from &quot;I found this&quot; is taken in at the desk and the owner is told" classname="member3_uthpala/desk-handin.spec.ts" time="1.211">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-admin-delet-8a4d1-offered-or-allowed-deletion/test-finished-1.png]]
+[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-011fa--desk-and-the-owner-is-told/test-finished-1.png]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="E2E-ADMIN-03 an admin deletes a student: signed out, erased, and free to register again" classname="member1_jaliya/admin-delete.spec.ts" time="1.105">
+<testcase name="Security desk hand-in by code › E2E-DESK-03 the code box takes exactly six digits: letters are dropped, five digits cannot be sent" classname="member3_uthpala/desk-handin.spec.ts" time="0.729">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-admin-delet-cb24a--and-free-to-register-again/test-finished-1.png]]
+[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-54ac3--five-digits-cannot-be-sent/test-finished-1.png]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="E2E-ADMIN-04 an admin cannot delete their own account" classname="member1_jaliya/admin-delete.spec.ts" time="0.762">
+<testcase name="Security desk hand-in by code › E2E-DESK-04 an unknown six-digit code is reported clearly and the desk stays put" classname="member3_uthpala/desk-handin.spec.ts" time="0.843">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-admin-delet-ded91-ot-delete-their-own-account/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-</testsuite>
-<testsuite name="member1_jaliya/auth.spec.ts" timestamp="2026-10-08T14:11:41.802Z" hostname="" tests="11" failures="0" skipped="0" time="6.708" errors="0">
-<testcase name="Authentication and protected routes › E2E-AUTH-01 a student signs in through the form and lands on My reports" classname="member1_jaliya/auth.spec.ts" time="0.594">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-baae8-orm-and-lands-on-My-reports/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-02 staff sign in and land on the found-items desk" classname="member1_jaliya/auth.spec.ts" time="0.566">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-b02ae-and-on-the-found-items-desk/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-03 a wrong password is refused and the user stays on the sign-in page" classname="member1_jaliya/auth.spec.ts" time="0.501">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-968d6-r-stays-on-the-sign-in-page/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-04 an empty sign-in form shows field errors from the API" classname="member1_jaliya/auth.spec.ts" time="0.461">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-b9eb7-s-field-errors-from-the-API/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-05 registration refuses a 7-character password (boundary) and accepts a valid one" classname="member1_jaliya/auth.spec.ts" time="0.639">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-53f03-ary-and-accepts-a-valid-one/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-06 registering an email that already exists is refused with a clear message" classname="member1_jaliya/auth.spec.ts" time="0.487">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-90a2b-efused-with-a-clear-message/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-07 an anonymous visitor is sent to sign in from a protected page" classname="member1_jaliya/auth.spec.ts" time="0.374">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-79203-gn-in-from-a-protected-page/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-11 after signing in, the student is taken back to the page they were trying to open" classname="member1_jaliya/auth.spec.ts" time="0.537">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-f4e00-ge-they-were-trying-to-open/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-08 a student cannot open the staff desk or the admin area" classname="member1_jaliya/auth.spec.ts" time="0.881">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-a704a-taff-desk-or-the-admin-area/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-09 staff cannot open admin-only pages" classname="member1_jaliya/auth.spec.ts" time="0.661">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-e331b-annot-open-admin-only-pages/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Authentication and protected routes › E2E-AUTH-10 signing out ends the session and revokes the refresh token" classname="member1_jaliya/auth.spec.ts" time="1.007">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-auth-Authen-f46c5-d-revokes-the-refresh-token/test-finished-1.png]]
+[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-ca082-arly-and-the-desk-stays-put/test-finished-1.png]]
 ]]>
 </system-out>
 </testcase>
 </testsuite>
-<testsuite name="member1_jaliya/support-ticket.spec.ts" timestamp="2026-10-08T14:11:41.802Z" hostname="" tests="1" failures="0" skipped="0" time="2.286" errors="0">
-<testcase name="E2E-SUP-01 assistant answers, escalates a draft, staff reply in the queue, student sees it" classname="member1_jaliya/support-ticket.spec.ts" time="2.286">
+<testsuite name="member3_uthpala/found-claim.spec.ts" timestamp="2026-10-08T14:19:01.433Z" hostname="" tests="4" failures="0" skipped="0" time="6.487" errors="0">
+<testcase name="E2E-CLAIM-01 an owner with no match picks their report manually and the claim opens" classname="member3_uthpala/found-claim.spec.ts" time="1.704">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|artifacts/member1_jaliya-support-tic-03ff4-n-the-queue-student-sees-it/test-finished-1.png]]
-
-[[ATTACHMENT|artifacts/member1_jaliya-support-tic-03ff4-n-the-queue-student-sees-it/test-finished-2.png]]
+[[ATTACHMENT|artifacts/member3_uthpala-found-clai-3868e-anually-and-the-claim-opens/test-finished-1.png]]
+]]>
+</system-out>
+</testcase>
+<testcase name="E2E-CLAIM-02 an owner with a match answers &quot;Is this your item?&quot; with Yes" classname="member3_uthpala/found-claim.spec.ts" time="1.922">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|artifacts/member3_uthpala-found-clai-530bc--Is-this-your-item-with-Yes/test-finished-1.png]]
+]]>
+</system-out>
+</testcase>
+<testcase name="E2E-CLAIM-03 with no open lost report, the owner is told to report it lost first" classname="member3_uthpala/found-claim.spec.ts" time="1.274">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|artifacts/member3_uthpala-found-clai-9238e-old-to-report-it-lost-first/test-finished-1.png]]
+]]>
+</system-out>
+</testcase>
+<testcase name="E2E-CLAIM-04 an owner who never reported it lost claims it in their own words, then answers on the dashboard" classname="member3_uthpala/found-claim.spec.ts" time="1.587">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|artifacts/member3_uthpala-found-clai-9fb00-en-answers-on-the-dashboard/test-finished-1.png]]
 ]]>
 </system-out>
 </testcase>
