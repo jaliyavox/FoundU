@@ -10,7 +10,7 @@ import 'package:foundu/features/reports/data/report_models.dart';
 import 'package:foundu/features/reports/presentation/providers/report_providers.dart';
 import 'package:foundu/features/reports/presentation/report_detail_page.dart';
 
-LostReportDetailModel detail(String status) => LostReportDetailModel(
+LostReportDetailModel detail(String status, {List<LostReportPhotoModel> photos = const []}) => LostReportDetailModel(
       id: 'r1',
       categoryId: 'c1',
       categoryName: 'Electronics',
@@ -25,7 +25,7 @@ LostReportDetailModel detail(String status) => LostReportDetailModel(
       status: status,
       studentId: 'u1',
       studentName: 'Amara Perera',
-      photos: const [],
+      photos: photos,
       isFlagged: false,
       createdAt: DateTime.now().subtract(const Duration(hours: 12)),
       updatedAt: DateTime.now().subtract(const Duration(hours: 12)),
@@ -68,4 +68,24 @@ void main() {
       expect(find.text('Possible matches'), findsOneWidget);
     });
   }
+
+  // D-70: the API stores report photos as "/api/photos/<file>". Passed to Image.network as
+  // they are, a phone cannot load them and every photo showed the broken-image icon.
+  testWidgets('a report photo is requested from the API by its full address', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        reportDetailProvider('r1').overrideWith((ref) async =>
+            detail('Active', photos: const [LostReportPhotoModel(id: 'p1', url: '/api/photos/abc.jpg')])),
+        handoverRepositoryProvider.overrideWithValue(NoHandovers()),
+        feedRepositoryProvider.overrideWithValue(NoMessages()),
+      ],
+      child: MaterialApp(theme: buildFoundUTheme(), home: const LostReportDetailPage(reportId: 'r1')),
+    ));
+    await tester.pump();
+    await tester.pump();
+
+    final image = tester.widget<Image>(find.byType(Image).first).image as NetworkImage;
+    expect(image.url, startsWith('http'));
+    expect(image.url, endsWith('/api/photos/abc.jpg'));
+  });
 }
