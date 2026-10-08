@@ -6,7 +6,8 @@
 #   "Member 1" .. "Member 4" or "Group" (default: every folder).
 set -euo pipefail
 testing="$(cd "$(dirname "$0")/.." && pwd)"
-out="reports/security/${1:-latest}"
+# NEWMAN_OUT (a folder under testing/) overrides where the reports go.
+out="${NEWMAN_OUT:-reports/security/${1:-latest}}"
 mkdir -p "$testing/$out" && chmod 777 "$testing/$out"
 folder=("${2:+--folder}" "${2:-}")
 [ -n "${2:-}" ] || folder=()

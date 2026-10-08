@@ -372,58 +372,54 @@
       "type": "counter"
     }
   },
-  "setup_data": {
-    "staff": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4Y2U0MWU1MC1hNDM3LTQ1YjEtYmE2Ni01Njk2YTlmMWYxMTIiLCJqdGkiOiI5YzdlNDRjNS05ODMzLTRhMzgtYTYzOC04ZTczY2Q1MDFkZDIiLCJlbWFpbCI6InByaXlhQGZvdW5kdS50ZXN0IiwibmFtZSI6IlByaXlhIERlc2siLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJTdGFmZiIsImV4cCI6MTc5MTAyOTU3NCwiaXNzIjoiRm91bmRVIiwiYXVkIjoiRm91bmRVQ2xpZW50cyJ9.__OBYBcn9ogeIbuRvHeihVhnuQcY2YrDdPgklsE_X60",
-    "student": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTBkYWEzYi1hNmU5LTRiMDAtODQwNi04ODNmZmUyOWM2ZDMiLCJqdGkiOiIzMjU3M2QyZi05MDEwLTQ5ZTktYmNkYS05MDgwY2RjZWE2MjIiLCJlbWFpbCI6ImFtYXJhQGZvdW5kdS50ZXN0IiwibmFtZSI6IkFtYXJhIFBlcmVyYSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlN0dWRlbnQiLCJleHAiOjE3OTEwMjk1NzQsImlzcyI6IkZvdW5kVSIsImF1ZCI6IkZvdW5kVUNsaWVudHMifQ.rEz9HXlwXLekeyB30Z1DB5PVrXbPURgwAKYYHR16c3E"
-  },
   "root_group": {
     "path": "",
     "id": "d41d8cd98f00b204e9800998ecf8427e",
     "groups": [],
     "checks": [
-        {
-          "path": "::storage 200",
-          "id": "3f7ffb7513987d5b5ada896b5f42d0dd",
-          "passes": 300,
-          "fails": 0,
-          "name": "storage 200"
-        },
-        {
-          "name": "lost feed 200",
-          "path": "::lost feed 200",
-          "id": "039987fed9480ccf6b990bd5958b6437",
-          "passes": 2051,
-          "fails": 0
-        },
-        {
-          "name": "found board 200",
-          "path": "::found board 200",
-          "id": "5eb811a3820fed5a108bf17e5a139674",
-          "passes": 2051,
-          "fails": 0
-        },
-        {
-          "name": "search 200",
-          "path": "::search 200",
-          "id": "f1430541508c538fdf29bbd85cfe5de5",
-          "passes": 2051,
-          "fails": 0
-        },
-        {
-          "passes": 2051,
-          "fails": 0,
-          "name": "my reports 200",
-          "path": "::my reports 200",
-          "id": "06b56d11ad0cb967ca8b17fbcf9f3722"
-        },
-        {
-          "name": "unread 200",
-          "path": "::unread 200",
-          "id": "f532c916b6d887c9edcb44b9f779a839",
-          "passes": 2051,
-          "fails": 0
-        }
-      ],
+      {
+        "path": "::storage 200",
+        "id": "3f7ffb7513987d5b5ada896b5f42d0dd",
+        "passes": 300,
+        "fails": 0,
+        "name": "storage 200"
+      },
+      {
+        "name": "lost feed 200",
+        "path": "::lost feed 200",
+        "id": "039987fed9480ccf6b990bd5958b6437",
+        "passes": 2051,
+        "fails": 0
+      },
+      {
+        "name": "found board 200",
+        "path": "::found board 200",
+        "id": "5eb811a3820fed5a108bf17e5a139674",
+        "passes": 2051,
+        "fails": 0
+      },
+      {
+        "name": "search 200",
+        "path": "::search 200",
+        "id": "f1430541508c538fdf29bbd85cfe5de5",
+        "passes": 2051,
+        "fails": 0
+      },
+      {
+        "passes": 2051,
+        "fails": 0,
+        "name": "my reports 200",
+        "path": "::my reports 200",
+        "id": "06b56d11ad0cb967ca8b17fbcf9f3722"
+      },
+      {
+        "name": "unread 200",
+        "path": "::unread 200",
+        "id": "f532c916b6d887c9edcb44b9f779a839",
+        "passes": 2051,
+        "fails": 0
+      }
+    ],
     "name": ""
   },
   "options": {

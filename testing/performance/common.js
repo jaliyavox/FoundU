@@ -16,7 +16,8 @@ export const auth = (token, tag) => ({ headers: { Authorization: `Bearer ${token
 
 export function summary(name) {
   return (data) => ({
-    [`../reports/performance/${name}-summary.json`]: JSON.stringify(data, null, 2),
+    // setup_data holds the access tokens from setup(): never written to the evidence files.
+    [`../reports/performance/${name}-summary.json`]: JSON.stringify({ ...data, setup_data: undefined }, null, 2),
     stdout: textSummary(data),
   })
 }

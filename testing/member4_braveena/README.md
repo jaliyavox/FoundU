@@ -7,34 +7,42 @@ Staff record a hidden detail when an item is logged. The Verification agent draf
 
 ## Where my tests are
 
-Every test I own sits in a folder named after me, in each part of the system.
+Every test I own sits in a folder named after me, one row per testing area of the brief.
+Counts are from the last full run of `run_tests.sh` (see `testing/reports/members/member4_braveena-SUMMARY.md`).
 
-| Part | Folder | Tool | Tests |
-| --- | --- | --- | ---: |
-| API (ASP.NET Core) | `api/tests/FoundU.Tests/Member4_Braveena/` | xUnit, WebApplicationFactory | 190 |
-| AI service (agent) | `ai/tests/member4_braveena/` | pytest, FastAPI TestClient | 136 |
-| Web app (React) | `web/tests/member4_braveena/` | Vitest, React Testing Library | 13 |
-| Mobile app (Flutter) | `mobile/test/member4_braveena/` | flutter_test | 30 |
+| # | Area | Folder / file | Tool | Tests |
+| --- | --- | --- | --- | ---: |
+| 1 | Backend / API | `api/tests/FoundU.Tests/Member4_Braveena/` | xUnit, WebApplicationFactory | 190 |
+| 2 | Database | `api/tests/FoundU.Tests/Member4_Braveena/Member4DatabaseTests.cs` | xUnit on real PostgreSQL 16, EF Core | 6 |
+| 3 | React web | `web/tests/member4_braveena/` | Vitest, React Testing Library | 13 |
+| 4 | Flutter mobile | `mobile/test/member4_braveena/` | flutter_test | 32 |
+| 5 | Integration / E2E | `testing/e2e/tests/member4_braveena/` (`claim-workflow.spec.ts`, `desk-in-person.spec.ts`) | Playwright | 2 |
+| 6a | Security | folder "Member 4" in `testing/security/cases/member4_braveena.py` | Postman / Newman | 20 assertions |
+| 6b | Performance | `testing/performance/member4_braveena.js` | k6 | 6 thresholds |
+| 6c | Accessibility | `testing/e2e/tests/accessibility.spec.ts`, "Member 4" block (My claims, claims queue, a claim) | axe-core | 3 pages |
+| 7 | Agentic AI | `ai/tests/member4_braveena/` | pytest through `/agents/run` | 136 |
 
-The API tests also carry `[Trait("Member", "Member4-Braveena")]`, so
-`dotnet test --filter "Member=Member4-Braveena"` runs exactly these. Mobile counts are the
-number of `test`/`testWidgets` cases in the folder.
+The API and database tests carry `[Trait("Member", "Member4-Braveena")]` (the database ones also
+`[Trait("Category", "PostgreSql")]`), so `dotnet test --filter "Member=Member4-Braveena"` runs exactly these.
 
 ## Run my tests
 
 ```bash
-testing/member4_braveena/run_tests.sh            # API, AI, web and mobile
-testing/member4_braveena/run_tests.sh ai web     # only some parts
+testing/start-stack.sh                         # PostgreSQL, AI (fake model), API, web
+export TEST_DATABASE_URL="Host=localhost;Port=5434;Database=foundu_test;Username=foundu;Password=foundu"
+testing/member4_braveena/run_tests.sh                       # every area
+testing/member4_braveena/run_tests.sh db e2e security       # only some: api db web mobile e2e security perf ai
 ```
 
-The script prints every test with its result and writes
-`testing/member4_braveena/results/SUMMARY.md`: a totals table and every test case marked Pass or Fail,
-plus the raw reports (`api.trx`, `ai.xml`, `web.xml`, `mobile.json`).
+The script prints every test with its result and writes `testing/member4_braveena/results/SUMMARY.md`: a
+table with one row per area and every test case marked Pass or Fail, beside the raw reports
+(`api.trx`, `db.trx`, `web.xml`, `mobile.json`, `e2e.xml`, `a11y.xml`, `security.xml`, `perf.json`,
+`ai.xml`) and the Playwright and Newman HTML reports (`e2e-html/`, `newman/`).
 
-Needs: .NET 8 SDK, the AI service's virtual environment (`cd ai && python -m venv .venv &&
-.venv/bin/pip install -e ".[dev]"`), `npm ci` in `web/`, and Flutter for the mobile part. A part
-whose tool is missing is reported as skipped. Set `TEST_DATABASE_URL` to a test-only PostgreSQL
-database (its name must contain "test") to include the PostgreSQL integration tests.
+Needs: .NET 8 SDK, the AI service's virtual environment, `npm ci` in `web/` and `testing/e2e/`,
+Flutter, Docker (PostgreSQL and Newman) and k6. A part whose tool or service is missing is
+reported as skipped, with the reason. The database part needs `TEST_DATABASE_URL` naming a
+test-only database (its name must contain "test"). Performance runs only against the local stack.
 
 ## Show my agent working
 
