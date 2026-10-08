@@ -1042,6 +1042,118 @@
               }
             }
           ]
+        },
+        {
+          "name": "SEC-34 a description of exactly 1000 characters is accepted (boundary)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/lost-reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{categoryId}}\",\"itemTypeId\":\"{{itemTypeId}}\",\"primaryColor\":\"Black\",\"lastSeenLocationId\":\"{{locationId}}\",\"description\":\"{{exact}}\",\"estimatedLostFromAt\":\"2026-10-01T08:00:00Z\",\"estimatedLostToAt\":\"2026-10-01T09:00:00Z\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('exact', 'b'.repeat(1000));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 201', () => pm.expect([201]).to.include(pm.response.code));",
+                  "pm.test('stored in full', () => pm.expect(pm.response.json().description.length).to.equal(1000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-35 a lost-time window that ends before it starts is refused",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/lost-reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{categoryId}}\",\"itemTypeId\":\"{{itemTypeId}}\",\"primaryColor\":\"Black\",\"lastSeenLocationId\":\"{{locationId}}\",\"description\":\"Window back to front\",\"estimatedLostFromAt\":\"2026-10-01T09:00:00Z\",\"estimatedLostToAt\":\"2026-10-01T08:00:00Z\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 400', () => pm.expect([400]).to.include(pm.response.code));",
+                  "pm.test('no stack trace or server internals in the body', () => {",
+                  "  const b = pm.response.text();",
+                  "  pm.expect(b).to.not.match(/at FoundU\\.|Microsoft\\.|Npgsql|StackTrace|System\\.\\w+Exception/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-36 IDOR: student B cannot add a photo to student A's report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentB}}"
+              }
+            ],
+            "url": "{{api}}/api/lost-reports/{{reportA}}/photos",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "fixtures/not-an-image.jpg"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403 or 404', () => pm.expect([403, 404]).to.include(pm.response.code));",
+                  "pm.test('no stack trace or server internals in the body', () => {",
+                  "  const b = pm.response.text();",
+                  "  pm.expect(b).to.not.match(/at FoundU\\.|Microsoft\\.|Npgsql|StackTrace|System\\.\\w+Exception/);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1261,6 +1373,248 @@
               }
             }
           ]
+        },
+        {
+          "name": "SETUP storage locations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/reference/storage-locations"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.environment.set('storageId', pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SETUP staff log a found item with a hidden detail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/found-reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{categoryId}}\",\"itemTypeId\":\"{{itemTypeId}}\",\"primaryColor\":\"Teal\",\"foundLocationId\":\"{{locationId}}\",\"storageLocationId\":\"{{storageId}}\",\"generalDescription\":\"Security suite item {{$timestamp}}\",\"privateVerificationDetails\":\"Hidden mark SECRET-7731 inside\",\"foundAt\":\"2026-10-01T10:00:00Z\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('logged', () => pm.response.to.have.status(201)); pm.environment.set('foundItem', pm.response.json().id); pm.environment.set('foundText', pm.response.json().generalDescription);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-37 staff see the hidden detail on the item they logged",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/found-reports/{{foundItem}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect([200]).to.include(pm.response.code));",
+                  "pm.test('hidden detail is there for staff', () => pm.expect(pm.response.json().privateVerificationDetails).to.include('SECRET-7731'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-38 a found item with an empty description is refused",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/found-reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{categoryId}}\",\"itemTypeId\":\"{{itemTypeId}}\",\"foundLocationId\":\"{{locationId}}\",\"storageLocationId\":\"{{storageId}}\",\"generalDescription\":\"\",\"foundAt\":\"2026-10-01T10:00:00Z\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 400', () => pm.expect([400]).to.include(pm.response.code));",
+                  "pm.test('no stack trace or server internals in the body', () => {",
+                  "  const b = pm.response.text();",
+                  "  pm.expect(b).to.not.match(/at FoundU\\.|Microsoft\\.|Npgsql|StackTrace|System\\.\\w+Exception/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-39 the Found board never shows a student the hidden detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/found-posts/feed?pageSize=100&search=Security%20suite%20item"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect([200]).to.include(pm.response.code));",
+                  "pm.test('the item is on the board', () => pm.expect(pm.response.json().items.map(i => i.id)).to.include(pm.environment.get('foundItem')));",
+                  "pm.test('its hidden detail is not', () => pm.expect(pm.response.text()).to.not.include('SECRET-7731'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-40 a student cannot look up a desk hand-in code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/desk/codes/123456"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403', () => pm.expect([403]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-41 a student cannot run the matching agent (staff only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/match-suggestions/generate-ai",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"lostReportId\":\"{{reportA}}\",\"foundReportId\":\"{{foundItem}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403', () => pm.expect([403]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-42 a student cannot read the match review for an item",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/match-suggestions/review-for-item/{{foundItem}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403', () => pm.expect([403]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-43 a desk code that is not six digits is refused cleanly",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/desk/codes/12ab%27--"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 400 or 404', () => pm.expect([400, 404]).to.include(pm.response.code));",
+                  "pm.test('no stack trace or server internals in the body', () => {",
+                  "  const b = pm.response.text();",
+                  "  pm.expect(b).to.not.match(/at FoundU\\.|Microsoft\\.|Npgsql|StackTrace|System\\.\\w+Exception/);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1476,6 +1830,304 @@
               "script": {
                 "exec": [
                   "pm.test('status is 403', () => pm.expect([403]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SETUP storage locations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/reference/storage-locations"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.environment.set('storageId', pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SETUP staff log a found item with a hidden detail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/found-reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"categoryId\":\"{{categoryId}}\",\"itemTypeId\":\"{{itemTypeId}}\",\"primaryColor\":\"Teal\",\"foundLocationId\":\"{{locationId}}\",\"storageLocationId\":\"{{storageId}}\",\"generalDescription\":\"Security suite item {{$timestamp}}\",\"privateVerificationDetails\":\"Hidden mark SECRET-7731 inside\",\"foundAt\":\"2026-10-01T10:00:00Z\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('logged', () => pm.response.to.have.status(201)); pm.environment.set('foundItem', pm.response.json().id); pm.environment.set('foundText', pm.response.json().generalDescription);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-44 student A claims the item in their own words",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/without-report",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"foundReportId\":\"{{foundItem}}\",\"description\":\"Teal bag, my notes and a pencil case are inside it\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 201', () => pm.expect([201]).to.include(pm.response.code));",
+                  "pm.environment.set('claimA', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-45 the claimant never sees the hidden detail or a collection code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/{{claimA}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.expect([200]).to.include(pm.response.code));",
+                  "pm.test('no hidden detail', () => pm.expect(pm.response.text()).to.not.include('SECRET-7731'));",
+                  "pm.test('no collection code before approval', () => pm.expect(pm.response.json().collectionCode == null).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-46 IDOR: student B cannot read student A's claim",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentB}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/{{claimA}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403 or 404', () => pm.expect([403, 404]).to.include(pm.response.code));",
+                  "pm.test('no claim data', () => pm.expect(pm.response.text()).to.not.include('pencil case'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-47 student B cannot answer the questions on student A's claim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentB}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/{{claimA}}/answers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"answers\": [{\"questionId\": \"00000000-0000-0000-0000-000000000001\", \"answerText\": \"guessing\"}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403 or 404', () => pm.expect([403, 404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-48 a student cannot approve a claim (staff only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/{{claimA}}/decision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"decision\": \"Approved\", \"reason\": null}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403', () => pm.expect([403]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-49 a student cannot collect an item by code (staff only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentA}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/collect",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\": \"123456\", \"ownerIdChecked\": true}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 403', () => pm.expect([403]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-50 staff cannot hand over without checking the owner's ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/collect",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\": \"123456\", \"ownerIdChecked\": false}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 400', () => pm.expect([400]).to.include(pm.response.code));",
+                  "pm.test('no stack trace or server internals in the body', () => {",
+                  "  const b = pm.response.text();",
+                  "  pm.expect(b).to.not.match(/at FoundU\\.|Microsoft\\.|Npgsql|StackTrace|System\\.\\w+Exception/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SEC-51 an unknown collection code finds nothing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff}}"
+              }
+            ],
+            "url": "{{api}}/api/claims/collect",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\": \"000000\", \"ownerIdChecked\": true}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 404', () => pm.expect([404]).to.include(pm.response.code));",
+                  "pm.test('no stack trace or server internals in the body', () => {",
+                  "  const b = pm.response.text();",
+                  "  pm.expect(b).to.not.match(/at FoundU\\.|Microsoft\\.|Npgsql|StackTrace|System\\.\\w+Exception/);",
+                  "});"
                 ]
               }
             }
