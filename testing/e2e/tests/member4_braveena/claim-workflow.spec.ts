@@ -72,6 +72,8 @@ test('E2E-WF-01 lost item to collected: match, claim, verify, approve and collec
     await expect(card).toContainText(/\d/)
     code = (await card.innerText()).replace(/\D/g, '')
     expect(code).toHaveLength(6)
+    await card.scrollIntoViewIfNeeded()
+    await test.info().attach('owner sees the collection code', { body: await ownerPage.screenshot(), contentType: 'image/png' })
     const asStaff = await call('GET', `/api/claims/${claimId}`, staff.accessToken)
     expect(asStaff.collectionCode).toBeNull()
   })
@@ -88,6 +90,7 @@ test('E2E-WF-01 lost item to collected: match, claim, verify, approve and collec
   await test.step('the owner sees it collected and gets a receipt notification', async () => {
     await ownerPage.goto('/my-claims')
     await expect(ownerPage.locator('main')).toContainText('Collected')
+    await test.info().attach('owner sees it Collected', { body: await ownerPage.screenshot(), contentType: 'image/png' })
     const notes = await call('GET', '/api/notifications', owner.accessToken)
     expect(notes.items.map((n: { type: string }) => n.type)).toContain('ItemCollected')
     expect((await call('GET', `/api/lost-reports/${lost.id}`, owner.accessToken)).status).toBe('Resolved')
