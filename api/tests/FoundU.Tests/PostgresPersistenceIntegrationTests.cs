@@ -2,11 +2,13 @@ using FoundU.Domain.Entities;
 using FoundU.Domain.Enums;
 using FoundU.Application.Claims.Dtos;
 using FoundU.Application.Abstractions;
+using FoundU.Application.LostReports.Dtos;
 using FoundU.Application.Common.Exceptions;
 using FoundU.Application.Notifications.Dtos;
 using FoundU.Infrastructure.Claims;
 using FoundU.Infrastructure.Honor;
 using FoundU.Infrastructure.Notifications;
+using FoundU.Infrastructure.Reporting;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Nodes;
 
@@ -67,6 +69,66 @@ public sealed class PostgresPersistenceIntegrationTests
             JsonNode.Parse(reloaded.FinalOutcomeJson!)));
         Assert.Equal(2, reloaded.RetryCount);
         Assert.Single(reloaded.Steps);
+    }
+
+    [PostgresFact]
+    public async Task LostReportParserAttributesAndLifecycleHistoryPersistAndResolvedReportLeavesFeed()
+    {
+        await using var db = PostgresTestDatabase.CreateContext();
+        await PostgresTestDatabase.MigrateAsync(db);
+        var suffix = Guid.NewGuid().ToString("N");
+        var student = NewUser($"report-owner-{suffix}");
+        var category = new Category { Name = $"Report category {suffix}" };
+        var itemType = new ItemType { Name = $"Report item {suffix}", Category = category };
+        var location = new CampusLocation { Name = $"Report location {suffix}" };
+        db.AddRange(student, category, itemType, location);
+        await db.SaveChangesAsync();
+
+        var description = $"Blue item {suffix} with a red keychain";
+        var parser = new SuccessfulDescriptionParser();
+        var service = new LostReportService(
+            db,
+            new NoopPhotoStorage(),
+            new NotificationService(db),
+            parser,
+            new HonorService(db));
+        var created = await service.CreateAsync(
+            new CreateLostReportRequest(
+                category.Id,
+                itemType.Id,
+                location.Id,
+                description,
+                null,
+                null,
+                DateTime.UtcNow.AddHours(-2),
+                DateTime.UtcNow.AddHours(-1)),
+            student.Id);
+
+        db.ChangeTracker.Clear();
+        var persistedReport = await db.LostReports.SingleAsync(report => report.Id == created.Id);
+        Assert.Equal(LostReportStatus.Active, persistedReport.Status);
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse("""{"itemType":"Backpack","primaryColor":"Blue","secondaryColor":"Red","identifyingFeatures":["Red keychain"],"confidenceScore":0.9}"""),
+            JsonNode.Parse(persistedReport.ParsedAttributesJson!)));
+        Assert.Single(await db.AgentRuns.Where(run => run.TriggerEntityId == created.Id).ToListAsync());
+        Assert.Contains(
+            await db.LostReportStatusHistories.Where(history => history.LostReportId == created.Id).ToListAsync(),
+            history => history.FromStatus == LostReportStatus.Active
+                && history.ToStatus == LostReportStatus.Active
+                && history.Reason == "Report submitted");
+
+        await service.ResolveAsync(created.Id, student.Id, "Returned by security");
+        db.ChangeTracker.Clear();
+        var resolvedReport = await db.LostReports.SingleAsync(report => report.Id == created.Id);
+        Assert.Equal(LostReportStatus.Resolved, resolvedReport.Status);
+        Assert.Contains(
+            await db.LostReportStatusHistories.Where(history => history.LostReportId == created.Id).ToListAsync(),
+            history => history.FromStatus == LostReportStatus.Active
+                && history.ToStatus == LostReportStatus.Resolved
+                && history.Reason == "Returned by security");
+        Assert.DoesNotContain(
+            (await service.GetPublicFeedAsync(new LostReportQuery())).Items,
+            item => item.Id == created.Id);
     }
 
     [PostgresFact]
@@ -277,6 +339,28 @@ public sealed class PostgresPersistenceIntegrationTests
 
     private static AppUser NewUser(string suffix, UserRole role = UserRole.Student)
         => new() { UserName = $"{suffix}@test.invalid", Email = $"{suffix}@test.invalid", FullName = "PostgreSQL Test User", Role = role };
+
+    private sealed class SuccessfulDescriptionParser : IDescriptionParserAgentClient
+    {
+        public Task<DescriptionParserAgentCallResult<DescriptionParserAgentResult>> ParseAsync(
+            string description,
+            string correlationId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(DescriptionParserAgentCallResult<DescriptionParserAgentResult>.Success(
+                new("Backpack", "Blue", "Red", ["Red keychain"], .9m, "postgres-parser-run")));
+    }
+
+    private sealed class NoopPhotoStorage : IPhotoStorage
+    {
+        public Task<string> SaveAsync(
+            PhotoUpload upload,
+            string folder,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult("/unused");
+
+        public Task DeleteAsync(string url, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
 
     private static async Task<(Claim Claim, LostReport Lost)> AddCompetingClaimAsync(FoundU.Infrastructure.Persistence.FoundUDbContext db, FoundReport found)
     {
