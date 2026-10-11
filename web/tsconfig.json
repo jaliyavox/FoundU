@@ -2,7 +2,8 @@
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
+    { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.e2e.json" }
   ],
   // Not used for compilation (files is empty) - this is the file the shadcn CLI reads to
   // resolve the '@' alias. Without it the CLI writes components into a literal './@' folder.

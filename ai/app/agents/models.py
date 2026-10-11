@@ -453,6 +453,6 @@ class WorkflowApprovalRequest(BaseModel):
 class WorkflowResumeRequest(BaseModel):
     """Trusted request to continue an already-approved coordinator workflow."""
 
-    model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(extra="forbid")
 
     agent: AgentName

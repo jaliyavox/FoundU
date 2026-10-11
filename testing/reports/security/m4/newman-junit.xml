@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="FoundU API security tests" tests="18" time="0.409">
+  <testsuite name="Member 4 / SETUP login student A (amara)" id="a1010847-13a5-4f54-9897-86f6a21538cd" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.157">
+    <testcase name="logged in" time="0.157" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SETUP login staff (priya)" id="6c01aba9-18fd-46f7-98c2-e5b8beddeb05" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.061">
+    <testcase name="logged in" time="0.061" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SETUP register student B" id="3fe0e7e5-58ba-410e-89b8-f9b6a0486b84" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.044">
+    <testcase name="registered" time="0.044" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SETUP reference data" id="889682ec-196f-4a7c-91cc-b2d1143c7846" timestamp="2026-10-08T14:31:47.197Z" tests="0" failures="0" errors="0" time="0.006"/>
+  <testsuite name="Member 4 / SETUP locations" id="698e3048-8591-4e96-b02a-1acdd3091998" timestamp="2026-10-08T14:31:47.197Z" tests="0" failures="0" errors="0" time="0.005"/>
+  <testsuite name="Member 4 / SETUP student A files a lost report" id="e7359d36-763a-4db9-b25b-518bc5fd3228" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.040">
+    <testcase name="created" time="0.040" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-09 a student cannot read the staff claims queue" id="785294ee-4fd5-4416-b778-b83c5ce8b47e" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="status is 403" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-13 staff cannot overturn a claim (admin only)" id="bcb79988-ca1d-4f2a-a029-690c9a781107" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="status is 403" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SETUP storage locations" id="7920a035-92ef-40e0-84d5-42442d6addef" timestamp="2026-10-08T14:31:47.197Z" tests="0" failures="0" errors="0" time="0.006"/>
+  <testsuite name="Member 4 / SETUP staff log a found item with a hidden detail" id="6c9f740e-3a3d-4285-b069-54743ce0dcab" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.012">
+    <testcase name="logged" time="0.012" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-44 student A claims the item in their own words" id="82cd2c7e-454e-4d0f-a172-e32dd430a162" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.017">
+    <testcase name="status is 201" time="0.017" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-45 the claimant never sees the hidden detail or a collection code" id="a1a22c49-11d7-4452-ad1e-340014a61e44" timestamp="2026-10-08T14:31:47.197Z" tests="3" failures="0" errors="0" time="0.008">
+    <testcase name="status is 200" time="0.008" classname="FoundUApiSecurityTests"/>
+    <testcase name="no hidden detail" time="0.008" classname="FoundUApiSecurityTests"/>
+    <testcase name="no collection code before approval" time="0.008" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-46 IDOR: student B cannot read student A's claim" id="1dc75d6b-7af9-4d48-9011-f19bef7cb1ee" timestamp="2026-10-08T14:31:47.197Z" tests="2" failures="0" errors="0" time="0.006">
+    <testcase name="status is 403 or 404" time="0.006" classname="FoundUApiSecurityTests"/>
+    <testcase name="no claim data" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-47 student B cannot answer the questions on student A's claim" id="657cbacb-faad-4699-b7bb-cce5ed915072" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.009">
+    <testcase name="status is 403 or 404" time="0.009" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-48 a student cannot approve a claim (staff only)" id="fc015f21-6ca6-4774-9dd6-a77403000908" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="status is 403" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-49 a student cannot collect an item by code (staff only)" id="3ec53dfa-6a7f-473c-8e14-5bed4711fd26" timestamp="2026-10-08T14:31:47.197Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="status is 403" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-50 staff cannot hand over without checking the owner's ID" id="12048f16-e7c7-4aa1-853f-5453354249e5" timestamp="2026-10-08T14:31:47.197Z" tests="2" failures="0" errors="0" time="0.006">
+    <testcase name="status is 400" time="0.006" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 4 / SEC-51 an unknown collection code finds nothing" id="f4ebbc73-41f8-42c5-8c18-7dd8310852e1" timestamp="2026-10-08T14:31:47.197Z" tests="2" failures="0" errors="0" time="0.010">
+    <testcase name="status is 404" time="0.010" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.010" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+</testsuites>

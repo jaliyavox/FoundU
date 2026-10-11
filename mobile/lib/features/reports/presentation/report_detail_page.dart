@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'providers/report_providers.dart';
+import '../../feed/data/feed_repository.dart' show resolvePhotoUrl;
 import '../../handover/presentation/handover_notice.dart';
 import 'report_stage_track.dart';
 
@@ -182,7 +183,7 @@ class _LostReportDetailPageState extends ConsumerState<LostReportDetailPage> {
                               ),
                               clipBehavior: Clip.antiAlias,
                               child: Image.network(
-                                photo.url,
+                                resolvePhotoUrl(photo.url),
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => const Center(
                                   child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey),

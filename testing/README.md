@@ -7,16 +7,47 @@ execution summary are in the Software Testing Report.
 | Area | Tool | Where | Evidence |
 |---|---|---|---|
 | API unit, service, controller, auth | xUnit, WebApplicationFactory, coverlet | `api/tests/FoundU.Tests` | `reports/api/api-tests.trx`, `reports/api/coverage/Summary.txt` |
-| Database (real PostgreSQL 16) | xUnit + EF Core + Npgsql | `PostgresPersistenceIntegrationTests.cs` | included in the TRX (9 tests, 0 skipped) |
+| Database (real PostgreSQL 16) | xUnit + EF Core + Npgsql | `Member{N}_*/Member{N}DatabaseTests.cs`, group schema checks in `PostgresPersistenceIntegrationTests.cs`, shared seed data in `PostgresTestSupport.cs` | included in the TRX (`Category=PostgreSql`, 14 tests, 0 skipped) |
 | React web | Vitest, React Testing Library | `web/tests`, `web/src/**/*.test.ts` | console output |
 | Flutter mobile | flutter_test (unit, widget, API integration) | `mobile/test`, `mobile/test/integration` | `reports/mobile/lcov.info`, `reports/mobile/api-integration.txt` |
-| End-to-end and cross-component | Playwright | `testing/e2e/tests` | `reports/e2e/html/index.html`, `reports/e2e/junit.xml` |
-| Accessibility (WCAG 2.1 AA) | axe-core via Playwright, Lighthouse | `testing/e2e/tests/accessibility.spec.ts` | `reports/accessibility/` (before and after fixes), `reports/lighthouse/` |
-| Performance: load, stress, spike | k6 | `testing/performance` | `reports/performance/*-summary.json` |
-| Security: API | Newman (Postman collection) | `testing/security/build_collection.py` | `reports/security/{before,after}-fix/newman-report.html` |
+| End-to-end and cross-component | Playwright | `testing/e2e/tests/member{n}_*/` (group: `regressions.spec.ts`) | `reports/e2e/html/index.html`, `reports/e2e/junit.xml` |
+| Accessibility (WCAG 2.1 AA) | axe-core via Playwright, Lighthouse | `testing/e2e/tests/accessibility.spec.ts` (one block per member) | `reports/accessibility/` (before and after fixes), `reports/lighthouse/` |
+| Performance: load, stress, spike | k6 | `testing/performance` (`load.js`, `stress.js`, `login-spike.js`, and `member{n}_*.js` per member) | `reports/performance/*-summary.json` |
+| Security: API | Newman (Postman collection, one folder per member + Group) | `testing/security/cases/*.py` → `build_collection.py` | `reports/security/{before,after}-fix/newman-report.html` |
 | Security: scans | OWASP ZAP (baseline + authenticated API scan) | Docker `zaproxy/zap-stable` | `reports/security/{before,after}-fix/zap-*.html` |
 | Security: web headers and CSP | Playwright against the build with the real headers | `testing/e2e/tests/csp.spec.ts` | E2E report (CSP-01 to 04) |
 | Agentic AI evaluation | pytest (deterministic and live Groq) | `ai/tests/evaluation` | `reports/ai-eval/*-results.json` |
+
+## Each member's tests
+
+Every member owns a business component and the agent for it, and tests it in all seven areas
+of the brief. Their tests sit in folders named after them: `api/tests/FoundU.Tests/Member1_Jaliya/`
+(API and `Member1DatabaseTests.cs`), `web/tests/member1_jaliya/`, `mobile/test/member1_jaliya/`,
+`testing/e2e/tests/member1_jaliya/`, the "Member 1" folder of the security collection
+(`testing/security/cases/member1_jaliya.py`), `testing/performance/member1_jaliya.js`, the
+"Member 1" block of the accessibility scan, and `ai/tests/member1_jaliya/`, and so on. Shared
+helpers, the schema checks, the evaluation suite, the CSP and regression specs, and the
+CORS / service-key / token-forgery security cases stay group-owned.
+
+| Member | Business component | Agent | Their folder |
+| --- | --- | --- | --- |
+| 1 · Jaliya H. A. W (IT24101976) | Administration and user management (with mailing and Google sign-in), support tickets | AI support chatbot (Support agent) | [`member1_jaliya/`](member1_jaliya/) |
+| 2 · Ranasinghe R.G.P.D (IT24100910) | Lost item reporting and tracking | Description-Parsing agent | [`member2_ranasinghe/`](member2_ranasinghe/) |
+| 3 · Uthpala W.A.S (IT24101028) | Found item management and matching | Matching agent | [`member3_uthpala/`](member3_uthpala/) |
+| 4 · Braveena S (IT24100354) | Claims and ownership verification | Verification and Coordinator agents | [`member4_braveena/`](member4_braveena/) |
+
+Each folder has a README listing the member's tests per area, and two scripts:
+
+```bash
+testing/member1_jaliya/run_tests.sh             # every area: api db web mobile e2e security perf ai
+testing/member1_jaliya/run_tests.sh db e2e      # only some areas
+testing/member1_jaliya/agent_demo.sh --sample   # that member's agent, input in, report out
+```
+
+`run_tests.sh` writes `results/SUMMARY.md` (one row per area, every test case with Pass or Fail)
+next to it; the latest summaries are kept in [`reports/members/`](reports/members/). The e2e,
+security and performance parts need the stack running (`testing/start-stack.sh`) and the db
+part needs `TEST_DATABASE_URL`.
 
 ## Running everything
 
@@ -39,9 +70,11 @@ TEST_DATABASE_URL="Host=localhost;Port=5434;Database=foundu_test;Username=foundu
 
 # Performance
 (cd testing/performance && k6 run load.js && k6 run stress.js && k6 run login-spike.js)
+(cd testing/performance && k6 run member2_ranasinghe.js)   # one member's busiest endpoints
 
 # Security: API collection, then ZAP
-testing/security/run-newman.sh after-fix
+testing/security/run-newman.sh after-fix              # every folder
+testing/security/run-newman.sh latest "Member 2"     # one member's folder
 docker run --rm -v "$PWD/testing/reports/security":/zap/wrk:rw zaproxy/zap-stable \
   zap-baseline.py -t https://foundu-web.onrender.com -r zap-baseline-web.html -I
 

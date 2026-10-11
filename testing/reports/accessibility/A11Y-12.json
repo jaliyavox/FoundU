@@ -1,0 +1,7 @@
+{
+  "id": "A11Y-12",
+  "path": "/admin/users",
+  "as": "admin",
+  "passes": 17,
+  "violations": []
+}

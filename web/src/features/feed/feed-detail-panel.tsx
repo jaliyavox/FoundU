@@ -126,21 +126,21 @@ export function FeedDetailPanel({
               <p className="text-sm leading-relaxed text-pretty text-neutral-700">{item.description}</p>
 
               <dl className="flex flex-col gap-3 rounded-xl border border-neutral-900/8 bg-white/70 p-4">
-                <div className="flex items-start gap-3">
-                  <MapPinIcon className="mt-0.5 size-4 shrink-0 text-brand-green" aria-hidden="true" />
-                  <div>
-                    <dt className="text-xs text-neutral-500">Last seen</dt>
-                    <dd className="text-sm text-neutral-900">{item.lastSeenLocationName}</dd>
-                  </div>
+                <div className="relative pl-7">
+                  <dt className="text-xs text-neutral-500">
+                    <MapPinIcon className="absolute top-0.5 left-0 size-4 text-brand-green" aria-hidden="true" />
+                    Last seen
+                  </dt>
+                  <dd className="text-sm text-neutral-900">{item.lastSeenLocationName}</dd>
                 </div>
-                <div className="flex items-start gap-3">
-                  <ClockIcon className="mt-0.5 size-4 shrink-0 text-brand-green" aria-hidden="true" />
-                  <div>
-                    <dt className="text-xs text-neutral-500">Lost between</dt>
-                    <dd className="text-sm text-neutral-900">
-                      {formatWindow(item.estimatedLostFromAt, item.estimatedLostToAt)}
-                    </dd>
-                  </div>
+                <div className="relative pl-7">
+                  <dt className="text-xs text-neutral-500">
+                    <ClockIcon className="absolute top-0.5 left-0 size-4 text-brand-green" aria-hidden="true" />
+                    Lost between
+                  </dt>
+                  <dd className="text-sm text-neutral-900">
+                    {formatWindow(item.estimatedLostFromAt, item.estimatedLostToAt)}
+                  </dd>
                 </div>
               </dl>
 

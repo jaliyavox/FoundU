@@ -78,3 +78,4 @@ api/src/FoundU.Api/wwwroot/uploads/
 # ---------- Python coverage ----------
 .coverage
 htmlcov/
+testing/member*/results/

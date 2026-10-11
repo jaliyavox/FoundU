@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../data/report_models.dart';
 import 'providers/report_providers.dart';
+import '../../feed/data/feed_repository.dart' show resolvePhotoUrl;
 import '../../../core/theme/brand.dart';
 import '../../handover/presentation/handover_notice.dart';
 import '../../../core/widgets/pill_nav.dart';
@@ -464,7 +465,7 @@ class _ReportCard extends StatelessWidget {
                     clipBehavior: Clip.antiAlias,
                     child: item.photoUrls.isNotEmpty
                         ? Image.network(
-                            item.photoUrls.first,
+                            resolvePhotoUrl(item.photoUrls.first),
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Icon(
                               Icons.inventory_2_outlined,

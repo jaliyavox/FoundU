@@ -316,12 +316,12 @@ function Fact({
   value: string
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <Icon className="mt-0.5 size-4 shrink-0 text-brand-green" aria-hidden="true" />
-      <div>
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="text-sm">{value}</dd>
-      </div>
+    <div className="relative pl-7">
+      <dt className="text-xs text-muted-foreground">
+        <Icon className="absolute top-0.5 left-0 size-4 text-brand-green" aria-hidden="true" />
+        {label}
+      </dt>
+      <dd className="text-sm">{value}</dd>
     </div>
   )
 }

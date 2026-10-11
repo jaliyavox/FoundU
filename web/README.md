@@ -24,6 +24,32 @@ npm ci
 npm run dev
 ```
 
+## Playwright end-to-end tests
+
+The browser suite lives in `e2e/` and runs independently of Vitest. By default it starts Vite
+on port 5174 and uses the real ASP.NET API at `http://localhost:5292`; start the API and
+database, then seed the development accounts using the repository's evaluation guide before
+running it. Set `FOUNDU_E2E_BASE_URL` to target an already-running deployment; this skips local
+Vite startup, and `VITE_API_BASE_URL` must point to that deployment's API.
+
+```powershell
+npx playwright install chromium
+npm run test:e2e
+```
+
+The default student and staff credentials are the seeded demo accounts from
+`docs/testing/evaluation-guide.md`. Set `FOUNDU_E2E_ADMIN_PASSWORD` (or `DEV_ADMIN_PASSWORD`)
+to include admin tests; otherwise those cases are skipped. Account emails and the API/web URLs
+can be overridden with the `FOUNDU_E2E_*_EMAIL`, `FOUNDU_E2E_*_PASSWORD`,
+`VITE_API_BASE_URL`, and `FOUNDU_E2E_BASE_URL` environment variables. Set
+`FOUNDU_E2E_CLAIM_ID` and `FOUNDU_E2E_ITEM_ID` to crawl seeded claim/item detail routes too.
+Coverage includes role access and redirects, invalid login and duplicate registration, report
+form date ordering/future-date rules, and description length boundaries. The report boundary
+test posts one valid 1,000-character report, so use a development/test database that can be
+reseeded. Do not run the full suite against production. The public visitor flow is read-only and
+can be selected with `--grep "visitor can reach public feeds"`. A health preflight checks the
+API before the browser suite starts.
+
 ## Session behavior
 
 The shell validates stored tokens through `/api/auth/me` before restoring a user.
