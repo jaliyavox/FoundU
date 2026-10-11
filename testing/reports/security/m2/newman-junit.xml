@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="FoundU API security tests" tests="20" time="0.536">
+  <testsuite name="Member 2 / SETUP login student A (amara)" id="8af71f00-6daa-4c42-9f44-170da841ff3b" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.173">
+    <testcase name="logged in" time="0.173" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SETUP login staff (priya)" id="ba30e510-27c0-4d05-a8ee-1e309f5a89bb" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.049">
+    <testcase name="logged in" time="0.049" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SETUP register student B" id="10dbc710-e8b5-4eb8-bfca-3e5e6731fdbc" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.042">
+    <testcase name="registered" time="0.042" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SETUP reference data" id="d3c52cc6-9ed0-4f86-a3c2-883cb356b926" timestamp="2026-10-08T14:31:40.264Z" tests="0" failures="0" errors="0" time="0.007"/>
+  <testsuite name="Member 2 / SETUP locations" id="f6fd8c1b-cd38-472f-96c7-33346f6f2688" timestamp="2026-10-08T14:31:40.264Z" tests="0" failures="0" errors="0" time="0.006"/>
+  <testsuite name="Member 2 / SETUP student A files a lost report" id="661a4c69-17f2-45ad-a7c1-5f102df64590" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.045">
+    <testcase name="created" time="0.045" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-14 IDOR: student B cannot read student A's report" id="cf7affb8-23e1-4f63-9a36-c3fcc252d443" timestamp="2026-10-08T14:31:40.264Z" tests="2" failures="0" errors="0" time="0.011">
+    <testcase name="status is 403 or 404" time="0.011" classname="FoundUApiSecurityTests"/>
+    <testcase name="no report data returned" time="0.011" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-15 IDOR: student B cannot edit student A's report" id="5527f04f-8a09-488f-8c53-9cb25e25605c" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.022">
+    <testcase name="status is 403 or 404" time="0.022" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-16 IDOR: student B cannot withdraw student A's report" id="484dbf1b-b699-4b7b-8c60-89427a3809ad" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.010">
+    <testcase name="status is 403 or 404" time="0.010" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-17 IDOR: student B cannot read student A's report messages" id="4fa327de-dda7-42b7-a38d-5c19658f1c65" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.012">
+    <testcase name="status is 403 or 404" time="0.012" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-18 owner still has their report after the attempts above" id="92357d6e-048f-43e1-a6f5-e8305667a44a" timestamp="2026-10-08T14:31:40.264Z" tests="3" failures="0" errors="0" time="0.006">
+    <testcase name="status is 200" time="0.006" classname="FoundUApiSecurityTests"/>
+    <testcase name="description untouched" time="0.006" classname="FoundUApiSecurityTests"/>
+    <testcase name="still active" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-19 SQL injection in the feed search is treated as text" id="bd4337ad-bc5d-4b96-a6ab-7cbe13eee390" timestamp="2026-10-08T14:31:40.264Z" tests="3" failures="0" errors="0" time="0.014">
+    <testcase name="status is 200" time="0.014" classname="FoundUApiSecurityTests"/>
+    <testcase name="matches nothing, rather than every row" time="0.014" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.014" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-20 malformed JSON gets a 400 problem response, no internals" id="d53e8869-b442-43c0-85f2-20c80209cc61" timestamp="2026-10-08T14:31:40.264Z" tests="2" failures="0" errors="0" time="0.011">
+    <testcase name="status is 400" time="0.011" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.011" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-21 description over the 1000-character limit is refused (boundary 1001)" id="773a8dc3-7548-4813-aeea-76705ca581f5" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.008">
+    <testcase name="status is 400" time="0.008" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-22 script in a description is stored as plain text and served as JSON" id="e005a12f-2a0c-41aa-8b5e-3a1b93792b8a" timestamp="2026-10-08T14:31:40.264Z" tests="2" failures="0" errors="0" time="0.032">
+    <testcase name="status is 201" time="0.032" classname="FoundUApiSecurityTests"/>
+    <testcase name="served as JSON, never as HTML" time="0.032" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-23 a text file renamed .jpg is refused as a photo" id="af299c8a-5891-4330-87cd-4d75b84566cf" timestamp="2026-10-08T14:31:40.264Z" tests="2" failures="0" errors="0" time="0.030">
+    <testcase name="status is 400" time="0.030" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.030" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-24 non-GUID ids are 404, not a server error" id="1b287329-b04b-4b5d-b74a-2f492598cb37" timestamp="2026-10-08T14:31:40.264Z" tests="1" failures="0" errors="0" time="0.007">
+    <testcase name="status is 404" time="0.007" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-34 a description of exactly 1000 characters is accepted (boundary)" id="9e47de41-e891-4195-b257-b73c2ec91754" timestamp="2026-10-08T14:31:40.264Z" tests="2" failures="0" errors="0" time="0.034">
+    <testcase name="status is 201" time="0.034" classname="FoundUApiSecurityTests"/>
+    <testcase name="stored in full" time="0.034" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-35 a lost-time window that ends before it starts is refused" id="f1132837-1aff-4b16-aa64-1b87fef99bb6" timestamp="2026-10-08T14:31:40.264Z" tests="2" failures="0" errors="0" time="0.007">
+    <testcase name="status is 400" time="0.007" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.007" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 2 / SEC-36 IDOR: student B cannot add a photo to student A's report" id="b770686c-7c52-47ac-a451-0aea5993a08c" timestamp="2026-10-08T14:31:40.264Z" tests="2" failures="0" errors="0" time="0.010">
+    <testcase name="status is 403 or 404" time="0.010" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.010" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+</testsuites>

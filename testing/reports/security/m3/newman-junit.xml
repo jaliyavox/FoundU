@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="FoundU API security tests" tests="17" time="0.344">
+  <testsuite name="Member 3 / SETUP login student A (amara)" id="df44c6b8-3950-408a-9b18-1076cdc4ac53" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.143">
+    <testcase name="logged in" time="0.143" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SETUP login staff (priya)" id="4e636cd8-36b4-45ad-9f50-d37214498cb9" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.048">
+    <testcase name="logged in" time="0.048" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SETUP register student B" id="6f0517d2-48bb-47aa-9053-76476b395b42" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.039">
+    <testcase name="registered" time="0.039" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SETUP reference data" id="78277daf-f5d8-46e9-8d09-83b72dcb0dd4" timestamp="2026-10-08T14:31:43.891Z" tests="0" failures="0" errors="0" time="0.006"/>
+  <testsuite name="Member 3 / SETUP locations" id="90cc8967-eb3f-4451-8beb-b2374351dab3" timestamp="2026-10-08T14:31:43.891Z" tests="0" failures="0" errors="0" time="0.005"/>
+  <testsuite name="Member 3 / SETUP student A files a lost report" id="368f1380-021b-44b7-bf32-0262b91dc4f3" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.035">
+    <testcase name="created" time="0.035" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-10 a student cannot log a found item (staff only)" id="610eff20-74a7-43a4-8a5d-aa54bfe54de4" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="status is 403" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-11 a student cannot read found items with their hidden details" id="8d8a05e5-a5be-4952-9975-234db638f34f" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="status is 403" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SETUP storage locations" id="ff7a0908-7353-4996-bd19-c0856e1c720f" timestamp="2026-10-08T14:31:43.891Z" tests="0" failures="0" errors="0" time="0.005"/>
+  <testsuite name="Member 3 / SETUP staff log a found item with a hidden detail" id="d912cd75-00da-486a-b945-23539751f281" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.010">
+    <testcase name="logged" time="0.010" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-37 staff see the hidden detail on the item they logged" id="b23377b3-e14a-49a9-b06b-bd392b47b7a6" timestamp="2026-10-08T14:31:43.891Z" tests="2" failures="0" errors="0" time="0.006">
+    <testcase name="status is 200" time="0.006" classname="FoundUApiSecurityTests"/>
+    <testcase name="hidden detail is there for staff" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-38 a found item with an empty description is refused" id="703335f8-7f64-45a0-a4cf-56c604b94397" timestamp="2026-10-08T14:31:43.891Z" tests="2" failures="0" errors="0" time="0.006">
+    <testcase name="status is 400" time="0.006" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.006" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-39 the Found board never shows a student the hidden detail" id="03c740e4-cdd3-48da-a7ce-864e7d96233b" timestamp="2026-10-08T14:31:43.891Z" tests="3" failures="0" errors="0" time="0.011">
+    <testcase name="status is 200" time="0.011" classname="FoundUApiSecurityTests"/>
+    <testcase name="the item is on the board" time="0.011" classname="FoundUApiSecurityTests"/>
+    <testcase name="its hidden detail is not" time="0.011" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-40 a student cannot look up a desk hand-in code" id="d2757275-6efa-4616-ac13-8f411d626105" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="status is 403" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-41 a student cannot run the matching agent (staff only)" id="0bf9fe0f-0319-4d4a-94bb-aef7480ffb74" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.004">
+    <testcase name="status is 403" time="0.004" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-42 a student cannot read the match review for an item" id="f826794d-5a0b-441a-a228-f2d74713427e" timestamp="2026-10-08T14:31:43.891Z" tests="1" failures="0" errors="0" time="0.004">
+    <testcase name="status is 403" time="0.004" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+  <testsuite name="Member 3 / SEC-43 a desk code that is not six digits is refused cleanly" id="9c24a5c6-24fb-47ad-8957-8b732b9bed38" timestamp="2026-10-08T14:31:43.891Z" tests="2" failures="0" errors="0" time="0.005">
+    <testcase name="status is 400 or 404" time="0.005" classname="FoundUApiSecurityTests"/>
+    <testcase name="no stack trace or server internals in the body" time="0.005" classname="FoundUApiSecurityTests"/>
+  </testsuite>
+</testsuites>

@@ -1,60 +1,24 @@
-<testsuites id="" name="" tests="8" failures="0" skipped="0" errors="0" time="11.325155">
-<testsuite name="member3_uthpala/desk-handin.spec.ts" timestamp="2026-10-08T14:19:01.433Z" hostname="" tests="4" failures="0" skipped="0" time="4.229" errors="0">
-<testcase name="Security desk hand-in by code › E2E-DESK-01 a posted found item is pulled up by its post code and confirmed into storage" classname="member3_uthpala/desk-handin.spec.ts" time="1.446">
+<testsuites id="" name="" tests="2" failures="0" skipped="0" errors="0" time="6.977930000000001">
+<testsuite name="member4_braveena/claim-workflow.spec.ts" timestamp="2026-10-08T14:23:05.385Z" hostname="" tests="1" failures="0" skipped="0" time="5.019" errors="0">
+<testcase name="E2E-WF-01 lost item to collected: match, claim, verify, approve and collect" classname="member4_braveena/claim-workflow.spec.ts" time="5.019">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-9c853--and-confirmed-into-storage/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Security desk hand-in by code › E2E-DESK-02 a handover code from &quot;I found this&quot; is taken in at the desk and the owner is told" classname="member3_uthpala/desk-handin.spec.ts" time="1.211">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-011fa--desk-and-the-owner-is-told/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Security desk hand-in by code › E2E-DESK-03 the code box takes exactly six digits: letters are dropped, five digits cannot be sent" classname="member3_uthpala/desk-handin.spec.ts" time="0.729">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-54ac3--five-digits-cannot-be-sent/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="Security desk hand-in by code › E2E-DESK-04 an unknown six-digit code is reported clearly and the desk stays put" classname="member3_uthpala/desk-handin.spec.ts" time="0.843">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-desk-handi-ca082-arly-and-the-desk-stays-put/test-finished-1.png]]
+[[ATTACHMENT|artifacts/member4_braveena-claim-wor-ed3d5--verify-approve-and-collect/test-finished-2.png]]
+
+[[ATTACHMENT|artifacts/member4_braveena-claim-wor-ed3d5--verify-approve-and-collect/test-finished-1.png]]
 ]]>
 </system-out>
 </testcase>
 </testsuite>
-<testsuite name="member3_uthpala/found-claim.spec.ts" timestamp="2026-10-08T14:19:01.433Z" hostname="" tests="4" failures="0" skipped="0" time="6.487" errors="0">
-<testcase name="E2E-CLAIM-01 an owner with no match picks their report manually and the claim opens" classname="member3_uthpala/found-claim.spec.ts" time="1.704">
+<testsuite name="member4_braveena/desk-in-person.spec.ts" timestamp="2026-10-08T14:23:05.385Z" hostname="" tests="1" failures="0" skipped="0" time="1.305" errors="0">
+<testcase name="E2E-DESK-05 staff verify an owner in person and hand the item over in one step" classname="member4_braveena/desk-in-person.spec.ts" time="1.305">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-found-clai-3868e-anually-and-the-claim-opens/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="E2E-CLAIM-02 an owner with a match answers &quot;Is this your item?&quot; with Yes" classname="member3_uthpala/found-claim.spec.ts" time="1.922">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-found-clai-530bc--Is-this-your-item-with-Yes/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="E2E-CLAIM-03 with no open lost report, the owner is told to report it lost first" classname="member3_uthpala/found-claim.spec.ts" time="1.274">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-found-clai-9238e-old-to-report-it-lost-first/test-finished-1.png]]
-]]>
-</system-out>
-</testcase>
-<testcase name="E2E-CLAIM-04 an owner who never reported it lost claims it in their own words, then answers on the dashboard" classname="member3_uthpala/found-claim.spec.ts" time="1.587">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|artifacts/member3_uthpala-found-clai-9fb00-en-answers-on-the-dashboard/test-finished-1.png]]
+[[ATTACHMENT|artifacts/member4_braveena-desk-in-p-29c81-d-the-item-over-in-one-step/test-finished-2.png]]
+
+[[ATTACHMENT|artifacts/member4_braveena-desk-in-p-29c81-d-the-item-over-in-one-step/test-finished-1.png]]
+
+[[ATTACHMENT|artifacts/member4_braveena-desk-in-p-29c81-d-the-item-over-in-one-step/test-finished-3.png]]
 ]]>
 </system-out>
 </testcase>
